@@ -21,10 +21,31 @@ npm run build    # typecheck + production build into dist/
 |---|---|
 | **Turns** | Each turn you get AP (spend on abilities) and move points. The turn ends automatically when the timer runs out (10–60s). |
 | **Terrain** | 🌲 forest costs 2 move · 🪨 rock blocks movement and line of sight · ✦ rune gives +1 AP if you start your turn on it |
-| **Statuses** | burn (damage each turn) · slow (−move) · root (no movement) |
+| **Statuses** | burn / poison (damage each turn) · slow (−move) · root (no movement) · vulnerable (+damage taken) |
 | **Shields** | absorb damage and expire at the start of your next turn |
-| **AoE** | splash hits everyone in the radius, **including you** |
+| **Armor / regen** | armor cuts every hit by a flat amount (min 1). Regen heals at the start of your turn. |
+| **Knockback** | shoves (or pulls) the target. Getting slammed into rock or the arena edge deals 2 damage. |
+| **AoE** | splash hits everyone in the radius, **including you**, unless the ability says it spares you |
 | **Win** | reduce the enemy to 0 HP. After 20 rounds the higher HP % wins. |
+
+## Archetypes
+
+Each archetype has a home **school**. The loadout builder suggests that school's abilities, but any archetype can equip any ability.
+
+| | Archetype | School | Identity |
+|---|---|---|---|
+| 🛡️ | Warden | Steel | Tanky frontliner |
+| 🔮 | Arcanist | Arcane | Glass cannon, 4 spell slots |
+| 🏹 | Stalker | Nature | Fast skirmisher, 3 relic slots |
+| 🧛 | Bloodreaver | Blood | Pays HP for AP, heals by hurting (lifesteal, sacrifice) |
+| 🧜 | Tidecaller | Tide | Battlefield control: pulls, knockback waves, cleanses |
+| 💀 | Gravebinder | Death | Poison, soul drain, long-range curses. Base regen. |
+| ⛰️ | Geomancer | Earth | Slow and armored. Raises rock walls, tremors, boulders. |
+| 🥷 | Shadowblade | Shadow | Fragile assassin: mark, swap in, backstab |
+| 😇 | Lightbringer | Holy | Cleanses curses, radiant nova, base regen |
+| 🧙 | Chronomancer | Time | Haste, stasis (root), rewind cooldowns, 4 spell slots |
+
+There are 32 abilities across 12 schools and 19 relics. Each archetype ships with a themed default loadout.
 
 ## Architecture
 

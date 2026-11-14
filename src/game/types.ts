@@ -10,26 +10,63 @@ export interface Tile extends Hex {
   terrain: Terrain;
 }
 
-export type StatusKind = 'burn' | 'slow' | 'root';
+/**
+ * burn / poison: damage each turn. slow: −move. root: no movement.
+ * vulnerable: takes +power damage from every hit.
+ */
+export type StatusKind = 'burn' | 'poison' | 'slow' | 'root' | 'vulnerable';
 
 export interface Status {
   kind: StatusKind;
   /** Owner-turns remaining. */
   turns: number;
-  /** Burn damage per tick, or move points removed by slow. */
+  /** DoT damage per tick, move removed by slow, or bonus damage taken while vulnerable. */
   power: number;
 }
 
 export type AbilityEffect =
-  | { type: 'damage'; amount: number; status?: Status }
+  | {
+      type: 'damage';
+      /** 0 = status-only (no hit, power not added). */
+      amount: number;
+      status?: Status;
+      /** Fraction of damage dealt to enemies returned to the caster as healing. */
+      lifesteal?: number;
+      /** Hexes each victim is shoved away from the caster. Negative = pulled toward. */
+      knockback?: number;
+    }
   | { type: 'heal'; amount: number }
   | { type: 'shield'; amount: number }
-  | { type: 'blink' };
+  | { type: 'blink' }
+  /** Swap positions with the target unit. */
+  | { type: 'swap' }
+  /** Pay HP (cannot kill you) to gain AP this turn. */
+  | { type: 'sacrifice'; hp: number; ap: number }
+  /** Remove all your statuses and heal. */
+  | { type: 'cleanse'; heal: number }
+  /** Gain extra move points this turn. */
+  | { type: 'haste'; move: number }
+  /** Reduce your other abilities' cooldowns. */
+  | { type: 'refresh'; amount: number }
+  /** Permanently change the target hex's terrain. */
+  | { type: 'terraform'; terrain: Terrain };
 
 /** self: caster's own hex. enemy: a hex holding the opponent. tile: any hex in range. */
 export type Targeting = 'self' | 'enemy' | 'tile';
 
-export type School = 'fire' | 'frost' | 'steel' | 'arcane' | 'nature';
+export type School =
+  | 'fire'
+  | 'frost'
+  | 'steel'
+  | 'arcane'
+  | 'nature'
+  | 'blood'
+  | 'tide'
+  | 'death'
+  | 'earth'
+  | 'shadow'
+  | 'holy'
+  | 'time';
 
 export interface AbilityDef {
   id: string;
@@ -46,8 +83,10 @@ export interface AbilityDef {
   range: number;
   targeting: Targeting;
   needsLOS: boolean;
-  /** Radius of splash around the target hex. 0 = single target. Hits everyone, including you. */
+  /** Radius of splash around the target hex. 0 = single target. Hits everyone, including you… */
   aoe: number;
+  /** …unless this is set. */
+  spareCaster?: boolean;
   effect: AbilityEffect;
 }
 
@@ -57,6 +96,10 @@ export interface StatMods {
   move?: number;
   power?: number;
   range?: number;
+  /** Flat reduction to every damage instance (minimum 1 still lands). */
+  armor?: number;
+  /** HP restored at the start of each of your turns. */
+  regen?: number;
 }
 
 export interface ArchetypeDef {
@@ -69,6 +112,10 @@ export interface ArchetypeDef {
   move: number;
   abilitySlots: number;
   relicSlots: number;
+  /** Thematic school; the builder suggests abilities from it. */
+  school: School;
+  armor?: number;
+  regen?: number;
 }
 
 export interface RelicDef {
@@ -108,6 +155,8 @@ export interface Unit {
   power: number;
   /** Bonus added to every ability range (except self-target). */
   rangeBonus: number;
+  armor: number;
+  regen: number;
   abilities: AbilityState[];
   statuses: Status[];
 }

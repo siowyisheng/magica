@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { ABILITIES, ARCHETYPES, RELICS } from '../game/content';
+import { ABILITIES, ARCHETYPES, RELICS, SCHOOLS } from '../game/content';
 import { buildUnit, validateLoadout } from '../game/loadout';
 import { newId } from '../game/storage';
-import type { Loadout } from '../game/types';
+import type { Loadout, School } from '../game/types';
 
 interface Props {
   loadouts: Loadout[];
@@ -86,7 +86,13 @@ function Editor({
   canDelete: boolean;
 }) {
   const arch = ARCHETYPES[loadout.archetypeId];
+  const [filter, setFilter] = useState<School | 'all' | 'equipped'>('all');
   const errors = validateLoadout(loadout);
+  const shown = Object.values(ABILITIES).filter((a) =>
+    filter === 'all' ? true : filter === 'equipped' ? loadout.abilityIds.includes(a.id) : a.school === filter,
+  );
+  // Suggested school first, so each archetype's theme is one click away.
+  const schoolOrder = [arch.school, ...(Object.keys(SCHOOLS) as School[]).filter((x) => x !== arch.school)];
   const preview = buildUnit('p1', loadout.name, loadout, { q: 0, r: 0 });
 
   return (
@@ -120,7 +126,12 @@ function Editor({
               <strong>{a.name}</strong>
               <span className="muted">{a.description}</span>
               <span className="stats">
-                ❤ {a.hp} · ⚡ {a.ap} AP · 👣 {a.move} · {a.abilitySlots} spells · {a.relicSlots} relics
+                ❤ {a.hp} · ⚡ {a.ap} AP · 👣 {a.move}
+                {a.armor ? ` · 🪨 ${a.armor} armor` : ''}
+                {a.regen ? ` · ✚ ${a.regen} regen` : ''} · {a.abilitySlots} spells · {a.relicSlots} relics
+              </span>
+              <span className={`school-tag school-${a.school}`}>
+                {SCHOOLS[a.school].icon} {SCHOOLS[a.school].name}
               </span>
             </button>
           ))}
@@ -131,8 +142,27 @@ function Editor({
         <h3>
           Abilities <span className="muted">{loadout.abilityIds.length}/{arch.abilitySlots}</span>
         </h3>
+        <div className="filters">
+          <button className={filter === 'all' ? 'is-selected' : ''} onClick={() => setFilter('all')}>
+            All
+          </button>
+          <button className={filter === 'equipped' ? 'is-selected' : ''} onClick={() => setFilter('equipped')}>
+            Equipped
+          </button>
+          {schoolOrder.map((sc) => (
+            <button
+              key={sc}
+              className={`school-chip school-${sc} ${filter === sc ? 'is-selected' : ''} ${sc === arch.school ? 'suggested' : ''}`}
+              onClick={() => setFilter(sc)}
+              title={sc === arch.school ? `${arch.name}'s school` : undefined}
+            >
+              {SCHOOLS[sc].icon} {SCHOOLS[sc].name}
+              {sc === arch.school && ' ★'}
+            </button>
+          ))}
+        </div>
         <div className="cards small">
-          {Object.values(ABILITIES).map((a) => {
+          {shown.map((a) => {
             const on = loadout.abilityIds.includes(a.id);
             return (
               <button
@@ -182,7 +212,9 @@ function Editor({
       <section className="preview">
         <h3>Final stats</h3>
         <div className="stats big">
-          ❤ {preview.maxHp} HP · ⚡ {preview.maxAp} AP · 👣 {preview.move} move · 💥 +{preview.power} power · 🎯 +{preview.rangeBonus} range
+          ❤ {preview.maxHp} HP · ⚡ {preview.maxAp} AP · 👣 {preview.move} move · 💥 +{preview.power} power · 🎯{' '}
+          {preview.rangeBonus >= 0 ? '+' : ''}
+          {preview.rangeBonus} range · 🪨 {preview.armor} armor · ✚ {preview.regen} regen
         </div>
         {errors.length > 0 && (
           <ul className="errors">

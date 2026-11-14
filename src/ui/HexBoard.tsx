@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ARCHETYPES } from '../game/content';
 import { hexPoints, key, toPixel, type Hex } from '../game/hex';
-import { PLAYERS, type GameState } from '../game/types';
+import { PLAYERS, type GameState, type StatusKind } from '../game/types';
 
 const SIZE = 30;
+export const STATUS_ICON: Record<StatusKind, string> = { burn: '🔥', poison: '🦠', slow: '🐌', root: '⛓️', vulnerable: '🎯' };
 const TERRAIN_ICON: Record<string, string> = { forest: '🌲', rock: '🪨', rune: '✦' };
 
 export interface BoardHighlights {
@@ -128,7 +129,7 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
             </g>
             {u.statuses.length > 0 && (
               <text y={SIZE * 0.95} className="unit-status" textAnchor="middle">
-                {u.statuses.map((s) => ({ burn: '🔥', slow: '🐌', root: '⛓️' })[s.kind]).join('')}
+                {u.statuses.map((s) => STATUS_ICON[s.kind]).join('')}
               </text>
             )}
           </g>

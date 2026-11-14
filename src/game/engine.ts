@@ -1,6 +1,6 @@
 import { generateBoard, moveCost, spawnFor } from './board';
 import { ABILITIES } from './content';
-import { distance, equals, key, line, neighbors, type Hex } from './hex';
+import { distance, equals, key, line, neighbors, toPixel, type Hex } from './hex';
 import { buildUnit } from './loadout';
 import {
   other,
@@ -72,7 +72,7 @@ export function hasLOS(state: GameState, a: Hex, b: Hex): boolean {
 }
 
 export const abilityRange = (u: Unit, def: AbilityDef): number =>
-  def.targeting === 'self' ? 0 : def.range + u.rangeBonus;
+  def.targeting === 'self' ? 0 : Math.max(1, def.range + u.rangeBonus);
 
 /** Why the player can't cast this ability (at this target), or null if they can. */
 export function castError(state: GameState, player: PlayerId, abilityId: string, target?: Hex): string | null {
@@ -84,6 +84,7 @@ export function castError(state: GameState, player: PlayerId, abilityId: string,
   if (!slot || !def) return 'Ability not equipped.';
   if (slot.cooldown > 0) return `On cooldown (${slot.cooldown}).`;
   if (u.ap < def.apCost) return 'Not enough AP.';
+  if (def.effect.type === 'sacrifice' && u.hp <= def.effect.hp) return 'Not enough HP.';
   if (!target) return null;
 
   const tile = state.tiles[key(target)];
@@ -98,6 +99,10 @@ export function castError(state: GameState, player: PlayerId, abilityId: string,
     if (dist === 0) return 'Pick another hex.';
     if (tile.terrain === 'rock') return "Can't blink into rock.";
     if (equals(target, enemy.pos)) return 'Hex is occupied.';
+  }
+  if (def.effect.type === 'terraform') {
+    if (equals(target, enemy.pos) || equals(target, u.pos)) return 'Hex is occupied.';
+    if (tile.terrain === def.effect.terrain) return 'Already that terrain.';
   }
   return null;
 }
@@ -180,22 +185,28 @@ type Log = (e: Omit<GameEvent, 'turn'>) => void;
 
 function resolveEffect(state: GameState, caster: Unit, def: AbilityDef, target: Hex, log: Log) {
   const fx = def.effect;
+  const enemy = state.units[other(caster.owner)];
   switch (fx.type) {
     case 'damage': {
-      const victims = Object.values(state.units).filter((u) => distance(u.pos, target) <= def.aoe);
+      const victims = Object.values(state.units).filter(
+        (u) => distance(u.pos, target) <= def.aoe && !(def.spareCaster && u.owner === caster.owner),
+      );
+      let stolen = 0;
       for (const v of victims) {
-        dealDamage(v, fx.amount + caster.power, log);
+        if (fx.amount > 0) {
+          const dealt = dealDamage(v, fx.amount + caster.power, log);
+          if (v.owner !== caster.owner) stolen += dealt;
+        }
         if (fx.status && v.hp > 0) addStatus(v, fx.status, log);
+        if (fx.knockback && v.owner !== caster.owner && v.hp > 0) knockback(state, caster, v, fx.knockback, log);
       }
+      if (fx.lifesteal && stolen > 0 && caster.hp > 0) heal(caster, Math.floor(stolen * fx.lifesteal), log);
       if (victims.length === 0) log({ kind: 'cast', text: '…and hits nothing.' });
       break;
     }
-    case 'heal': {
-      const amount = Math.min(caster.maxHp - caster.hp, fx.amount + caster.power);
-      caster.hp += amount;
-      log({ kind: 'heal', text: `${caster.name} heals ${amount}.`, at: caster.pos, amount });
+    case 'heal':
+      heal(caster, fx.amount + caster.power, log);
       break;
-    }
     case 'shield': {
       const amount = fx.amount + caster.power;
       caster.shield += amount;
@@ -205,20 +216,100 @@ function resolveEffect(state: GameState, caster: Unit, def: AbilityDef, target: 
     case 'blink':
       caster.pos = target;
       break;
+    case 'swap':
+      [caster.pos, enemy.pos] = [enemy.pos, caster.pos];
+      log({ kind: 'move', text: `${caster.name} and ${enemy.name} trade places.`, at: caster.pos });
+      break;
+    case 'sacrifice':
+      caster.hp -= fx.hp;
+      caster.ap += fx.ap;
+      log({ kind: 'damage', text: `${caster.name} pays ${fx.hp} HP for ${fx.ap} AP.`, at: caster.pos, amount: fx.hp });
+      break;
+    case 'cleanse':
+      if (caster.statuses.length) log({ kind: 'status', text: `${caster.name} is cleansed.` });
+      caster.statuses = [];
+      heal(caster, fx.heal + caster.power, log);
+      break;
+    case 'haste':
+      caster.moveLeft += fx.move;
+      log({ kind: 'status', text: `${caster.name} gains ${fx.move} move.` });
+      break;
+    case 'refresh':
+      for (const a of caster.abilities) if (a.id !== def.id) a.cooldown = Math.max(0, a.cooldown - fx.amount);
+      log({ kind: 'status', text: `${caster.name} rewinds their cooldowns.` });
+      break;
+    case 'terraform':
+      state.tiles[key(target)].terrain = fx.terrain;
+      log({ kind: 'cast', text: `The ground becomes ${fx.terrain}.`, at: target });
+      break;
   }
 }
 
-function dealDamage(victim: Unit, amount: number, log: Log) {
-  const absorbed = Math.min(victim.shield, amount);
+function heal(u: Unit, amount: number, log: Log) {
+  const healed = Math.max(0, Math.min(u.maxHp - u.hp, amount));
+  if (healed <= 0) return;
+  u.hp += healed;
+  log({ kind: 'heal', text: `${u.name} heals ${healed}.`, at: u.pos, amount: healed });
+}
+
+const COLLISION_DAMAGE = 2;
+
+/** Shove `victim` |n| hexes away from (n > 0) or toward (n < 0) the caster. */
+function knockback(state: GameState, caster: Unit, victim: Unit, n: number, log: Log) {
+  const push = n > 0;
+  const origin = toPixel(caster.pos, 1);
+  let moved = 0;
+  for (let i = 0; i < Math.abs(n); i++) {
+    const cur = victim.pos;
+    const d0 = distance(cur, caster.pos);
+    if (!push && d0 <= 1) break;
+    // Ideal next point: one step along the caster→victim ray (or its reverse).
+    const p = toPixel(cur, 1);
+    const len = Math.hypot(p.x - origin.x, p.y - origin.y) || 1;
+    const dir = push ? 1 : -1;
+    const ideal = { x: p.x + (dir * Math.sqrt(3) * (p.x - origin.x)) / len, y: p.y + (dir * Math.sqrt(3) * (p.y - origin.y)) / len };
+    let best: Hex | null = null;
+    let bestErr = Infinity;
+    for (const nb of neighbors(cur)) {
+      if (distance(nb, caster.pos) !== d0 + dir) continue;
+      const q = toPixel(nb, 1);
+      const err = Math.hypot(q.x - ideal.x, q.y - ideal.y);
+      if (err < bestErr - 1e-9) {
+        bestErr = err;
+        best = nb;
+      }
+    }
+    const tile = best && state.tiles[key(best)];
+    const blocked = !best || !tile || tile.terrain === 'rock' || equals(best, caster.pos);
+    if (blocked) {
+      if (push) {
+        log({ kind: 'damage', text: `${victim.name} slams into an obstacle!` });
+        dealDamage(victim, COLLISION_DAMAGE, log);
+      }
+      break;
+    }
+    victim.pos = best!;
+    moved++;
+  }
+  if (moved) log({ kind: 'move', text: `${victim.name} is ${push ? 'knocked back' : 'pulled in'}.`, at: victim.pos });
+}
+
+/** Applies vulnerable + armor + shield. Returns HP actually lost. */
+function dealDamage(victim: Unit, amount: number, log: Log): number {
+  const vuln = victim.statuses.find((s) => s.kind === 'vulnerable')?.power ?? 0;
+  let total = amount + vuln;
+  if (victim.armor > 0) total = Math.max(1, total - victim.armor);
+  const absorbed = Math.min(victim.shield, total);
   victim.shield -= absorbed;
-  const dealt = amount - absorbed;
-  victim.hp = Math.max(0, victim.hp - dealt);
+  const dealt = Math.min(victim.hp, total - absorbed);
+  victim.hp -= dealt;
   log({
     kind: 'damage',
     text: `${victim.name} takes ${dealt}${absorbed ? ` (${absorbed} blocked)` : ''}.`,
     at: victim.pos,
     amount: dealt,
   });
+  return dealt;
 }
 
 function addStatus(u: Unit, s: Status, log: Log) {
@@ -230,7 +321,13 @@ function addStatus(u: Unit, s: Status, log: Log) {
   log({ kind: 'status', text: `${u.name} is ${STATUS_VERB[s.kind]}.`, at: u.pos });
 }
 
-const STATUS_VERB: Record<Status['kind'], string> = { burn: 'burning', slow: 'slowed', root: 'rooted' };
+const STATUS_VERB: Record<Status['kind'], string> = {
+  burn: 'burning',
+  poison: 'poisoned',
+  slow: 'slowed',
+  root: 'rooted',
+  vulnerable: 'vulnerable',
+};
 
 function startTurn(state: GameState, player: PlayerId, log: Log) {
   const u = state.units[player];
@@ -238,7 +335,8 @@ function startTurn(state: GameState, player: PlayerId, log: Log) {
   const slow = u.statuses.find((s) => s.kind === 'slow')?.power ?? 0;
   const rooted = u.statuses.some((s) => s.kind === 'root');
   u.moveLeft = rooted ? 0 : Math.max(0, u.move - slow);
-  for (const s of u.statuses) if (s.kind === 'burn') dealDamage(u, s.power, log);
+  if (u.regen > 0) heal(u, u.regen, log);
+  for (const s of u.statuses) if (s.kind === 'burn' || s.kind === 'poison') dealDamage(u, s.power, log);
   u.statuses = u.statuses.map((s) => ({ ...s, turns: s.turns - 1 })).filter((s) => s.turns > 0);
   for (const a of u.abilities) a.cooldown = Math.max(0, a.cooldown - 1);
   const onRune = state.tiles[key(u.pos)]?.terrain === 'rune';
