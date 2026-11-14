@@ -201,3 +201,28 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .overlay-card h1 { font-size: 2.5rem; margin: 0 0 0.4rem; color: var(--gold); }
 .overlay-card .row { justify-content: center; margin-top: 1.4rem; }
 @keyframes fade { from { opacity: 0; } }
+
+/* ---------- New schools & statuses ---------- */
+:root {
+  --blood: #e0384f;
+  --tide: #3fb5c9;
+  --death: #9be08a;
+  --earth: #c49a6c;
+  --shadow: #8f7bd1;
+  --holy: #ffe08a;
+  --time: #f0a6ff;
+}
+.school-blood { border-left: 3px solid var(--blood); }
+.school-tide { border-left: 3px solid var(--tide); }
+.school-death { border-left: 3px solid var(--death); }
+.school-earth { border-left: 3px solid var(--earth); }
+.school-shadow { border-left: 3px solid var(--shadow); }
+.school-holy { border-left: 3px solid var(--holy); }
+.school-time { border-left: 3px solid var(--time); }
+.school-tag { font-size: 0.72rem; padding-left: 0.4rem; color: var(--muted); }
+.filters { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.6rem; }
+.filters button { padding: 0.3rem 0.7rem; font-size: 0.82rem; }
+.school-chip.suggested { color: var(--gold); }
+.status-poison { color: var(--death); }
+.status-vulnerable { color: var(--blood); }
+.traits { display: flex; gap: 0.7rem; flex-wrap: wrap; }

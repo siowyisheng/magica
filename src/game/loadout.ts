@@ -18,7 +18,7 @@ export function validateLoadout(l: Loadout): string[] {
 }
 
 export function totalMods(l: Loadout): Required<StatMods> {
-  const out = { hp: 0, ap: 0, move: 0, power: 0, range: 0 };
+  const out = { hp: 0, ap: 0, move: 0, power: 0, range: 0, armor: 0, regen: 0 };
   for (const id of l.relicIds) {
     const m = RELICS[id]?.mods ?? {};
     out.hp += m.hp ?? 0;
@@ -26,6 +26,8 @@ export function totalMods(l: Loadout): Required<StatMods> {
     out.move += m.move ?? 0;
     out.power += m.power ?? 0;
     out.range += m.range ?? 0;
+    out.armor += m.armor ?? 0;
+    out.regen += m.regen ?? 0;
   }
   return out;
 }
@@ -50,6 +52,8 @@ export function buildUnit(owner: PlayerId, name: string, l: Loadout, pos: Hex): 
     moveLeft: move,
     power: m.power,
     rangeBonus: m.range,
+    armor: Math.max(0, (arch.armor ?? 0) + m.armor),
+    regen: Math.max(0, (arch.regen ?? 0) + m.regen),
     abilities: l.abilityIds.map((id) => ({ id, cooldown: 0 })),
     statuses: [],
   };

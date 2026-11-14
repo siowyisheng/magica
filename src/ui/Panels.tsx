@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { ABILITIES, ARCHETYPES } from '../game/content';
 import { castError } from '../game/engine';
 import type { GameEvent, GameState, PlayerId, Unit } from '../game/types';
+import { STATUS_ICON } from './HexBoard';
 
 export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
   const arch = ARCHETYPES[unit.archetypeId];
@@ -21,9 +22,16 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
           <span key={i} className={`pip ${i < unit.ap ? 'on' : ''}`} />
         ))}
       </div>
+      {(unit.armor > 0 || unit.regen > 0 || unit.power !== 0) && (
+        <div className="traits muted">
+          {unit.armor > 0 && <span>🪨 {unit.armor} armor</span>}
+          {unit.regen > 0 && <span>✚ {unit.regen} regen</span>}
+          {unit.power !== 0 && <span>💥 {unit.power > 0 ? '+' : ''}{unit.power} power</span>}
+        </div>
+      )}
       <div className="pips">
         <span className="muted">Move</span>
-        {Array.from({ length: unit.move }, (_, i) => (
+        {Array.from({ length: Math.max(unit.move, unit.moveLeft) }, (_, i) => (
           <span key={i} className={`pip move ${i < unit.moveLeft ? 'on' : ''}`} />
         ))}
       </div>
@@ -31,7 +39,7 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
         <div className="statuses">
           {unit.statuses.map((s) => (
             <span key={s.kind} className={`status status-${s.kind}`}>
-              {s.kind} · {s.turns}
+              {STATUS_ICON[s.kind]} {s.kind} · {s.turns}
             </span>
           ))}
         </div>
