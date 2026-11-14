@@ -4,9 +4,8 @@
 
 1. Make the change.
 2. Verify: `npm run build` (typecheck + build) and `npm test` must both pass.
-3. Commit with a clear message and **push to `origin` (https://github.com/siowyisheng/magica.git) when the work is done**. The user does not need to ask for this each time. It is the default for this project.
-   - Small, self-contained work → commit directly to `main` and push.
-   - Large or risky changes → push a feature branch and open a PR instead.
+3. Commit with a clear message and **push directly to `main` on `origin` (https://github.com/siowyisheng/magica.git) when the work is done**. The user does not need to ask for this each time. It is the default for this project.
+   - This applies to all work, large or small. Don't open feature branches or PRs unless the user asks for one.
    - Never force-push `main`.
 
 ## Project rules
