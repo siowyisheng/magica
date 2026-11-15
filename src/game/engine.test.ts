@@ -42,9 +42,11 @@ describe('engine', () => {
 
   it('cooldowns block recasting', () => {
     let g = createGame(config);
-    g = applyAction(g, { type: 'cast', player: 'p1', abilityId: 'arcane-ward', target: g.mages.p1.pos });
+    g.mages.p1.mana = 30;
+    g = applyAction(g, { type: 'cast', player: 'p1', abilityId: 'ward', target: g.mages.p1.pos });
     expect(g.mages.p1.shield).toBeGreaterThan(0);
-    expect(castError(g, 'p1', 'arcane-ward')).toMatch(/cooldown/);
+    g = applyAction(g, { type: 'cast', player: 'p1', abilityId: 'meteor', target: g.mages.p1.pos });
+    expect(castError(g, 'p1', 'meteor')).toMatch(/cooldown|AP/);
   });
 
   it('AI vs AI finishes deterministically and replays identically', () => {

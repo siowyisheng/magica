@@ -103,10 +103,13 @@ export function AbilityBar({
             title={`${def.name} — ${def.description}\n${def.fast ? 'Fast (0 AP)' : '1 AP'} · ${def.mana} Mana · range ${def.range}${def.aoe ? ` · AoE ${def.aoe}` : ''}${def.cooldown ? ` · CD ${def.cooldown}` : ''}${err ? `\n${err}` : ''}`}
           >
             <span className="hotkey">{i + 1}</span>
+            {def.timing === 'reaction' && <span className="badge reaction">React</span>}
+            {def.timing === 'both' && <span className="badge both">React · Act</span>}
+            {def.fast && <span className="badge fast">Fast</span>}
             <span className="ability-icon">{def.icon}</span>
             <span className="ability-name">{def.name}</span>
             <span className="ability-cost">
-              {def.fast ? 'Fast' : `${apCost(def)} AP`}
+              {def.fast || (state.phase === 'reaction' && def.timing && def.timing !== 'action') ? '0 AP' : `${apCost(def)} AP`}
               {def.mana > 0 && <span className="mana-cost"> · {def.mana}💧</span>}
             </span>
             {slot.cooldown > 0 && <span className="cooldown-mask">{slot.cooldown}</span>}

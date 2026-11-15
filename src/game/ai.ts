@@ -15,7 +15,7 @@ import {
 } from './engine';
 import { distance, fromKey, key, neighbors, type Hex } from './hex';
 import { aimableHexes, threatArea } from './threat';
-import { other, type Action, type GameState, type Hit, type Mage, type PlayerId } from './types';
+import { other, type Action, type GameState, type Hit, type Mage, type PendingAttack, type PlayerId } from './types';
 
 // ---------------------------------------------------------------------------
 // Greedy bot. chooseAction returns the single next action for `player`; call
@@ -29,18 +29,51 @@ export function chooseAction(state: GameState, player: PlayerId): Action {
 
 const areaOf = (attacks: GameState['pending']) => new Set(attacks.flatMap((a) => a.area));
 
-/** Reaction Phase: step out of every incoming Threat Area as cheaply as possible, else brace. */
+/**
+ * Reaction Phase: dodge out of every incoming Threat Area if possible; otherwise
+ * cast the Reaction Spell that prevents the most damage per Mana; otherwise brace.
+ */
 function chooseReaction(state: GameState, player: PlayerId): Action {
   const me = state.mages[player];
-  const danger = areaOf(incoming(state, player));
-  if (danger.has(key(me.pos))) {
-    const own = areaOf(state.pending.filter((a) => a.caster === player));
-    const escape = [...reachable(state, player)]
-      .filter(([k]) => !danger.has(k) && !own.has(k))
-      .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))[0];
-    if (escape) return { type: 'move', player, to: fromKey(escape[0]) };
+  const threats = incoming(state, player);
+  const danger = areaOf(threats);
+  if (!danger.has(key(me.pos))) return { type: 'endReaction', player };
+
+  const own = areaOf(state.pending.filter((a) => a.caster === player));
+  const escape = [...reachable(state, player)]
+    .filter(([k]) => !danger.has(k) && !own.has(k))
+    .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))[0];
+  if (escape) return { type: 'move', player, to: fromKey(escape[0]) };
+
+  const vuln = me.statuses.find((s) => s.kind === 'vulnerable')?.power ?? 0;
+  const hitting = threats.filter((a) => a.area.includes(key(me.pos)));
+  const harm = (a: PendingAttack) => (a.hit.damage > 0 ? a.hit.damage + vuln : 0) + (a.hit.status ? 1.5 : 0);
+  const total = hitting.reduce((n, a) => n + harm(a), 0);
+  const unshielded = hitting.reduce((n, a) => n + (a.hit.damage > 0 ? a.hit.damage + vuln : 0), 0) - me.shield;
+
+  let best: { value: number; action: Action } | null = null;
+  const consider = (value: number, mana: number, action: Action) => {
+    const v = value / Math.max(1, mana);
+    if (value >= 1 && (!best || v > best.value)) best = { value: v, action };
+  };
+  for (const slot of me.abilities) {
+    const def = ABILITIES[slot.id];
+    if (castError(state, player, slot.id)) continue;
+    const fx = def.effect;
+    if (fx.type === 'counter' || fx.type === 'deflect') {
+      for (const a of hitting)
+        if (!castError(state, player, slot.id, me.pos, a.id))
+          consider(harm(a) + (fx.type === 'deflect' ? 1 : 0), def.mana, {
+            type: 'cast', player, abilityId: slot.id, target: me.pos, attackId: a.id,
+          });
+    } else if (fx.type === 'shield' && unshielded > 0) {
+      consider(Math.min(fx.amount, unshielded), def.mana, { type: 'cast', player, abilityId: slot.id, target: me.pos });
+    } else if (fx.type === 'blink') {
+      const out = validTargets(state, player, slot.id).find((h) => !danger.has(key(h)) && !own.has(key(h)));
+      if (out) consider(total, def.mana, { type: 'cast', player, abilityId: slot.id, target: out });
+    }
   }
-  return { type: 'endReaction', player };
+  return best ? (best as { action: Action }).action : { type: 'endReaction', player };
 }
 
 function chooseMain(state: GameState, player: PlayerId): Action {
@@ -196,6 +229,8 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, _targe
       const waiting = me.abilities.filter((a) => a.id !== def.id).reduce((n, a) => n + a.cooldown, 0);
       return waiting >= 3 ? 1 : 0;
     }
+    case 'counter':
+    case 'deflect':
     case 'haste':
     case 'blink':
     case 'swap':

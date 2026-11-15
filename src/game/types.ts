@@ -45,6 +45,10 @@ export interface Hit {
 export type AbilityEffect =
   /** Offensive: becomes a pending Attack that resolves after the defender's Reaction Phase. */
   | { type: 'attack'; shape: Shape; hit: Hit }
+  /** Reaction, targeted: cancel one incoming Spell (not Techniques). */
+  | { type: 'counter' }
+  /** Reaction, targeted: cancel one incoming Line and send it back at the attacker. */
+  | { type: 'deflect' }
   | { type: 'heal'; amount: number }
   | { type: 'shield'; amount: number }
   | { type: 'blink' }
@@ -91,8 +95,13 @@ export interface AbilityDef {
   icon: string;
   school: School;
   description: string;
-  /** Fast Spells cost no AP. Everything else costs exactly 1 AP. */
+  /** Fast Spells cost no AP. Everything else costs exactly 1 AP (0 when cast as a reaction). */
   fast?: boolean;
+  /**
+   * When it can be cast. 'reaction' = Reaction Spell (Reaction Phase only, 0 AP).
+   * 'both' = defensive Spell that also works proactively in the Action Phase (for AP). Default 'action'.
+   */
+  timing?: 'action' | 'reaction' | 'both';
   /**
    * Own turns until ready again, ticking down at the start of your turn.
    * 0 = recast freely in the same turn, 1 = once per turn, 2 = skip a turn, ...
@@ -187,6 +196,8 @@ export interface PendingAttack {
   /** Threat Area as hex keys, fixed at launch. */
   area: string[];
   hit: Hit;
+  /** Sent back by a Deflect. Reactions can't target it (one layer of response only). */
+  reflected?: boolean;
 }
 
 /** Reaction Phase happens only when Attacks are pending against the active mage. */
@@ -212,7 +223,8 @@ export interface GameState {
 
 export type Action =
   | { type: 'move'; player: PlayerId; to: Hex }
-  | { type: 'cast'; player: PlayerId; abilityId: string; target: Hex }
+  /** `attackId` picks the incoming Attack for targeted Reaction Spells. */
+  | { type: 'cast'; player: PlayerId; abilityId: string; target: Hex; attackId?: number }
   | { type: 'absorb'; player: PlayerId }
   /** Finish the Reaction Phase: pending Attacks resolve, then the Action Phase begins. */
   | { type: 'endReaction'; player: PlayerId; reason?: 'timeout' }

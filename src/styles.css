@@ -269,3 +269,9 @@ button.absorb:not(:disabled) { border-color: #7aa2ff; box-shadow: 0 0 12px #5b8c
 .phase-banner.reaction { color: #ffb347; border-color: #ffb34788; background: #ffb34714; animation: pulse 1.2s infinite; }
 .phase-banner.action { color: var(--muted); }
 .end-turn.resolve { background: linear-gradient(180deg, #ffb347, #d9772b); }
+.badge { position: absolute; top: 3px; right: 5px; font-size: 0.55rem; letter-spacing: 0.05em; text-transform: uppercase; padding: 0 0.3rem; border-radius: 4px; }
+.badge.reaction { background: #ffb34733; color: #ffb347; }
+.badge.both { background: #7aa2ff33; color: #9db8ff; }
+.badge.fast { background: #4fe0b033; color: var(--reach); }
+.react-targets { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.8rem; }
+.react-targets button { padding: 0.3rem 0.6rem; border-color: #ffb347; }

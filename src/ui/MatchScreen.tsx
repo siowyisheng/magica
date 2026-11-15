@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { chooseAction } from '../game/ai';
-import { absorbError, applyAction, createGame, impactArea, reachable, round, validTargets } from '../game/engine';
+import { ABILITIES } from '../game/content';
+import {
+  absorbError,
+  applyAction,
+  castError,
+  createGame,
+  impactArea,
+  incoming,
+  isTargetedReaction,
+  reachable,
+  round,
+  validTargets,
+} from '../game/engine';
 import { equals, key, type Hex } from '../game/hex';
 import { newId, saveReplay } from '../game/storage';
 import type { Action, GameState, MatchConfig, MatchRecord, PlayerId } from '../game/types';
@@ -82,8 +94,22 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
   }, [remaining, dispatch]);
 
   // --- Highlights ----------------------------------------------------------
+  const selectedDef = selected ? ABILITIES[selected] : null;
+  /** Incoming Attacks the selected targeted Reaction Spell may be aimed at. */
+  const reactTargets = useMemo(
+    () =>
+      controlling && selectedDef && isTargetedReaction(selectedDef)
+        ? incoming(state, controlling).filter((a) => !castError(state, controlling, selectedDef.id, state.mages[controlling].pos, a.id))
+        : [],
+    [state, controlling, selectedDef],
+  );
+
   const highlights = useMemo<BoardHighlights>(() => {
     if (!controlling) return {};
+    if (selected && reactTargets.length) {
+      const hovered = hover && reactTargets.find((a) => a.area.includes(key(hover)));
+      return { targets: new Set(reactTargets.flatMap((a) => a.area)), impact: hovered ? new Set(hovered.area) : undefined };
+    }
     if (selected) {
       const targets = new Set(validTargets(state, controlling, selected).map(key));
       const impact = hover && targets.has(key(hover)) ? new Set(impactArea(state, controlling, selected, hover).map(key)) : undefined;
@@ -95,18 +121,44 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       reachable: new Set(all.keys()),
       free: new Set([...all].filter(([, cost]) => cost <= mp).map(([k]) => k)),
     };
-  }, [state, controlling, selected, hover]);
+  }, [state, controlling, selected, hover, reactTargets]);
 
   const onHexClick = (h: Hex) => {
     if (!controlling) return;
+    if (selected && reactTargets.length) {
+      const atk = reactTargets.find((a) => a.area.includes(key(h)));
+      if (atk) castAt(selected, state.mages[controlling].pos, atk.id);
+      else setSelected(null);
+      return;
+    }
     if (selected) {
-      if (highlights.targets?.has(key(h))) dispatch({ type: 'cast', player: controlling, abilityId: selected, target: h });
+      if (highlights.targets?.has(key(h))) castAt(selected, h);
       else setSelected(null);
       return;
     }
     if (highlights.reachable?.has(key(h))) dispatch({ type: 'move', player: controlling, to: h });
     else if (equals(h, state.mages[controlling].pos)) setSelected(null);
   };
+
+  const castAt = useCallback(
+    (abilityId: string, target: Hex, attackId?: number) => {
+      if (controlling) dispatch({ type: 'cast', player: controlling, abilityId, target, attackId });
+    },
+    [controlling, dispatch],
+  );
+
+  /** Self-targeted Spells (Ward, Mend, …) go off as soon as they're picked. */
+  const select = useCallback(
+    (id: string | null) => {
+      const def = id ? ABILITIES[id] : null;
+      if (controlling && def && def.targeting === 'self' && def.effect.type !== 'attack' && !isTargetedReaction(def)) {
+        castAt(def.id, stateRef.current.mages[controlling].pos);
+        return;
+      }
+      setSelected(id);
+    },
+    [controlling, castAt],
+  );
 
   const canAbsorb = !!controlling && !absorbError(state, controlling);
   const absorb = useCallback(() => {
@@ -126,7 +178,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       const n = Number(e.key);
       if (n >= 1 && n <= 9) {
         const slot = stateRef.current.mages[controlling].abilities[n - 1];
-        if (slot) setSelected((s) => (s === slot.id ? null : slot.id));
+        if (slot) select(selected === slot.id ? null : slot.id);
       } else if (e.key === 'Escape') setSelected(null);
       else if (e.key.toLowerCase() === 'a') absorb();
       else if (e.key === ' ' || e.key.toLowerCase() === 'e') {
@@ -136,7 +188,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [controlling, endTurn, absorb]);
+  }, [controlling, endTurn, absorb, select, selected]);
 
   const barPlayer: PlayerId = mode === 'hotseat' ? state.active : 'p1';
   const winnerText =
@@ -172,7 +224,17 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
 
       <footer className="controls">
         <TurnTimer remaining={remaining} total={phaseSeconds} />
-        <AbilityBar state={state} player={barPlayer} selected={selected} onSelect={setSelected} disabled={!controlling} />
+        <AbilityBar state={state} player={barPlayer} selected={selected} onSelect={select} disabled={!controlling} />
+        {reactTargets.length > 0 && (
+          <div className="react-targets">
+            <span className="muted">{selectedDef!.name} which attack?</span>
+            {reactTargets.map((a) => (
+              <button key={a.id} onClick={() => castAt(selectedDef!.id, state.mages[controlling!].pos, a.id)}>
+                {ABILITIES[a.abilityId].icon} {ABILITIES[a.abilityId].name}
+              </button>
+            ))}
+          </div>
+        )}
         <button className="absorb" onClick={absorb} disabled={!canAbsorb} title="Absorb Mana from the Ready crystal you stand on (1 AP)">
           💎 Absorb<span className="hotkey">A</span>
         </button>

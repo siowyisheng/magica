@@ -15,6 +15,7 @@ import {
   type MatchConfig,
   type PendingAttack,
   type PlayerId,
+  type Shape,
   type Status,
 } from './types';
 
@@ -64,6 +65,9 @@ export const hpFraction = (m: Mage) => m.hp / m.maxHp;
 export const round = (state: GameState) => Math.ceil(state.turn / 2);
 export const apCost = (def: AbilityDef): number => (def.fast ? 0 : 1);
 export const isAttack = (def: AbilityDef) => def.effect.type === 'attack';
+export const timing = (def: AbilityDef) => def.timing ?? 'action';
+/** Reaction Spells that must be aimed at one specific incoming Attack. */
+export const isTargetedReaction = (def: AbilityDef) => def.effect.type === 'counter' || def.effect.type === 'deflect';
 
 /** Movement Points one AP buys right now: Movespeed, less any slow; none while rooted. */
 export function mpPerAp(m: Mage): number {
@@ -125,18 +129,37 @@ export function abilityRange(def: AbilityDef): number {
 }
 
 /** Why the player can't cast this Ability (at this target), or null if they can. */
-export function castError(state: GameState, player: PlayerId, abilityId: string, target?: Hex): string | null {
+export function castError(
+  state: GameState,
+  player: PlayerId,
+  abilityId: string,
+  target?: Hex,
+  attackId?: number,
+): string | null {
   if (state.winner) return 'The match is over.';
   if (state.active !== player) return 'Not your turn.';
-  if (state.phase === 'reaction') return 'Only Moves are allowed in the Reaction Phase.';
   const u = state.mages[player];
   const slot = u.abilities.find((a) => a.id === abilityId);
   const def = ABILITIES[abilityId];
   if (!slot || !def) return 'Ability not equipped.';
+  const reacting = state.phase === 'reaction';
+  if (reacting && timing(def) === 'action') return 'Only Moves and Reaction Spells are allowed in the Reaction Phase.';
+  if (!reacting && timing(def) === 'reaction') return 'Reaction Spells can only be cast in the Reaction Phase.';
   if (slot.cooldown > 0) return `On cooldown (${slot.cooldown}).`;
-  if (u.ap < apCost(def)) return 'Not enough AP.';
+  if (u.ap < castApCost(state, def)) return 'Not enough AP.';
   if (u.mana < def.mana) return 'Not enough Mana.';
   if (def.effect.type === 'sacrifice' && u.hp <= def.effect.hp) return 'Not enough HP.';
+  if (isTargetedReaction(def)) {
+    if (attackId === undefined) return target ? 'Choose an incoming attack.' : null;
+    const atk = incoming(state, player).find((a) => a.id === attackId);
+    if (!atk) return 'Choose an incoming attack.';
+    if (atk.reflected) return "Can't react to a reaction.";
+    const attacker = ABILITIES[atk.abilityId];
+    if (def.effect.type === 'counter' && attacker.kind === 'technique') return "Counterspell can't stop a Technique.";
+    if (def.effect.type === 'deflect' && (attacker.effect.type !== 'attack' || attacker.effect.shape.kind !== 'line'))
+      return 'Only Lines can be deflected.';
+    return null;
+  }
   if (!target) return null;
 
   const tile = state.tiles[key(target)];
@@ -181,6 +204,9 @@ export function impactArea(state: GameState, player: PlayerId, abilityId: string
   return Object.values(state.tiles).filter((t) => distance(t, target) <= def.aoe);
 }
 
+/** AP to cast now: none in the Reaction Phase, otherwise 1 unless Fast. */
+export const castApCost = (state: GameState, def: AbilityDef) => (state.phase === 'reaction' ? 0 : apCost(def));
+
 export function absorbError(state: GameState, player: PlayerId): string | null {
   if (state.winner) return 'The match is over.';
   if (state.active !== player) return 'Not your turn.';
@@ -203,7 +229,7 @@ export function actionError(state: GameState, action: Action): string | null {
     case 'move':
       return reachable(state, action.player).has(key(action.to)) ? null : "Can't move there.";
     case 'cast':
-      return castError(state, action.player, action.abilityId, action.target);
+      return castError(state, action.player, action.abilityId, action.target, action.attackId);
     case 'absorb':
       return absorbError(state, action.player);
     case 'endReaction':
@@ -236,7 +262,7 @@ export function applyAction(prev: GameState, action: Action): GameState {
     }
     case 'cast': {
       const def = ABILITIES[action.abilityId];
-      me.ap -= apCost(def);
+      me.ap -= castApCost(state, def);
       me.mana -= def.mana;
       me.abilities.find((a) => a.id === def.id)!.cooldown = def.cooldown;
       if (def.effect.type === 'attack') {
@@ -250,6 +276,8 @@ export function applyAction(prev: GameState, action: Action): GameState {
           hit: def.effect.hit,
         });
         log({ kind: 'cast', text: `${me.name} launches ${def.icon} ${def.name}.`, at: action.target });
+      } else if (isTargetedReaction(def)) {
+        react(state, me, def, action.attackId!, log);
       } else {
         log({ kind: 'cast', text: `${me.name} casts ${def.icon} ${def.name}.`, at: action.target });
         resolveUtility(state, me, def, action.target, log);
@@ -347,12 +375,30 @@ function applyHit(state: GameState, attack: PendingAttack, hit: Hit, v: Mage, on
   if (hit.knockback && v.owner !== attack.caster && v.hp > 0) knockback(state, attack.origin, v, hit.knockback, log);
 }
 
+/** Targeted Reaction Spells: Counterspell cancels; Deflect cancels and fires the Line back. */
+function react(state: GameState, me: Mage, def: AbilityDef, attackId: number, log: Log) {
+  const atk = state.pending.find((a) => a.id === attackId)!;
+  const name = `${ABILITIES[atk.abilityId].icon} ${ABILITIES[atk.abilityId].name}`;
+  state.pending = state.pending.filter((a) => a !== atk);
+  if (def.effect.type === 'counter') {
+    log({ kind: 'cast', text: `${me.name} counters ${name}!` });
+    return;
+  }
+  const attacker = state.mages[atk.caster];
+  const shape = (ABILITIES[atk.abilityId].effect as { shape: Shape }).shape;
+  const area = threatArea(state.tiles, me.pos, shape, attacker.pos) ?? [];
+  state.pending.push({ ...atk, id: state.nextAttackId++, caster: me.owner, origin: me.pos, area: area.map(key), reflected: true });
+  log({ kind: 'cast', text: `${me.name} deflects ${name} back at ${attacker.name}!` });
+}
+
 /** Instant, non-Attack effects (healing, shields, blinks, …). */
 function resolveUtility(state: GameState, caster: Mage, def: AbilityDef, target: Hex, log: Log) {
   const fx = def.effect;
   const enemy = state.mages[other(caster.owner)];
   switch (fx.type) {
     case 'attack':
+    case 'counter':
+    case 'deflect':
       return;
     case 'heal':
       heal(caster, fx.amount, log);

@@ -98,16 +98,28 @@ export const ABILITIES: Record<string, AbilityDef> = Object.fromEntries(
         effect: { type: 'damage', amount: 2 },
       },
       {
-        id: 'blink', name: 'Blink', icon: '✨', school: 'arcane',
-        description: 'Teleport to an empty hex. Ignores terrain.',
+        id: 'blink', name: 'Blink', icon: '✨', school: 'arcane', timing: 'both',
+        description: 'Teleport to an empty hex. Ignores terrain. Works as a reaction, too.',
         apCost: 1, cooldown: 2, range: 3, targeting: 'tile', needsLOS: false, aoe: 0,
         effect: { type: 'blink' },
       },
       {
-        id: 'arcane-ward', name: 'Arcane Ward', icon: '🛡️', school: 'arcane',
-        description: 'Gain a shield that absorbs damage until your next turn.',
-        apCost: 1, cooldown: 2, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
+        id: 'ward', name: 'Ward', icon: '🛡️', school: 'arcane', timing: 'both', points: 2, mana: 4,
+        description: 'A shield that absorbs damage from every attack in your next resolution. Cast it as a reaction, or ahead of time for 1 AP.',
+        apCost: 1, cooldown: 0, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
         effect: { type: 'shield', amount: 4 },
+      },
+      {
+        id: 'counterspell', name: 'Counterspell', icon: '🚫', school: 'arcane', timing: 'reaction', points: 3, mana: 6,
+        description: 'Reaction: cancel one incoming Spell. Useless against Techniques.',
+        apCost: 1, cooldown: 0, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
+        effect: { type: 'counter' },
+      },
+      {
+        id: 'deflect', name: 'Deflect', icon: '🪞', school: 'arcane', timing: 'reaction', points: 3, mana: 5,
+        description: 'Reaction: turn one incoming Line around and send it back at the attacker.',
+        apCost: 1, cooldown: 0, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
+        effect: { type: 'deflect' },
       },
       {
         id: 'mend', name: 'Mend', icon: '🌿', school: 'nature',
@@ -297,9 +309,9 @@ const loadout = (l: Omit<Loadout, 'abilityIds'> & { abilities: string[] }): Load
 });
 
 export const DEFAULT_LOADOUTS: Loadout[] = [
-  loadout({ id: 'c1-archmage', name: 'Archmage', circle: 1, stats: { hp: 3, magic: 2, movespeed: 0 }, abilities: ['firebolt', 'meteor', 'frost-lance', 'arcane-ward', 'blink', 'mend'], passiveIds: [] }),
+  loadout({ id: 'c1-archmage', name: 'Archmage', circle: 1, stats: { hp: 3, magic: 2, movespeed: 0 }, abilities: ['firebolt', 'meteor', 'frost-lance', 'ward', 'counterspell', 'blink', 'mend'], passiveIds: [] }),
   loadout({ id: 'c1-warlord', name: 'Battlemage', circle: 1, stats: { hp: 4, magic: 0, movespeed: 1 }, abilities: ['cleave', 'quick-stab', 'glacial-snare', 'blood-lash', 'mend'], passiveIds: [] }),
-  loadout({ id: 'c2-pyro', name: 'Pyromancer', circle: 2, stats: { hp: 2, magic: 1, movespeed: 0 }, abilities: ['firebolt', 'meteor', 'blink', 'arcane-ward'], passiveIds: [] }),
+  loadout({ id: 'c2-pyro', name: 'Pyromancer', circle: 2, stats: { hp: 2, magic: 1, movespeed: 0 }, abilities: ['firebolt', 'meteor', 'blink', 'ward'], passiveIds: [] }),
   loadout({ id: 'c2-stalker', name: 'Stalker', circle: 2, stats: { hp: 2, magic: 0, movespeed: 1 }, abilities: ['frost-lance', 'quick-stab', 'thorn-volley'], passiveIds: [] }),
   loadout({ id: 'c3-adept', name: 'Adept', circle: 3, stats: { hp: 2, magic: 0, movespeed: 0 }, abilities: ['firebolt', 'blink'], passiveIds: [] }),
   loadout({ id: 'c3-brawler', name: 'Brawler', circle: 3, stats: { hp: 3, magic: 0, movespeed: 0 }, abilities: ['quick-stab', 'mend'], passiveIds: [] }),
