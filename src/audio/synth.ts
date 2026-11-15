@@ -54,7 +54,18 @@ export class MusicPlayer {
 
   setMuted(muted: boolean) {
     this.muted = muted;
-    if (this.ctx && this.master) this.master.gain.setTargetAtTime(muted ? 0 : this.volume, this.ctx.currentTime, 0.05);
+    this.applyLevel();
+  }
+
+  /** Music volume, 0–1. */
+  setVolume(volume: number) {
+    this.volume = Math.max(0, Math.min(1, volume));
+    this.applyLevel();
+  }
+
+  private applyLevel() {
+    if (this.ctx && this.master)
+      this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime, 0.05);
   }
 
   private start(id: TrackId) {

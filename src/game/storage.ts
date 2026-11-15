@@ -48,6 +48,13 @@ export function saveReplay(rec: MatchRecord) {
 
 export const newId = () => Math.random().toString(36).slice(2, 10);
 
-const MUTED = 'magica.musicMuted.v1';
-export const loadMuted = (): boolean => read(MUTED, false);
-export const saveMuted = (muted: boolean) => write(MUTED, muted);
+export interface Settings {
+  /** Music volume, 0–100. */
+  musicVolume: number;
+  musicMuted: boolean;
+}
+
+const SETTINGS = 'magica.settings.v1';
+export const DEFAULT_SETTINGS: Settings = { musicVolume: 55, musicMuted: false };
+export const loadSettings = (): Settings => ({ ...DEFAULT_SETTINGS, ...read<Partial<Settings>>(SETTINGS, {}) });
+export const saveSettings = (s: Settings) => write(SETTINGS, s);

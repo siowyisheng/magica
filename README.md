@@ -73,7 +73,7 @@ Attacks never land right away. Every one gives the opponent a chance to react, s
 - For a Wall, click 5 connected hexes. Click the last one again to undo it.
 - `A` absorbs Mana.
 - `Space` ends the phase or the turn. `Esc` cancels.
-- `M` mutes or unmutes the music. The 🎵 button is in the bottom-left corner.
+- `M` mutes or unmutes the music. Music volume is under ⚙️ Settings: open it from the main menu or the bottom-left corner (even mid-match), and it's remembered between visits.
 
 ## Architecture
 
