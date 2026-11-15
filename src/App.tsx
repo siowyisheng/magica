@@ -3,6 +3,7 @@ import { randomSeed } from './game/rng';
 import { loadLoadouts, saveLoadouts } from './game/storage';
 import type { Loadout, MatchConfig, MatchRecord } from './game/types';
 import { LoadoutBuilder } from './ui/LoadoutBuilder';
+import { MusicToggle } from './ui/MusicToggle';
 import { MatchScreen, type MatchMode } from './ui/MatchScreen';
 import { SetupScreen } from './ui/SetupScreen';
 import { LiveViewer, ReplayViewer, SpectateLobby } from './ui/SpectateScreen';
@@ -16,8 +17,19 @@ type Screen =
   | { name: 'live'; matchId: string }
   | { name: 'replay'; record: MatchRecord };
 
+const COMBAT_SCREENS = new Set(['match', 'live', 'replay']);
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'menu' });
+  return (
+    <>
+      <Screens screen={screen} setScreen={setScreen} />
+      <MusicToggle track={COMBAT_SCREENS.has(screen.name) ? 'combat' : 'menu'} />
+    </>
+  );
+}
+
+function Screens({ screen, setScreen }: { screen: Screen; setScreen: (s: Screen) => void }) {
   const [loadouts, setLoadouts] = useState<Loadout[]>(loadLoadouts);
 
   const updateLoadouts = (l: Loadout[]) => {
@@ -77,7 +89,7 @@ export default function App() {
               Spectate &amp; replays
             </button>
           </nav>
-          <p className="muted hint">Move: click a lit hex · Abilities: 1–4 · End turn: Space</p>
+          <p className="muted hint">Move: click a lit hex · Abilities: 1–8 · End turn: Space · Music: M</p>
         </div>
       );
   }

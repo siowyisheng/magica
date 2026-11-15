@@ -47,3 +47,7 @@ export function saveReplay(rec: MatchRecord) {
 }
 
 export const newId = () => Math.random().toString(36).slice(2, 10);
+
+const MUTED = 'magica.musicMuted.v1';
+export const loadMuted = (): boolean => read(MUTED, false);
+export const saveMuted = (muted: boolean) => write(MUTED, muted);

@@ -73,6 +73,7 @@ Attacks never land right away. Every one gives the opponent a chance to react, s
 - For a Wall, click 5 connected hexes. Click the last one again to undo it.
 - `A` absorbs Mana.
 - `Space` ends the phase or the turn. `Esc` cancels.
+- `M` mutes or unmutes the music. The 🎵 button is in the bottom-left corner.
 
 ## Architecture
 
@@ -89,6 +90,7 @@ src/game/            ← pure TypeScript, no React, no DOM
   ai.ts              greedy bot: dodges, reacts, scores attacks by how hard they are to dodge
   storage.ts, rng.ts
 src/net/spectate.ts  spectating protocol + pluggable transport (BroadcastChannel today)
+src/audio/           original music as note data (score.ts) + a tiny Web Audio synth/sequencer (synth.ts)
 src/ui/              React: board, panels, match, loadout builder, spectate & replays
 ```
 
