@@ -291,3 +291,33 @@ button.absorb:not(:disabled) { border-color: #7aa2ff; box-shadow: 0 0 12px #5b8c
 .checkbox { display: flex; gap: 0.5rem; align-items: center; cursor: pointer; }
 .checkbox input { width: 18px; height: 18px; accent-color: var(--gold); }
 .settings-card .row { justify-content: flex-end; margin-top: 0; }
+
+/* ---------- Segmented HP / Mana bars ---------- */
+.bar-row { display: grid; grid-template-columns: 40px 1fr auto; gap: 0.5rem; align-items: center; }
+.bar-slot { min-width: 0; }
+.seg-bar { position: relative; height: 16px; border-radius: 4px; overflow: hidden; background: #0009; box-shadow: inset 0 0 0 1px #ffffff14; transition: width 0.3s; }
+.seg-fill { position: absolute; inset: 0 auto 0 0; transition: width 0.3s; }
+.card-p1 .bar-hp .seg-fill { background: linear-gradient(180deg, #7cc8ff, var(--p1) 55%, #2b7fc4); }
+.card-p2 .bar-hp .seg-fill { background: linear-gradient(180deg, #ff97a6, var(--p2) 55%, #c43248); }
+.bar-mana .seg-fill { background: linear-gradient(180deg, #a9c1ff, #6f8fff 55%, #3b5bdb); }
+.seg-divider { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #0d0b14; pointer-events: none; }
+.seg-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-shadow: 0 0 2px #000, 0 0 4px #000, 0 1px 1px #000;
+  pointer-events: none;
+}
+.seg-text > span { background: #0d0b1499; padding: 0 0.35rem; border-radius: 3px; line-height: 14px; }
+.bar-extra { font-size: 0.72rem; white-space: nowrap; }
+
+/* ---------- Action bar: AP / Movement ---------- */
+.turn-resources { display: grid; gap: 0.35rem; align-content: center; padding: 0 0.4rem; }
+.turn-resources .pips .muted { width: 40px; }
+.mp-left { color: var(--reach); font-variant-numeric: tabular-nums; }

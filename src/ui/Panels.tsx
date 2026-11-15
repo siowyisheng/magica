@@ -1,12 +1,26 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 import { ABILITIES, PASSIVES } from '../game/content';
 import { CIRCLE_NAME } from '../game/loadout';
-import { AP_PER_TURN, apCost, castError, maxMana, mpPerAp } from '../game/engine';
+import { AP_PER_TURN, apCost, castError, maxMana } from '../game/engine';
 import type { GameEvent, GameState, PlayerId, Mage } from '../game/types';
 import { STATUS_ICON } from './HexBoard';
 import { abilitySummary } from './LoadoutBuilder';
 
-export function MageCard({ mage, active }: { mage: Mage; active: boolean }) {
+/** Shared scale for both mages' bars, so a bigger maximum draws a longer bar. */
+export interface BarScale {
+  hp: number;
+  mana: number;
+}
+
+export const barScale = (state: GameState): BarScale => ({
+  hp: Math.max(state.mages.p1.maxHp, state.mages.p2.maxHp),
+  mana: Math.max(maxMana(state.mages.p1), maxMana(state.mages.p2)),
+});
+
+/** HP shows one segment per point; Mana one segment per this much. */
+const MANA_PER_SEGMENT = 3;
+
+export function MageCard({ mage, active, scale }: { mage: Mage; active: boolean; scale: BarScale }) {
   return (
     <div className={`mage-card card-${mage.owner} ${active ? 'is-active' : ''}`}>
       <div className="mage-card-head">
@@ -18,14 +32,24 @@ export function MageCard({ mage, active }: { mage: Mage; active: boolean }) {
           </div>
         </div>
       </div>
-      <Bar label="HP" value={mage.hp} max={mage.maxHp} cls="hp" extra={mage.shield ? `+${mage.shield}🛡` : ''} />
-      <Bar label="Mana" value={mage.mana} max={maxMana(mage)} cls="mana" extra={`+${mage.magic + mage.manaRegen}/turn`} />
-      <div className="pips">
-        <span className="muted">AP</span>
-        {Array.from({ length: Math.max(AP_PER_TURN, mage.ap) }, (_, i) => (
-          <span key={i} className={`pip ${i < mage.ap ? 'on' : ''}`} />
-        ))}
-      </div>
+      <SegmentBar
+        label="HP"
+        cls="hp"
+        value={mage.hp}
+        max={mage.maxHp}
+        scaleMax={scale.hp}
+        perSegment={1}
+        extra={mage.shield ? `+${mage.shield}🛡` : undefined}
+      />
+      <SegmentBar
+        label="Mana"
+        cls="mana"
+        value={mage.mana}
+        max={maxMana(mage)}
+        scaleMax={scale.mana}
+        perSegment={MANA_PER_SEGMENT}
+        extra={`+${mage.magic + mage.manaRegen}/turn`}
+      />
       {mage.passiveIds.length > 0 && (
         <div className="traits muted">
           {mage.passiveIds.map((id) => (
@@ -35,15 +59,6 @@ export function MageCard({ mage, active }: { mage: Mage; active: boolean }) {
           ))}
         </div>
       )}
-      <div className="pips">
-        <span className="muted">Move</span>
-        {Array.from({ length: mage.mp }, (_, i) => (
-          <span key={i} className="pip move on" />
-        ))}
-        <span className="muted mp-note">
-          {mage.mp > 0 ? `${mage.mp} left · ` : ''}+{mpPerAp(mage)} per AP
-        </span>
-      </div>
       {mage.statuses.length > 0 && (
         <div className="statuses">
           {mage.statuses.map((s) => (
@@ -64,16 +79,70 @@ export function MageCard({ mage, active }: { mage: Mage; active: boolean }) {
   );
 }
 
-function Bar({ label, value, max, cls, extra }: { label: string; value: number; max: number; cls: string; extra?: string }) {
+/**
+ * A bar split into equal segments of `perSegment` points, drawn at a length
+ * proportional to `max / scaleMax` so both mages' bars share one scale.
+ * The fill is continuous, so partial segments show exact values.
+ */
+function SegmentBar({
+  label,
+  cls,
+  value,
+  max,
+  scaleMax,
+  perSegment,
+  extra,
+}: {
+  label: string;
+  cls: string;
+  value: number;
+  max: number;
+  scaleMax: number;
+  perSegment: number;
+  extra?: string;
+}) {
+  const length = max > 0 && scaleMax > 0 ? (100 * max) / scaleMax : 100;
+  const style: CSSProperties = { width: `${length}%` };
+  // One divider at every segment boundary inside the bar (the last segment may be partial).
+  const dividers: number[] = [];
+  for (let at = perSegment; at < max; at += perSegment) dividers.push((100 * at) / max);
   return (
     <div className="bar-row">
       <span className="muted">{label}</span>
-      <div className={`bar bar-${cls}`}>
-        <div style={{ width: `${(100 * value) / max}%` }} />
+      <div className="bar-slot">
+        <div className={`seg-bar bar-${cls}`} style={style} role="meter" aria-label={label} aria-valuenow={value} aria-valuemax={max}>
+          <div className="seg-fill" style={{ width: `${(100 * Math.max(0, value)) / Math.max(1, max)}%` }} />
+          {dividers.map((left) => (
+            <span key={left} className="seg-divider" style={{ left: `${left}%` }} />
+          ))}
+          <span className="seg-text">
+            <span>
+              {value} / {max}
+            </span>
+          </span>
+        </div>
       </div>
-      <span className="bar-num">
-        {value}/{max} {extra}
-      </span>
+      <span className="bar-extra muted">{extra}</span>
+    </div>
+  );
+}
+
+/** AP and Movement Points left, for the action bar on the player's own turn. */
+export function TurnResources({ mage }: { mage: Mage }) {
+  return (
+    <div className="turn-resources">
+      <div className="pips" title="Action Points left this turn">
+        <span className="muted">AP</span>
+        {Array.from({ length: Math.max(AP_PER_TURN, mage.ap) }, (_, i) => (
+          <span key={i} className={`pip ${i < mage.ap ? 'on' : ''}`} />
+        ))}
+      </div>
+      {mage.mp > 0 && (
+        <div className="pips" title="Movement Points left this turn">
+          <span className="muted">Move</span>
+          <strong className="mp-left">{mage.mp}</strong>
+        </div>
+      )}
     </div>
   );
 }

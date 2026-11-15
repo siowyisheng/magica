@@ -19,7 +19,7 @@ import type { Action, GameState, MatchConfig, MatchRecord, PlayerId } from '../g
 import { BroadcastChannelTransport, SpectateHost } from '../net/spectate';
 import { isDrawn } from '../game/threat';
 import { HexBoard, type BoardHighlights } from './HexBoard';
-import { AbilityBar, EventLog, MageCard, PhaseBanner, TurnTimer } from './Panels';
+import { AbilityBar, barScale, EventLog, MageCard, PhaseBanner, TurnResources, TurnTimer } from './Panels';
 import { useCountdown } from './useCountdown';
 
 export type MatchMode = 'ai' | 'hotseat';
@@ -238,7 +238,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       </header>
 
       <aside className="side left">
-        <MageCard mage={state.mages.p1} active={state.active === 'p1'} />
+        <MageCard mage={state.mages.p1} active={state.active === 'p1'} scale={barScale(state)} />
       </aside>
 
       <main className="board-wrap">
@@ -246,12 +246,13 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       </main>
 
       <aside className="side right">
-        <MageCard mage={state.mages.p2} active={state.active === 'p2'} />
+        <MageCard mage={state.mages.p2} active={state.active === 'p2'} scale={barScale(state)} />
         <EventLog events={state.events} />
       </aside>
 
       <footer className="controls">
         <TurnTimer remaining={remaining} total={phaseSeconds} />
+        {controlling && <TurnResources mage={state.mages[controlling]} />}
         <AbilityBar state={state} player={barPlayer} selected={selected} onSelect={select} disabled={!controlling} />
         {wallShape && (
           <div className="react-targets">
