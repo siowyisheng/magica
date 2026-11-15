@@ -19,7 +19,7 @@ import type { Action, GameState, MatchConfig, MatchRecord, PlayerId } from '../g
 import { BroadcastChannelTransport, SpectateHost } from '../net/spectate';
 import { isDrawn } from '../game/threat';
 import { HexBoard, type BoardHighlights } from './HexBoard';
-import { AbilityBar, barScale, EventLog, MageCard, PhaseBanner, TurnResources, TurnTimer } from './Panels';
+import { AbilityBar, barAbilityIds, barScale, EventLog, MageCard, PhaseBanner, TurnResources, TurnTimer } from './Panels';
 import { useCountdown } from './useCountdown';
 
 export type MatchMode = 'ai' | 'hotseat';
@@ -205,8 +205,8 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       if (!controlling) return;
       const n = Number(e.key);
       if (n >= 1 && n <= 9) {
-        const slot = stateRef.current.mages[controlling].abilities[n - 1];
-        if (slot) select(selected === slot.id ? null : slot.id);
+        const id = barAbilityIds(stateRef.current, controlling)[n - 1];
+        if (id) select(selected === id ? null : id);
       } else if (e.key === 'Escape') setSelected(null);
       else if (e.key.toLowerCase() === 'a') absorb();
       else if (e.key === ' ' || e.key.toLowerCase() === 'e') {

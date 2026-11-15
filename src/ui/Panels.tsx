@@ -146,6 +146,16 @@ export function TurnResources({ mage }: { mage: Mage }) {
   );
 }
 
+/**
+ * The Abilities on the bar right now, in loadout order. Each phase shows only what can be used in it:
+ * Reaction-only Abilities leave the bar in the Action Phase, and action-only ones in the Reaction Phase.
+ * A hotkey is an Ability's position in this list, so the first Ability on the bar is always key 1.
+ */
+export function barAbilityIds(state: GameState, player: PlayerId): string[] {
+  const hidden = state.phase === 'action' ? 'reaction' : 'action';
+  return state.mages[player].abilities.map((s) => s.id).filter((id) => timing(ABILITIES[id]) !== hidden);
+}
+
 export function AbilityBar({
   state,
   player,
@@ -159,14 +169,11 @@ export function AbilityBar({
   onSelect: (id: string | null) => void;
   disabled: boolean;
 }) {
-  const mage = state.mages[player];
   return (
     <div className="ability-bar">
-      {mage.abilities.map((slot, i) => {
-        const def = ABILITIES[slot.id];
-        // Each phase shows only what can be used in it: Reaction-only Abilities leave the bar in the
-        // Action Phase, and action-only Abilities leave it in the Reaction Phase.
-        if (state.phase === 'action' ? timing(def) === 'reaction' : timing(def) === 'action') return null;
+      {barAbilityIds(state, player).map((id, i) => {
+        const def = ABILITIES[id];
+        const slot = { id };
         const err = castError(state, player, slot.id);
         return (
           <button
