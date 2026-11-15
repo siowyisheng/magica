@@ -8,6 +8,8 @@ const TERRAIN_ICON: Record<string, string> = { rock: '🪨' };
 
 export interface BoardHighlights {
   reachable?: Set<string>;
+  /** Reachable with leftover Movement Points, without spending AP. */
+  free?: Set<string>;
   targets?: Set<string>;
   impact?: Set<string>;
   path?: Set<string>;
@@ -80,6 +82,7 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
           'tile',
           `terrain-${t.terrain}`,
           highlights.reachable?.has(k) && 'is-reachable',
+          highlights.reachable?.has(k) && !highlights.free?.has(k) && 'costs-ap',
           highlights.targets?.has(k) && 'is-target',
           highlights.impact?.has(k) && 'is-impact',
         ]

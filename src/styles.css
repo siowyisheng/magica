@@ -243,3 +243,5 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .bar-mana > div { background: linear-gradient(90deg, #3b5bdb, #7aa2ff); }
 .mana-cost { color: #9db8ff; }
 .bar-row { grid-template-columns: 40px 1fr auto; }
+.mp-note { margin-left: 0.3rem; font-size: 0.75rem; }
+.is-reachable.costs-ap polygon { fill: #1b302e; stroke-dasharray: 4 3; }

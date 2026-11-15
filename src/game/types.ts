@@ -81,7 +81,8 @@ export interface AbilityDef {
   icon: string;
   school: School;
   description: string;
-  apCost: number;
+  /** Fast Spells cost no AP. Everything else costs exactly 1 AP. */
+  fast?: boolean;
   /**
    * Own turns until ready again, ticking down at the start of your turn.
    * 0 = recast freely in the same turn, 1 = once per turn, 2 = skip a turn, ...
@@ -137,12 +138,11 @@ export interface Mage {
   maxHp: number;
   shield: number;
   ap: number;
-  maxAp: number;
   magic: number;
   mana: number;
   movespeed: number;
-  move: number;
-  moveLeft: number;
+  /** Movement Points left this turn. Bought with AP: Movespeed points per AP. */
+  mp: number;
   armor: number;
   regen: number;
   abilities: AbilityState[];

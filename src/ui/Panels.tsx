@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ABILITIES } from '../game/content';
 import { CIRCLE_NAME } from '../game/loadout';
-import { castError, maxMana } from '../game/engine';
+import { AP_PER_TURN, apCost, castError, maxMana, mpPerAp } from '../game/engine';
 import type { GameEvent, GameState, PlayerId, Mage } from '../game/types';
 import { STATUS_ICON } from './HexBoard';
 
@@ -21,7 +21,7 @@ export function MageCard({ unit, active }: { unit: Mage; active: boolean }) {
       <Bar label="Mana" value={unit.mana} max={maxMana(unit)} cls="mana" extra={`+${unit.magic}/turn`} />
       <div className="pips">
         <span className="muted">AP</span>
-        {Array.from({ length: Math.max(unit.maxAp, unit.ap) }, (_, i) => (
+        {Array.from({ length: Math.max(AP_PER_TURN, unit.ap) }, (_, i) => (
           <span key={i} className={`pip ${i < unit.ap ? 'on' : ''}`} />
         ))}
       </div>
@@ -33,9 +33,12 @@ export function MageCard({ unit, active }: { unit: Mage; active: boolean }) {
       )}
       <div className="pips">
         <span className="muted">Move</span>
-        {Array.from({ length: Math.max(unit.move, unit.moveLeft) }, (_, i) => (
-          <span key={i} className={`pip move ${i < unit.moveLeft ? 'on' : ''}`} />
+        {Array.from({ length: unit.mp }, (_, i) => (
+          <span key={i} className="pip move on" />
         ))}
+        <span className="muted mp-note">
+          {unit.mp > 0 ? `${unit.mp} left · ` : ''}+{mpPerAp(unit)} per AP
+        </span>
       </div>
       {unit.statuses.length > 0 && (
         <div className="statuses">
@@ -97,13 +100,14 @@ export function AbilityBar({
             className={`ability school-${def.school} ${selected === slot.id ? 'is-selected' : ''}`}
             disabled={disabled || !!err}
             onClick={() => onSelect(selected === slot.id ? null : slot.id)}
-            title={`${def.name} — ${def.description}\n${def.apCost} AP · range ${def.range}${def.aoe ? ` · AoE ${def.aoe}` : ''}${def.cooldown ? ` · CD ${def.cooldown}` : ''}${err ? `\n${err}` : ''}`}
+            title={`${def.name} — ${def.description}\n${def.fast ? 'Fast (0 AP)' : '1 AP'} · ${def.mana} Mana · range ${def.range}${def.aoe ? ` · AoE ${def.aoe}` : ''}${def.cooldown ? ` · CD ${def.cooldown}` : ''}${err ? `\n${err}` : ''}`}
           >
             <span className="hotkey">{i + 1}</span>
             <span className="ability-icon">{def.icon}</span>
             <span className="ability-name">{def.name}</span>
             <span className="ability-cost">
-              {def.apCost} AP{def.mana > 0 && <span className="mana-cost"> · {def.mana}💧</span>}
+              {def.fast ? 'Fast' : `${apCost(def)} AP`}
+              {def.mana > 0 && <span className="mana-cost"> · {def.mana}💧</span>}
             </span>
             {slot.cooldown > 0 && <span className="cooldown-mask">{slot.cooldown}</span>}
           </button>

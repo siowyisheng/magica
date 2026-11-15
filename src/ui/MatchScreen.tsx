@@ -82,7 +82,12 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       const impact = hover && targets.has(key(hover)) ? new Set(impactArea(state, selected, hover).map(key)) : undefined;
       return { targets, impact };
     }
-    return { reachable: new Set(reachable(state, controlling).keys()) };
+    const all = reachable(state, controlling);
+    const mp = state.mages[controlling].mp;
+    return {
+      reachable: new Set(all.keys()),
+      free: new Set([...all].filter(([, cost]) => cost <= mp).map(([k]) => k)),
+    };
   }, [state, controlling, selected, hover]);
 
   const onHexClick = (h: Hex) => {

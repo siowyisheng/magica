@@ -1,5 +1,5 @@
 import { ABILITIES } from './content';
-import { castError, hasLOS, reachable, validTargets, abilityRange } from './engine';
+import { abilityRange, apCost, castError, hasLOS, moveBudget, reachable, validTargets } from './engine';
 import { distance, fromKey, type Hex } from './hex';
 import { other, type Action, type GameState, type PlayerId } from './types';
 
@@ -27,7 +27,7 @@ export function chooseAction(state: GameState, player: PlayerId): Action {
   if (best) return best.action;
 
   // 2. Reposition to the ideal distance for our damage abilities.
-  if (me.moveLeft > 0) {
+  if (moveBudget(me) > 0) {
     const ranges = me.abilities
       .map((s) => ABILITIES[s.id])
       .filter((d) => d.effect.type === 'damage' && d.effect.amount > 0)
@@ -74,22 +74,22 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, target
         if (dmg > 0 && enemy.hp + enemy.shield <= dmg) score += 100;
       }
       if (hitsMe) score -= (raw || 1) * 1.5; // don't nuke yourself
-      return score / Math.max(1, def.apCost + def.mana / 4);
+      return score / Math.max(1, apCost(def) + def.mana / 4);
     }
     case 'heal':
-      return me.hp <= me.maxHp * 0.6 ? Math.min(me.maxHp - me.hp, fx.amount) / def.apCost : 0;
+      return me.hp <= me.maxHp * 0.6 ? Math.min(me.maxHp - me.hp, fx.amount) / Math.max(1, apCost(def)) : 0;
     case 'cleanse': {
       const bad = me.statuses.length;
       const missing = me.maxHp - me.hp;
-      return bad > 0 || me.hp <= me.maxHp * 0.6 ? (bad * 2 + Math.min(missing, fx.heal)) / def.apCost : 0;
+      return bad > 0 || me.hp <= me.maxHp * 0.6 ? (bad * 2 + Math.min(missing, fx.heal)) / Math.max(1, apCost(def)) : 0;
     }
     case 'shield':
-      return dist <= 5 && me.ap === def.apCost ? 1 : 0;
+      return dist <= 5 && me.ap === apCost(def) ? 1 : 0;
     case 'sacrifice':
       // Only when healthy and the enemy is within reach of our damage.
       return me.hp > me.maxHp * 0.6 && me.hp > fx.hp + 4 && dist <= maxDamageRange(me) ? 1.2 : 0;
     case 'haste':
-      return dist > maxDamageRange(me) && me.moveLeft <= me.move ? 1 : 0;
+      return dist > maxDamageRange(me) && me.mp === 0 ? 1 : 0;
     case 'refresh': {
       const waiting = me.abilities.filter((a) => a.id !== def.id).reduce((n, a) => n + a.cooldown, 0);
       return waiting >= 3 ? 1 : 0;

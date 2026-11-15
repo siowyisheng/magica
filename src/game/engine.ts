@@ -41,9 +41,31 @@ export function createGame(config: MatchConfig): GameState {
 
 // --- Queries ---------------------------------------------------------------
 
-/** Hexes the player's unit can move to this turn, with their movement cost. */
+export const AP_PER_TURN = 2;
+
+export const apCost = (def: AbilityDef): number => (def.fast ? 0 : 1);
+
+/** Movement Points one AP buys right now: Movespeed, less any slow; none while rooted. */
+export function mpPerAp(m: Mage): number {
+  if (m.statuses.some((s) => s.kind === 'root')) return 0;
+  const slow = m.statuses.find((s) => s.kind === 'slow')?.power ?? 0;
+  return Math.max(0, m.movespeed - slow);
+}
+
+/** Total hexes the mage could still walk this turn, spending all remaining AP on movement. */
+export const moveBudget = (m: Mage): number => m.mp + m.ap * mpPerAp(m);
+
+/** AP a Move of `cost` hexes would spend (0 if leftover Movement Points cover it). */
+export function apForMove(m: Mage, cost: number): number {
+  if (cost <= m.mp) return 0;
+  const per = mpPerAp(m);
+  return per > 0 ? Math.ceil((cost - m.mp) / per) : Infinity;
+}
+
+/** Hexes the player's mage can move to this turn, with their movement cost. */
 export function reachable(state: GameState, player: PlayerId): Map<string, number> {
   const u = state.mages[player];
+  const budget = moveBudget(u);
   const blocked = key(state.mages[other(player)].pos);
   const best = new Map<string, number>([[key(u.pos), 0]]);
   const frontier: Array<[Hex, number]> = [[u.pos, 0]];
@@ -56,7 +78,7 @@ export function reachable(state: GameState, player: PlayerId): Map<string, numbe
       const tile = state.tiles[k];
       if (!tile || k === blocked) continue;
       const next = cost + moveCost(tile.terrain);
-      if (next > u.moveLeft) continue;
+      if (next > budget) continue;
       if ((best.get(k) ?? Infinity) <= next) continue;
       best.set(k, next);
       frontier.push([n, next]);
@@ -85,7 +107,7 @@ export function castError(state: GameState, player: PlayerId, abilityId: string,
   const def = ABILITIES[abilityId];
   if (!slot || !def) return 'Ability not equipped.';
   if (slot.cooldown > 0) return `On cooldown (${slot.cooldown}).`;
-  if (u.ap < def.apCost) return 'Not enough AP.';
+  if (u.ap < apCost(def)) return 'Not enough AP.';
   if (u.mana < def.mana) return 'Not enough Mana.';
   if (def.effect.type === 'sacrifice' && u.hp <= def.effect.hp) return 'Not enough HP.';
   if (!target) return null;
@@ -151,14 +173,16 @@ export function applyAction(prev: GameState, action: Action): GameState {
   switch (action.type) {
     case 'move': {
       const cost = reachable(prev, action.player).get(key(action.to))!;
+      const spend = apForMove(me, cost);
+      me.ap -= spend;
+      me.mp += spend * mpPerAp(me) - cost;
       me.pos = action.to;
-      me.moveLeft -= cost;
       log({ kind: 'move', text: `${me.name} moves.`, at: action.to });
       break;
     }
     case 'cast': {
       const def = ABILITIES[action.abilityId];
-      me.ap -= def.apCost;
+      me.ap -= apCost(def);
       me.mana -= def.mana;
       me.abilities.find((a) => a.id === def.id)!.cooldown = def.cooldown;
       log({ kind: 'cast', text: `${me.name} casts ${def.icon} ${def.name}.`, at: action.target });
@@ -168,6 +192,8 @@ export function applyAction(prev: GameState, action: Action): GameState {
     }
     case 'endTurn': {
       if (action.reason === 'timeout') log({ kind: 'turn', text: `${me.name} ran out of time!` });
+      // Statuses last through the owner's turn (slow and root are read live while moving).
+      me.statuses = me.statuses.map((s) => ({ ...s, turns: s.turns - 1 })).filter((s) => s.turns > 0);
       state.turn += 1;
       if (state.turn > state.config.maxTurns) {
         const [a, b] = [hpFraction(state.mages.p1), hpFraction(state.mages.p2)];
@@ -237,8 +263,8 @@ function resolveEffect(state: GameState, caster: Mage, def: AbilityDef, target: 
       heal(caster, fx.heal, log);
       break;
     case 'haste':
-      caster.moveLeft += fx.move;
-      log({ kind: 'status', text: `${caster.name} gains ${fx.move} move.` });
+      caster.mp += fx.move;
+      log({ kind: 'status', text: `${caster.name} gains ${fx.move} Movement Points.` });
       break;
     case 'refresh':
       for (const a of caster.abilities) if (a.id !== def.id) a.cooldown = Math.max(0, a.cooldown - fx.amount);
@@ -340,14 +366,11 @@ function startTurn(state: GameState, player: PlayerId, log: Log) {
   u.shield = 0;
   // Each mage's first turn is turn 1 (P1) or 2 (P2); regen starts after that.
   if (state.turn > 2) u.mana = Math.min(maxMana(u), u.mana + u.magic);
-  const slow = u.statuses.find((s) => s.kind === 'slow')?.power ?? 0;
-  const rooted = u.statuses.some((s) => s.kind === 'root');
-  u.moveLeft = rooted ? 0 : Math.max(0, u.move - slow);
+  u.mp = 0;
   if (u.regen > 0) heal(u, u.regen, log);
   for (const s of u.statuses) if (s.kind === 'burn' || s.kind === 'poison') dealDamage(u, s.power, log);
-  u.statuses = u.statuses.map((s) => ({ ...s, turns: s.turns - 1 })).filter((s) => s.turns > 0);
   for (const a of u.abilities) a.cooldown = Math.max(0, a.cooldown - 1);
-  u.ap = u.maxAp;
+  u.ap = AP_PER_TURN;
   log({ kind: 'turn', text: `${u.name}'s turn.` });
 }
 

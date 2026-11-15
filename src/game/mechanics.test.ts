@@ -109,9 +109,9 @@ describe('new mechanics', () => {
     g.mages.p1.abilities.find((a) => a.id === 'stasis')!.cooldown = 3;
     g = cast(g, 'purify', { q: 0, r: 3 });
     expect(g.mages.p1.statuses).toEqual([]);
-    const move = g.mages.p1.moveLeft;
+    const move = g.mages.p1.mp;
     g = cast(g, 'haste', { q: 0, r: 3 });
-    expect(g.mages.p1.moveLeft).toBe(move + 3);
+    expect(g.mages.p1.mp).toBe(move + 3);
     g = cast(g, 'rewind', { q: 0, r: 3 });
     expect(g.mages.p1.abilities.find((a) => a.id === 'stasis')!.cooldown).toBe(1);
   });

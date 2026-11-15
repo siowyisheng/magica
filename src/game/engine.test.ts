@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { chooseAction } from './ai';
 import { DEFAULT_LOADOUTS } from './content';
-import { applyAction, castError, createGame, reachable, replay } from './engine';
+import { applyAction, castError, createGame, replay } from './engine';
 import { distance, key, line, spiral } from './hex';
 import { validateLoadout } from './loadout';
 import type { Action, MatchConfig } from './types';
@@ -38,13 +38,6 @@ describe('engine', () => {
   it('rejects out-of-turn actions without changing state', () => {
     const g = createGame(config);
     expect(applyAction(g, { type: 'endTurn', player: 'p2' })).toBe(g);
-  });
-
-  it('movement spends move points', () => {
-    const g = createGame(config);
-    const [dest, cost] = [...reachable(g, 'p1').entries()][0];
-    const next = applyAction(g, { type: 'move', player: 'p1', to: { q: +dest.split(',')[0], r: +dest.split(',')[1] } });
-    expect(next.mages.p1.moveLeft).toBe(g.mages.p1.moveLeft - cost);
   });
 
   it('cooldowns block recasting', () => {

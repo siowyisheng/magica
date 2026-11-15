@@ -10,7 +10,9 @@ export const STAFF_STRIKE = 'staff-strike';
 /** Techniques from the original ability set (physical, no Mana once Mana exists). */
 const INTERIM_TECHNIQUES = new Set(['cleave', 'quick-stab', 'backstab', 'boulder-toss']);
 
-type RawAbility = Omit<AbilityDef, 'kind' | 'points' | 'mana'> & Partial<Pick<AbilityDef, 'kind' | 'points' | 'mana'>>;
+/** `apCost` is the original set's cost, now only used as a weight for interim prices. */
+type RawAbility = Omit<AbilityDef, 'kind' | 'points' | 'mana'> &
+  Partial<Pick<AbilityDef, 'kind' | 'points' | 'mana'>> & { apCost: number };
 
 /**
  * Interim pricing for the original ability set until the new catalogue lands.
@@ -18,11 +20,13 @@ type RawAbility = Omit<AbilityDef, 'kind' | 'points' | 'mana'> & Partial<Pick<Ab
  */
 const priced = (a: RawAbility): AbilityDef => {
   const kind = a.kind ?? (INTERIM_TECHNIQUES.has(a.id) ? 'technique' : 'spell');
+  const { apCost, ...rest } = a;
   return {
-    ...a,
+    ...rest,
     kind,
-    points: a.points ?? Math.max(1, a.apCost) + (a.aoe > 0 ? 1 : 0),
-    mana: kind === 'technique' ? 0 : (a.mana ?? Math.max(1, 2 * a.apCost + 2 * a.aoe)),
+    fast: a.fast ?? apCost === 0,
+    points: a.points ?? Math.max(1, apCost) + (a.aoe > 0 ? 1 : 0),
+    mana: kind === 'technique' ? 0 : (a.mana ?? Math.max(1, 2 * apCost + 2 * a.aoe)),
   };
 };
 
