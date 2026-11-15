@@ -64,7 +64,7 @@ export function reachable(state: GameState, player: PlayerId): Map<string, numbe
   return best;
 }
 
-/** Rocks block line of sight. Units and forests don't. */
+/** Rocks block line of sight. Mages don't. */
 export function hasLOS(state: GameState, a: Hex, b: Hex): boolean {
   return line(a, b)
     .slice(1, -1)
@@ -339,9 +339,8 @@ function startTurn(state: GameState, player: PlayerId, log: Log) {
   for (const s of u.statuses) if (s.kind === 'burn' || s.kind === 'poison') dealDamage(u, s.power, log);
   u.statuses = u.statuses.map((s) => ({ ...s, turns: s.turns - 1 })).filter((s) => s.turns > 0);
   for (const a of u.abilities) a.cooldown = Math.max(0, a.cooldown - 1);
-  const onRune = state.tiles[key(u.pos)]?.terrain === 'rune';
-  u.ap = u.maxAp + (onRune ? 1 : 0);
-  log({ kind: 'turn', text: `${u.name}'s turn${onRune ? ' (+1 AP from rune)' : ''}.` });
+  u.ap = u.maxAp;
+  log({ kind: 'turn', text: `${u.name}'s turn.` });
 }
 
 function checkWinner(state: GameState, log: Log) {

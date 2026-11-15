@@ -18,6 +18,9 @@ export function generateBoard(seed: number, radius: number): Record<string, Tile
   return Object.fromEntries(spiral({ q: 0, r: 0 }, radius).map((h) => [key(h), { ...h, terrain: 'plain' as Terrain }]));
 }
 
+/** Applied to hexes outside the spawn zones, so overall coverage lands near 18%. */
+const ROCK_CHANCE = 0.2;
+
 function tryGenerate(seed: number, radius: number): Record<string, Tile> {
   const rand = mulberry32(seed);
   const tiles: Record<string, Tile> = {};
@@ -29,16 +32,13 @@ function tryGenerate(seed: number, radius: number): Record<string, Tile> {
     if (!canonical) continue;
     let terrain: Terrain = 'plain';
     if (!nearSpawn(h)) {
-      const roll = rand();
-      if (roll < 0.12) terrain = 'rock';
-      else if (roll < 0.27) terrain = 'forest';
-      else if (roll < 0.31) terrain = 'rune';
+      if (rand() < ROCK_CHANCE) terrain = 'rock';
     }
     tiles[key(h)] = { ...h, terrain };
     const mirror = { q: -h.q + 0, r: -h.r + 0 };
     tiles[key(mirror)] = { ...mirror, terrain };
   }
-  tiles[key({ q: 0, r: 0 })] = { q: 0, r: 0, terrain: 'rune' };
+  tiles[key({ q: 0, r: 0 })] = { q: 0, r: 0, terrain: 'plain' }; // the Large crystal's home
   return tiles;
 }
 
@@ -58,4 +58,4 @@ function connected(tiles: Record<string, Tile>, a: Hex, b: Hex): boolean {
   return false;
 }
 
-export const moveCost = (t: Terrain): number => (t === 'forest' ? 2 : t === 'rock' ? Infinity : 1);
+export const moveCost = (t: Terrain): number => (t === 'rock' ? Infinity : 1);

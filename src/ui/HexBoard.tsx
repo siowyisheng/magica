@@ -5,7 +5,7 @@ import { PLAYERS, type GameState, type StatusKind } from '../game/types';
 
 const SIZE = 30;
 export const STATUS_ICON: Record<StatusKind, string> = { burn: '🔥', poison: '🦠', slow: '🐌', root: '⛓️', vulnerable: '🎯' };
-const TERRAIN_ICON: Record<string, string> = { forest: '🌲', rock: '🪨', rune: '✦' };
+const TERRAIN_ICON: Record<string, string> = { rock: '🪨' };
 
 export interface BoardHighlights {
   reachable?: Set<string>;

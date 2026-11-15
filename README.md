@@ -20,7 +20,7 @@ npm run build    # typecheck + production build into dist/
 | | |
 |---|---|
 | **Turns** | Each turn you get AP (spend on abilities) and move points. The turn ends automatically when the timer runs out (10–60s). |
-| **Terrain** | 🌲 forest costs 2 move · 🪨 rock blocks movement and line of sight · ✦ rune gives +1 AP if you start your turn on it |
+| **Terrain** | 🪨 rock (about 18% of the board) blocks movement and line of sight. Everything else is open ground. |
 | **Statuses** | burn / poison (damage each turn) · slow (−move) · root (no movement) · vulnerable (+damage taken) |
 | **Shields** | absorb damage and expire at the start of your next turn |
 | **Armor / regen** | armor cuts every hit by a flat amount (min 1). Regen heals at the start of your turn. |

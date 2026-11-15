@@ -4,7 +4,7 @@ export type PlayerId = 'p1' | 'p2';
 export const PLAYERS: readonly PlayerId[] = ['p1', 'p2'];
 export const other = (p: PlayerId): PlayerId => (p === 'p1' ? 'p2' : 'p1');
 
-export type Terrain = 'plain' | 'forest' | 'rock' | 'rune';
+export type Terrain = 'plain' | 'rock';
 
 export interface Tile extends Hex {
   terrain: Terrain;

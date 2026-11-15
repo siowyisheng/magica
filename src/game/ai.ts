@@ -35,8 +35,7 @@ export function chooseAction(state: GameState, player: PlayerId): Action {
     const ideal = ranges.length ? Math.max(1, Math.min(...ranges)) : 1;
     const scorePos = (h: Hex) =>
       -Math.abs(distance(h, enemy.pos) - ideal) +
-      (hasLOS(state, h, enemy.pos) ? 0.5 : 0) +
-      (state.tiles[`${h.q},${h.r}`]?.terrain === 'rune' ? 0.3 : 0);
+      (hasLOS(state, h, enemy.pos) ? 0.5 : 0);
     let bestPos: Hex | null = null;
     let bestScore = scorePos(me.pos);
     for (const k of reachable(state, player).keys()) {
