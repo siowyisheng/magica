@@ -14,3 +14,17 @@
 - Every game rule change goes through `applyAction` in `engine.ts`, and the AI-vs-AI replay test must keep passing.
 - New abilities, archetypes and relics go in `content.ts`. New effect types need handling in both `engine.ts` (`resolveEffect`) and `ai.ts` (`scoreCast`).
 - Keep `vite.config.ts` `base: './'` so the build stays loadable from `file://` for Windows packaging (Electron/Tauri).
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for `siowyisheng/magica` (via the `gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` plus `docs/adr/` at the repo root. See `docs/agents/domain.md`.
