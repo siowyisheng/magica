@@ -164,8 +164,9 @@ export function AbilityBar({
     <div className="ability-bar">
       {mage.abilities.map((slot, i) => {
         const def = ABILITIES[slot.id];
-        // Reaction-only Abilities have no use in the Action Phase, so they leave the bar until a Reaction Phase.
-        if (state.phase === 'action' && timing(def) === 'reaction') return null;
+        // Each phase shows only what can be used in it: Reaction-only Abilities leave the bar in the
+        // Action Phase, and action-only Abilities leave it in the Reaction Phase.
+        if (state.phase === 'action' ? timing(def) === 'reaction' : timing(def) === 'action') return null;
         const err = castError(state, player, slot.id);
         return (
           <button
