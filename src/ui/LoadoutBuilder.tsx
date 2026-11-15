@@ -1,14 +1,29 @@
 import { useState } from 'react';
-import { ABILITIES, ARCHETYPES, RELICS, SCHOOLS } from '../game/content';
-import { buildUnit, validateLoadout } from '../game/loadout';
+import { ABILITIES, PASSIVES, SCHOOLS, STAFF_STRIKE } from '../game/content';
+import {
+  CIRCLE_NAME,
+  CIRCLE_POINTS,
+  MAX_ABILITIES,
+  STAT_KEYS,
+  STAT_NAME,
+  STAT_STEP_GAIN,
+  loadoutCost,
+  pointsLeft,
+  statStepCost,
+  statValue,
+  validateLoadout,
+} from '../game/loadout';
 import { newId } from '../game/storage';
-import type { Loadout, School } from '../game/types';
+import type { AbilityDef, Circle, Loadout, School, StatKey } from '../game/types';
 
 interface Props {
   loadouts: Loadout[];
   onChange: (l: Loadout[]) => void;
   onBack: () => void;
 }
+
+const CIRCLES: Circle[] = [1, 2, 3];
+const STAT_ICON: Record<StatKey, string> = { hp: '❤', magic: '🔮', movespeed: '👣' };
 
 export function LoadoutBuilder({ loadouts, onChange, onBack }: Props) {
   const [editingId, setEditingId] = useState<string | null>(loadouts[0]?.id ?? null);
@@ -20,7 +35,14 @@ export function LoadoutBuilder({ loadouts, onChange, onBack }: Props) {
   };
 
   const create = () => {
-    const l: Loadout = { id: newId(), name: 'New loadout', archetypeId: 'arcanist', abilityIds: [], relicIds: [] };
+    const l: Loadout = {
+      id: newId(),
+      name: 'New loadout',
+      circle: 2,
+      stats: { hp: 0, magic: 0, movespeed: 0 },
+      abilityIds: [STAFF_STRIKE],
+      passiveIds: [],
+    };
     onChange([...loadouts, l]);
     setEditingId(l.id);
   };
@@ -39,13 +61,6 @@ export function LoadoutBuilder({ loadouts, onChange, onBack }: Props) {
     setEditingId(rest[0].id);
   };
 
-  const toggle = (field: 'abilityIds' | 'relicIds', id: string, max: number) => {
-    if (!editing) return;
-    const cur = editing[field];
-    if (cur.includes(id)) update({ [field]: cur.filter((x) => x !== id) });
-    else if (cur.length < max) update({ [field]: [...cur, id] });
-  };
-
   return (
     <div className="page builder">
       <div className="builder-list">
@@ -59,13 +74,15 @@ export function LoadoutBuilder({ loadouts, onChange, onBack }: Props) {
             className={`list-item ${l.id === editingId ? 'is-selected' : ''} ${validateLoadout(l).length ? 'invalid' : ''}`}
             onClick={() => setEditingId(l.id)}
           >
-            {ARCHETYPES[l.archetypeId]?.icon} {l.name}
+            {l.name} <span className="muted">· {CIRCLE_NAME[l.circle]}</span>
           </button>
         ))}
         <button onClick={create}>+ New loadout</button>
       </div>
 
-      {editing && <Editor loadout={editing} update={update} toggle={toggle} onDuplicate={duplicate} onDelete={remove} canDelete={loadouts.length > 1} />}
+      {editing && (
+        <Editor loadout={editing} update={update} onDuplicate={duplicate} onDelete={remove} canDelete={loadouts.length > 1} />
+      )}
     </div>
   );
 }
@@ -73,27 +90,35 @@ export function LoadoutBuilder({ loadouts, onChange, onBack }: Props) {
 function Editor({
   loadout,
   update,
-  toggle,
   onDuplicate,
   onDelete,
   canDelete,
 }: {
   loadout: Loadout;
   update: (p: Partial<Loadout>) => void;
-  toggle: (f: 'abilityIds' | 'relicIds', id: string, max: number) => void;
   onDuplicate: () => void;
   onDelete: () => void;
   canDelete: boolean;
 }) {
-  const arch = ARCHETYPES[loadout.archetypeId];
-  const [filter, setFilter] = useState<School | 'all' | 'equipped'>('all');
+  const [filter, setFilter] = useState<School | 'all'>('all');
   const errors = validateLoadout(loadout);
-  const shown = Object.values(ABILITIES).filter((a) =>
-    filter === 'all' ? true : filter === 'equipped' ? loadout.abilityIds.includes(a.id) : a.school === filter,
-  );
-  // Suggested school first, so each archetype's theme is one click away.
-  const schoolOrder = [arch.school, ...(Object.keys(SCHOOLS) as School[]).filter((x) => x !== arch.school)];
-  const preview = buildUnit('p1', loadout.name, loadout, { q: 0, r: 0 });
+  const left = pointsLeft(loadout);
+  const budget = CIRCLE_POINTS[loadout.circle];
+  const full = loadout.abilityIds.length >= MAX_ABILITIES;
+
+  const setSteps = (k: StatKey, steps: number) => update({ stats: { ...loadout.stats, [k]: Math.max(0, steps) } });
+  const toggleAbility = (id: string) => {
+    if (id === STAFF_STRIKE) return;
+    const has = loadout.abilityIds.includes(id);
+    update({ abilityIds: has ? loadout.abilityIds.filter((x) => x !== id) : [...loadout.abilityIds, id] });
+  };
+  const togglePassive = (id: string) => {
+    const has = loadout.passiveIds.includes(id);
+    update({ passiveIds: has ? loadout.passiveIds.filter((x) => x !== id) : [...loadout.passiveIds, id] });
+  };
+
+  const shown = Object.values(ABILITIES).filter((a) => a.id !== STAFF_STRIKE && (filter === 'all' || a.school === filter));
+  const schools = (Object.keys(SCHOOLS) as School[]).filter((sc) => Object.values(ABILITIES).some((a) => a.school === sc));
 
   return (
     <div className="builder-editor">
@@ -107,57 +132,85 @@ function Editor({
         </button>
       </div>
 
+      <div className={`budget ${left < 0 ? 'over' : ''}`}>
+        <div className="budget-bar">
+          <div style={{ width: `${Math.min(100, (100 * loadoutCost(loadout)) / budget)}%` }} />
+        </div>
+        <span>
+          <strong>{left}</strong> / {budget} Loadout Points left
+        </span>
+      </div>
+
       <section>
-        <h3>Archetype</h3>
-        <div className="cards">
-          {Object.values(ARCHETYPES).map((a) => (
-            <button
-              key={a.id}
-              className={`pick-card ${a.id === loadout.archetypeId ? 'is-selected' : ''}`}
-              onClick={() =>
-                update({
-                  archetypeId: a.id,
-                  abilityIds: loadout.abilityIds.slice(0, a.abilitySlots),
-                  relicIds: loadout.relicIds.slice(0, a.relicSlots),
-                })
-              }
-            >
-              <span className="pick-icon">{a.icon}</span>
-              <strong>{a.name}</strong>
-              <span className="muted">{a.description}</span>
-              <span className="stats">
-                ❤ {a.hp} · ⚡ {a.ap} AP · 👣 {a.move}
-                {a.armor ? ` · 🪨 ${a.armor} armor` : ''}
-                {a.regen ? ` · ✚ ${a.regen} regen` : ''} · {a.abilitySlots} spells · {a.relicSlots} relics
-              </span>
-              <span className={`school-tag school-${a.school}`}>
-                {SCHOOLS[a.school].icon} {SCHOOLS[a.school].name}
-              </span>
+        <h3>Circle</h3>
+        <div className="segmented">
+          {CIRCLES.map((c) => (
+            <button key={c} className={loadout.circle === c ? 'is-selected' : ''} onClick={() => update({ circle: c })}>
+              {CIRCLE_NAME[c]} <span className="muted">· {CIRCLE_POINTS[c]} pts</span>
             </button>
           ))}
         </div>
       </section>
 
       <section>
+        <h3>Stats</h3>
+        <div className="stat-rows">
+          {STAT_KEYS.map((k) => {
+            const steps = loadout.stats[k];
+            const next = statStepCost(k, steps + 1);
+            return (
+              <div key={k} className="stat-row">
+                <span className="stat-label">
+                  {STAT_ICON[k]} {STAT_NAME[k]}
+                </span>
+                <button className="ghost" disabled={steps <= 0} onClick={() => setSteps(k, steps - 1)}>
+                  −
+                </button>
+                <strong className="stat-value">{statValue(k, steps)}</strong>
+                <button disabled={next > left} onClick={() => setSteps(k, steps + 1)}>
+                  +{STAT_STEP_GAIN[k]} <span className="muted">({next} pts)</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
         <h3>
-          Abilities <span className="muted">{loadout.abilityIds.length}/{arch.abilitySlots}</span>
+          Abilities <span className="muted">{loadout.abilityIds.length}/{MAX_ABILITIES}</span>
         </h3>
+        <div className="slots">
+          {Array.from({ length: MAX_ABILITIES }, (_, i) => {
+            const id = loadout.abilityIds[i];
+            const a = id ? ABILITIES[id] : null;
+            return (
+              <button
+                key={i}
+                className={`slot ${a ? `school-${a.school}` : 'empty'}`}
+                disabled={!a || id === STAFF_STRIKE}
+                onClick={() => id && toggleAbility(id)}
+                title={a ? (id === STAFF_STRIKE ? 'Every mage has Staff Strike' : 'Click to remove') : 'Empty slot'}
+              >
+                {a ? (
+                  <>
+                    <span>{a.icon}</span>
+                    <span className="slot-name">{a.name}</span>
+                  </>
+                ) : (
+                  <span className="muted">{i + 1}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
         <div className="filters">
           <button className={filter === 'all' ? 'is-selected' : ''} onClick={() => setFilter('all')}>
             All
           </button>
-          <button className={filter === 'equipped' ? 'is-selected' : ''} onClick={() => setFilter('equipped')}>
-            Equipped
-          </button>
-          {schoolOrder.map((sc) => (
-            <button
-              key={sc}
-              className={`school-chip school-${sc} ${filter === sc ? 'is-selected' : ''} ${sc === arch.school ? 'suggested' : ''}`}
-              onClick={() => setFilter(sc)}
-              title={sc === arch.school ? `${arch.name}'s school` : undefined}
-            >
+          {schools.map((sc) => (
+            <button key={sc} className={`school-chip school-${sc} ${filter === sc ? 'is-selected' : ''}`} onClick={() => setFilter(sc)}>
               {SCHOOLS[sc].icon} {SCHOOLS[sc].name}
-              {sc === arch.school && ' ★'}
             </button>
           ))}
         </div>
@@ -168,62 +221,62 @@ function Editor({
               <button
                 key={a.id}
                 className={`pick-card school-${a.school} ${on ? 'is-selected' : ''}`}
-                disabled={!on && loadout.abilityIds.length >= arch.abilitySlots}
-                onClick={() => toggle('abilityIds', a.id, arch.abilitySlots)}
+                disabled={!on && (full || a.points > left)}
+                onClick={() => toggleAbility(a.id)}
               >
-                <span className="pick-icon">{a.icon}</span>
+                <span className="pick-head">
+                  <span className="pick-icon">{a.icon}</span>
+                  <span className="price">{a.points} pts</span>
+                </span>
                 <strong>{a.name}</strong>
                 <span className="muted">{a.description}</span>
-                <span className="stats">
-                  {a.apCost} AP · rng {a.range}
-                  {a.aoe ? ` · AoE ${a.aoe}` : ''}
-                  {a.cooldown ? ` · CD ${a.cooldown}` : ''}
-                  {a.needsLOS ? ' · LOS' : ''}
-                </span>
+                <span className="stats">{abilitySummary(a)}</span>
               </button>
             );
           })}
         </div>
       </section>
 
-      <section>
-        <h3>
-          Relics <span className="muted">{loadout.relicIds.length}/{arch.relicSlots}</span>
-        </h3>
-        <div className="cards small">
-          {Object.values(RELICS).map((r) => {
-            const on = loadout.relicIds.includes(r.id);
-            return (
-              <button
-                key={r.id}
-                className={`pick-card ${on ? 'is-selected' : ''}`}
-                disabled={!on && loadout.relicIds.length >= arch.relicSlots}
-                onClick={() => toggle('relicIds', r.id, arch.relicSlots)}
-              >
-                <span className="pick-icon">{r.icon}</span>
-                <strong>{r.name}</strong>
-                <span className="muted">{r.description}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
+      {Object.keys(PASSIVES).length > 0 && (
+        <section>
+          <h3>Passives</h3>
+          <div className="cards small">
+            {Object.values(PASSIVES).map((p) => {
+              const on = loadout.passiveIds.includes(p.id);
+              return (
+                <button
+                  key={p.id}
+                  className={`pick-card ${on ? 'is-selected' : ''}`}
+                  disabled={!on && p.points > left}
+                  onClick={() => togglePassive(p.id)}
+                >
+                  <span className="pick-head">
+                    <span className="pick-icon">{p.icon}</span>
+                    <span className="price">{p.points} pts</span>
+                  </span>
+                  <strong>{p.name}</strong>
+                  <span className="muted">{p.description}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
-      <section className="preview">
-        <h3>Final stats</h3>
-        <div className="stats big">
-          ❤ {preview.maxHp} HP · ⚡ {preview.maxAp} AP · 👣 {preview.move} move · 💥 +{preview.power} power · 🎯{' '}
-          {preview.rangeBonus >= 0 ? '+' : ''}
-          {preview.rangeBonus} range · 🪨 {preview.armor} armor · ✚ {preview.regen} regen
-        </div>
-        {errors.length > 0 && (
-          <ul className="errors">
-            {errors.map((e) => (
-              <li key={e}>{e}</li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {errors.length > 0 && (
+        <ul className="errors">
+          {errors.map((e) => (
+            <li key={e}>{e}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
+}
+
+export function abilitySummary(a: AbilityDef): string {
+  const parts = [a.kind === 'technique' ? 'Technique' : 'Spell', `${a.apCost} AP`];
+  if (a.range) parts.push(`rng ${a.range}`);
+  if (a.aoe) parts.push(`AoE ${a.aoe}`);
+  return parts.join(' · ');
 }

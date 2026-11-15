@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { ARCHETYPES } from '../game/content';
-import { validateLoadout } from '../game/loadout';
+import { CIRCLE_NAME, validateLoadout } from '../game/loadout';
 import { randomSeed } from '../game/rng';
 import type { Loadout, MatchConfig } from '../game/types';
 import type { MatchMode } from './MatchScreen';
@@ -41,7 +40,7 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
     <select value={value} onChange={(e) => onChange(e.target.value)}>
       {valid.map((l) => (
         <option key={l.id} value={l.id}>
-          {ARCHETYPES[l.archetypeId].icon} {l.name}
+          {l.name} · {CIRCLE_NAME[l.circle]}
         </option>
       ))}
     </select>

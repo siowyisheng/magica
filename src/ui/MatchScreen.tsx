@@ -6,7 +6,7 @@ import { newId, saveReplay } from '../game/storage';
 import type { Action, GameState, MatchConfig, MatchRecord, PlayerId } from '../game/types';
 import { BroadcastChannelTransport, SpectateHost } from '../net/spectate';
 import { HexBoard, type BoardHighlights } from './HexBoard';
-import { AbilityBar, EventLog, TurnTimer, UnitCard } from './Panels';
+import { AbilityBar, EventLog, TurnTimer, MageCard } from './Panels';
 import { useCountdown } from './useCountdown';
 
 export type MatchMode = 'ai' | 'hotseat';
@@ -93,7 +93,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       return;
     }
     if (highlights.reachable?.has(key(h))) dispatch({ type: 'move', player: controlling, to: h });
-    else if (equals(h, state.units[controlling].pos)) setSelected(null);
+    else if (equals(h, state.mages[controlling].pos)) setSelected(null);
   };
 
   const endTurn = useCallback(() => {
@@ -106,7 +106,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       if (!controlling) return;
       const n = Number(e.key);
       if (n >= 1 && n <= 9) {
-        const slot = stateRef.current.units[controlling].abilities[n - 1];
+        const slot = stateRef.current.mages[controlling].abilities[n - 1];
         if (slot) setSelected((s) => (s === slot.id ? null : slot.id));
       } else if (e.key === 'Escape') setSelected(null);
       else if (e.key === ' ' || e.key.toLowerCase() === 'e') {
@@ -120,7 +120,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
 
   const barPlayer: PlayerId = mode === 'hotseat' ? state.active : 'p1';
   const winnerText =
-    state.winner === 'draw' ? 'Draw' : state.winner ? `${state.units[state.winner].name} wins` : '';
+    state.winner === 'draw' ? 'Draw' : state.winner ? `${state.mages[state.winner].name} wins` : '';
 
   return (
     <div className="match">
@@ -137,7 +137,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       </header>
 
       <aside className="side left">
-        <UnitCard unit={state.units.p1} active={state.active === 'p1'} />
+        <MageCard unit={state.mages.p1} active={state.active === 'p1'} />
       </aside>
 
       <main className="board-wrap">
@@ -145,7 +145,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       </main>
 
       <aside className="side right">
-        <UnitCard unit={state.units.p2} active={state.active === 'p2'} />
+        <MageCard unit={state.mages.p2} active={state.active === 'p2'} />
         <EventLog events={state.events} />
       </aside>
 
@@ -153,7 +153,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
         <TurnTimer remaining={remaining} total={config.turnSeconds} />
         <AbilityBar state={state} player={barPlayer} selected={selected} onSelect={setSelected} disabled={!controlling} />
         <button className="end-turn" onClick={endTurn} disabled={!controlling}>
-          {controlling ? 'End turn' : `${state.units[state.active].name}…`}
+          {controlling ? 'End turn' : `${state.mages[state.active].name}…`}
           <span className="hotkey">Space</span>
         </button>
       </footer>

@@ -223,3 +223,20 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .status-poison { color: var(--death); }
 .status-vulnerable { color: var(--blood); }
 .traits { display: flex; gap: 0.7rem; flex-wrap: wrap; }
+
+/* ---------- Point loadouts ---------- */
+.budget { display: flex; align-items: center; gap: 0.8rem; margin: 0.6rem 0 0.2rem; position: sticky; top: 0; background: var(--bg); padding: 0.5rem 0; z-index: 2; }
+.budget-bar { flex: 1; height: 10px; border-radius: 99px; background: #0008; overflow: hidden; }
+.budget-bar > div { height: 100%; background: linear-gradient(90deg, #c99a35, var(--gold)); transition: width 0.2s; }
+.budget.over { color: var(--danger); }
+.budget.over .budget-bar > div { background: var(--danger); }
+.stat-rows { display: grid; gap: 0.4rem; max-width: 460px; }
+.stat-row { display: grid; grid-template-columns: 140px 40px 50px 1fr; gap: 0.5rem; align-items: center; }
+.stat-value { text-align: center; font-size: 1.15rem; font-family: Cinzel, serif; }
+.slots { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.4rem; margin-bottom: 0.8rem; }
+.slot { display: grid; justify-items: center; gap: 0.15rem; padding: 0.45rem 0.2rem; min-height: 62px; font-size: 1.2rem; }
+.slot.empty { border-style: dashed; background: transparent; }
+.slot-name { font-size: 0.7rem; }
+.slot:disabled { opacity: 1; cursor: default; }
+.pick-head { display: flex; justify-content: space-between; align-items: center; }
+.price { font-size: 0.75rem; color: var(--gold); border: 1px solid #e8c46a55; border-radius: 99px; padding: 0.05rem 0.5rem; }

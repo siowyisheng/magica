@@ -68,8 +68,13 @@ export type School =
   | 'holy'
   | 'time';
 
+export type AbilityKind = 'spell' | 'technique';
+
 export interface AbilityDef {
   id: string;
+  kind: AbilityKind;
+  /** Loadout Points to include this Ability in a Loadout. */
+  points: number;
   name: string;
   icon: string;
   school: School;
@@ -90,48 +95,30 @@ export interface AbilityDef {
   effect: AbilityEffect;
 }
 
-export interface StatMods {
-  hp?: number;
-  ap?: number;
-  move?: number;
-  power?: number;
-  range?: number;
-  /** Flat reduction to every damage instance (minimum 1 still lands). */
-  armor?: number;
-  /** HP restored at the start of each of your turns. */
-  regen?: number;
-}
+/** Which of a mage's stats a Loadout can buy steps of. */
+export type StatKey = 'hp' | 'magic' | 'movespeed';
 
-export interface ArchetypeDef {
-  id: string;
-  name: string;
-  icon: string;
-  description: string;
-  hp: number;
-  ap: number;
-  move: number;
-  abilitySlots: number;
-  relicSlots: number;
-  /** Thematic school; the builder suggests abilities from it. */
-  school: School;
-  armor?: number;
-  regen?: number;
-}
-
-export interface RelicDef {
-  id: string;
-  name: string;
-  icon: string;
-  description: string;
-  mods: StatMods;
-}
+/** A mage's rank. Sets the Loadout Point budget: First 30, Second 20, Third 10. */
+export type Circle = 1 | 2 | 3;
 
 export interface Loadout {
   id: string;
   name: string;
-  archetypeId: string;
+  circle: Circle;
+  /** Steps bought above base, per stat. */
+  stats: Record<StatKey, number>;
+  /** Up to 8 Abilities; Staff Strike is always first. */
   abilityIds: string[];
-  relicIds: string[];
+  passiveIds: string[];
+}
+
+export interface PassiveDef {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  /** Loadout Points to include this Passive. */
+  points: number;
 }
 
 export interface AbilityState {
@@ -139,22 +126,20 @@ export interface AbilityState {
   cooldown: number;
 }
 
-export interface Unit {
+export interface Mage {
   owner: PlayerId;
   name: string;
-  archetypeId: string;
+  circle: Circle;
   pos: Hex;
   hp: number;
   maxHp: number;
   shield: number;
   ap: number;
   maxAp: number;
+  magic: number;
+  movespeed: number;
   move: number;
   moveLeft: number;
-  /** Bonus added to every damage/heal/shield effect. */
-  power: number;
-  /** Bonus added to every ability range (except self-target). */
-  rangeBonus: number;
   armor: number;
   regen: number;
   abilities: AbilityState[];
@@ -178,7 +163,7 @@ export interface GameState {
   turn: number;
   active: PlayerId;
   tiles: Record<string, Tile>;
-  units: Record<PlayerId, Unit>;
+  mages: Record<PlayerId, Mage>;
   events: GameEvent[];
   winner: PlayerId | 'draw' | null;
 }

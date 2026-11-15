@@ -9,8 +9,8 @@ import { other, type Action, type GameState, type PlayerId } from './types';
  * Every action it returns either spends AP or movement, so it always terminates.
  */
 export function chooseAction(state: GameState, player: PlayerId): Action {
-  const me = state.units[player];
-  const enemy = state.units[other(player)];
+  const me = state.mages[player];
+  const enemy = state.mages[other(player)];
 
   // 1. Best cast available right now.
   let best: { score: number; action: Action } | null = null;
@@ -53,8 +53,8 @@ export function chooseAction(state: GameState, player: PlayerId): Action {
 }
 
 function scoreCast(state: GameState, player: PlayerId, abilityId: string, target: Hex): number {
-  const me = state.units[player];
-  const enemy = state.units[other(player)];
+  const me = state.mages[player];
+  const enemy = state.mages[other(player)];
   const def = ABILITIES[abilityId];
   const fx = def.effect;
   const dist = distance(me.pos, enemy.pos);
@@ -63,7 +63,7 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, target
       const hitsEnemy = distance(enemy.pos, target) <= def.aoe;
       const hitsMe = !def.spareCaster && distance(me.pos, target) <= def.aoe;
       const vuln = enemy.statuses.find((s) => s.kind === 'vulnerable')?.power ?? 0;
-      const raw = fx.amount > 0 ? fx.amount + me.power : 0;
+      const raw = fx.amount > 0 ? fx.amount : 0;
       const dmg = raw > 0 ? Math.max(1, raw + vuln - enemy.armor) : 0;
       let score = 0;
       if (hitsEnemy) {
@@ -77,11 +77,11 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, target
       return score / Math.max(1, def.apCost);
     }
     case 'heal':
-      return me.hp <= me.maxHp * 0.6 ? Math.min(me.maxHp - me.hp, fx.amount + me.power) / def.apCost : 0;
+      return me.hp <= me.maxHp * 0.6 ? Math.min(me.maxHp - me.hp, fx.amount) / def.apCost : 0;
     case 'cleanse': {
       const bad = me.statuses.length;
       const missing = me.maxHp - me.hp;
-      return bad > 0 || me.hp <= me.maxHp * 0.6 ? (bad * 2 + Math.min(missing, fx.heal + me.power)) / def.apCost : 0;
+      return bad > 0 || me.hp <= me.maxHp * 0.6 ? (bad * 2 + Math.min(missing, fx.heal)) / def.apCost : 0;
     }
     case 'shield':
       return dist <= 5 && me.ap === def.apCost ? 1 : 0;
@@ -101,7 +101,7 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, target
   }
 }
 
-function maxDamageRange(me: GameState['units']['p1']): number {
+function maxDamageRange(me: GameState['mages']['p1']): number {
   const ranges = me.abilities
     .map((s) => ABILITIES[s.id])
     .filter((d) => d.effect.type === 'damage' && d.effect.amount > 0)

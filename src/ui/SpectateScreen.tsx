@@ -4,7 +4,7 @@ import { loadReplays } from '../game/storage';
 import type { Action, MatchRecord } from '../game/types';
 import { BroadcastChannelTransport, type LiveMatchInfo } from '../net/spectate';
 import { HexBoard } from './HexBoard';
-import { EventLog, UnitCard } from './Panels';
+import { EventLog, MageCard } from './Panels';
 
 /** Lobby: live matches (from other windows) + saved replays. */
 export function SpectateLobby({
@@ -169,13 +169,13 @@ function Viewer({
         <div className="live-pill">{badge}</div>
       </header>
       <aside className="side left">
-        <UnitCard unit={state.units.p1} active={state.active === 'p1'} />
+        <MageCard unit={state.mages.p1} active={state.active === 'p1'} />
       </aside>
       <main className="board-wrap">
         <HexBoard state={state} />
       </main>
       <aside className="side right">
-        <UnitCard unit={state.units.p2} active={state.active === 'p2'} />
+        <MageCard unit={state.mages.p2} active={state.active === 'p2'} />
         <EventLog events={state.events} />
       </aside>
       <footer className="controls">{children ?? <span className="muted">Spectating — controls disabled</span>}</footer>

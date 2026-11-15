@@ -1,13 +1,36 @@
-import type { AbilityDef, ArchetypeDef, Loadout, RelicDef, School } from './types';
+import type { AbilityDef, Loadout, PassiveDef, School } from './types';
 
 // ---------------------------------------------------------------------------
 // Content tables. Add new abilities / archetypes / relics here; the loadout
 // builder, engine and AI pick them up automatically.
 // ---------------------------------------------------------------------------
 
+export const STAFF_STRIKE = 'staff-strike';
+
+/** Techniques from the original ability set (physical, no Mana once Mana exists). */
+const INTERIM_TECHNIQUES = new Set(['cleave', 'quick-stab', 'backstab', 'boulder-toss']);
+
+type RawAbility = Omit<AbilityDef, 'kind' | 'points'> & Partial<Pick<AbilityDef, 'kind' | 'points'>>;
+
+/**
+ * Interim pricing for the original ability set until the new catalogue lands:
+ * AP cost, +1 for area effects.
+ */
+const priced = (a: RawAbility): AbilityDef => ({
+  ...a,
+  kind: a.kind ?? (INTERIM_TECHNIQUES.has(a.id) ? 'technique' : 'spell'),
+  points: a.points ?? Math.max(1, a.apCost) + (a.aoe > 0 ? 1 : 0),
+});
+
 export const ABILITIES: Record<string, AbilityDef> = Object.fromEntries(
   (
     [
+      {
+        id: STAFF_STRIKE, name: 'Staff Strike', icon: '🪄', school: 'steel', kind: 'technique', points: 0,
+        description: 'A plain whack with your staff. Every mage has it.',
+        apCost: 1, cooldown: 0, range: 1, targeting: 'enemy', needsLOS: false, aoe: 0,
+        effect: { type: 'damage', amount: 2 },
+      },
       {
         id: 'firebolt', name: 'Firebolt', icon: '🔥', school: 'fire',
         description: 'Hurl a bolt of flame. Sets the target burning.',
@@ -213,99 +236,11 @@ export const ABILITIES: Record<string, AbilityDef> = Object.fromEntries(
         apCost: 1, cooldown: 4, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
         effect: { type: 'refresh', amount: 2 },
       },
-    ] satisfies AbilityDef[]
-  ).map((a) => [a.id, a]),
+    ] satisfies RawAbility[]
+  ).map((a) => [a.id, priced(a)]),
 );
 
-export const ARCHETYPES: Record<string, ArchetypeDef> = Object.fromEntries(
-  (
-    [
-      {
-        id: 'warden', name: 'Warden', icon: '🛡️',
-        description: 'Tough frontliner. Lots of HP, fewer tricks.',
-        hp: 24, ap: 4, move: 3, abilitySlots: 3, relicSlots: 2, school: 'steel',
-      },
-      {
-        id: 'arcanist', name: 'Arcanist', icon: '🔮',
-        description: 'Glass cannon with a deep spellbook.',
-        hp: 16, ap: 5, move: 3, abilitySlots: 4, relicSlots: 2, school: 'arcane',
-      },
-      {
-        id: 'stalker', name: 'Stalker', icon: '🏹',
-        description: 'Fast skirmisher. Hit, run, repeat.',
-        hp: 18, ap: 4, move: 4, abilitySlots: 3, relicSlots: 3, school: 'nature',
-      },
-      {
-        id: 'bloodreaver', name: 'Bloodreaver', icon: '🧛',
-        description: 'Blood mage. Trades life for power and heals by hurting.',
-        hp: 22, ap: 4, move: 3, abilitySlots: 3, relicSlots: 2, school: 'blood',
-      },
-      {
-        id: 'tidecaller', name: 'Tidecaller', icon: '🧜',
-        description: 'Controls the battlefield with currents: drags, shoves, cleanses.',
-        hp: 20, ap: 5, move: 3, abilitySlots: 4, relicSlots: 2, school: 'tide',
-      },
-      {
-        id: 'gravebinder', name: 'Gravebinder', icon: '💀',
-        description: 'Necromancer who rots foes from afar and drinks their souls.',
-        hp: 16, ap: 5, move: 3, abilitySlots: 3, relicSlots: 2, school: 'death', regen: 1,
-      },
-      {
-        id: 'geomancer', name: 'Geomancer', icon: '⛰️',
-        description: 'Slow, armored stone-shaper who reshapes the arena itself.',
-        hp: 24, ap: 4, move: 2, abilitySlots: 3, relicSlots: 2, school: 'earth', armor: 1,
-      },
-      {
-        id: 'shadowblade', name: 'Shadowblade', icon: '🥷',
-        description: 'Fragile assassin. Marks, swaps in, and stabs.',
-        hp: 15, ap: 4, move: 4, abilitySlots: 3, relicSlots: 3, school: 'shadow',
-      },
-      {
-        id: 'lightbringer', name: 'Lightbringer', icon: '😇',
-        description: 'Radiant paladin who shrugs off curses and outlasts.',
-        hp: 22, ap: 4, move: 3, abilitySlots: 3, relicSlots: 2, school: 'holy', regen: 1,
-      },
-      {
-        id: 'chronomancer', name: 'Chronomancer', icon: '🧙',
-        description: 'Bends time: extra movement, frozen enemies, faster cooldowns.',
-        hp: 17, ap: 5, move: 3, abilitySlots: 4, relicSlots: 2, school: 'time',
-      },
-    ] satisfies ArchetypeDef[]
-  ).map((a) => [a.id, a]),
-);
-
-export const RELICS: Record<string, RelicDef> = Object.fromEntries(
-  (
-    [
-      { id: 'ember-sigil', name: 'Ember Sigil', icon: '🔆', description: '+1 power to all effects.', mods: { power: 1 } },
-      { id: 'haste-boots', name: 'Boots of Haste', icon: '👢', description: '+1 move.', mods: { move: 1 } },
-      { id: 'heartstone', name: 'Heartstone', icon: '❤️', description: '+5 max HP.', mods: { hp: 5 } },
-      { id: 'focus-crystal', name: 'Focus Crystal', icon: '💎', description: '+1 AP per turn, −3 max HP.', mods: { ap: 1, hp: -3 } },
-      { id: 'eagle-eye', name: 'Eagle Eye', icon: '🦅', description: '+1 range on targeted abilities.', mods: { range: 1 } },
-      // Blood
-      { id: 'blood-chalice', name: 'Blood Chalice', icon: '🍷', description: 'Regenerate 1 HP per turn, +2 max HP.', mods: { regen: 1, hp: 2 } },
-      { id: 'ravenous-fang', name: 'Ravenous Fang', icon: '🦷', description: '+1 power, −2 max HP.', mods: { power: 1, hp: -2 } },
-      // Tide
-      { id: 'coral-mail', name: 'Coral Mail', icon: '🪸', description: '+1 armor, −1 move.', mods: { armor: 1, move: -1 } },
-      { id: 'conch-of-currents', name: 'Conch of Currents', icon: '🐚', description: '+1 range, +2 max HP.', mods: { range: 1, hp: 2 } },
-      // Death
-      { id: 'phylactery', name: 'Phylactery', icon: '⚱️', description: '+6 max HP, −1 move.', mods: { hp: 6, move: -1 } },
-      { id: 'lich-candle', name: 'Lich Candle', icon: '🕯️', description: '+1 AP, −1 move.', mods: { ap: 1, move: -1 } },
-      // Earth
-      { id: 'granite-heart', name: 'Granite Heart', icon: '🗿', description: '+1 armor.', mods: { armor: 1 } },
-      { id: 'obsidian-edge', name: 'Obsidian Edge', icon: '🔺', description: '+2 power, −1 range.', mods: { power: 2, range: -1 } },
-      // Shadow
-      { id: 'cloak-of-shadows', name: 'Cloak of Shadows', icon: '🧥', description: '+1 move, +1 range.', mods: { move: 1, range: 1 } },
-      { id: 'nightshade-vial', name: 'Nightshade Vial', icon: '🧪', description: '+2 power, −4 max HP.', mods: { power: 2, hp: -4 } },
-      // Holy
-      { id: 'halo', name: 'Halo', icon: '💫', description: 'Regenerate 1 HP per turn.', mods: { regen: 1 } },
-      { id: 'sacred-plate', name: 'Sacred Plate', icon: '🪖', description: '+1 armor, +3 max HP, −1 move.', mods: { armor: 1, hp: 3, move: -1 } },
-      // Time
-      { id: 'chrono-lens', name: 'Chrono Lens', icon: '🔭', description: '+1 range, +1 move.', mods: { range: 1, move: 1 } },
-      { id: 'sands-of-time', name: 'Sands of Time', icon: '⌛', description: '+1 AP, −3 max HP.', mods: { ap: 1, hp: -3 } },
-    ] satisfies RelicDef[]
-  ).map((r) => [r.id, r]),
-);
+export const PASSIVES: Record<string, PassiveDef> = {};
 
 export const SCHOOLS: Record<School, { name: string; icon: string }> = {
   fire: { name: 'Fire', icon: '🔥' },
@@ -322,15 +257,20 @@ export const SCHOOLS: Record<School, { name: string; icon: string }> = {
   time: { name: 'Time', icon: '⏳' },
 };
 
+const loadout = (l: Omit<Loadout, 'abilityIds'> & { abilities: string[] }): Loadout => ({
+  id: l.id,
+  name: l.name,
+  circle: l.circle,
+  stats: l.stats,
+  abilityIds: [STAFF_STRIKE, ...l.abilities],
+  passiveIds: l.passiveIds,
+});
+
 export const DEFAULT_LOADOUTS: Loadout[] = [
-  { id: 'default-pyro', name: 'Pyromancer', archetypeId: 'arcanist', abilityIds: ['firebolt', 'meteor', 'blink', 'arcane-ward'], relicIds: ['ember-sigil', 'heartstone'] },
-  { id: 'default-bruiser', name: 'Bruiser', archetypeId: 'warden', abilityIds: ['cleave', 'glacial-snare', 'mend'], relicIds: ['haste-boots', 'heartstone'] },
-  { id: 'default-ranger', name: 'Thornranger', archetypeId: 'stalker', abilityIds: ['frost-lance', 'thorn-volley', 'quick-stab'], relicIds: ['eagle-eye', 'haste-boots', 'heartstone'] },
-  { id: 'default-reaver', name: 'Sanguine Duelist', archetypeId: 'bloodreaver', abilityIds: ['blood-lash', 'crimson-pact', 'exsanguinate'], relicIds: ['blood-chalice', 'ravenous-fang'] },
-  { id: 'default-tide', name: 'Maelstrom', archetypeId: 'tidecaller', abilityIds: ['riptide', 'tidal-wave', 'cleansing-rain', 'frost-lance'], relicIds: ['conch-of-currents', 'heartstone'] },
-  { id: 'default-grave', name: 'Plaguelord', archetypeId: 'gravebinder', abilityIds: ['soul-drain', 'plague', 'doom'], relicIds: ['phylactery', 'lich-candle'] },
-  { id: 'default-geo', name: 'Mountain', archetypeId: 'geomancer', abilityIds: ['raise-earth', 'boulder-toss', 'tremor'], relicIds: ['haste-boots', 'heartstone'] },
-  { id: 'default-shadow', name: 'Nightblade', archetypeId: 'shadowblade', abilityIds: ['shadow-swap', 'mark-for-death', 'backstab'], relicIds: ['cloak-of-shadows', 'nightshade-vial', 'heartstone'] },
-  { id: 'default-light', name: 'Dawnguard', archetypeId: 'lightbringer', abilityIds: ['smite', 'purify', 'radiant-nova'], relicIds: ['halo', 'sacred-plate'] },
-  { id: 'default-chrono', name: 'Timeweaver', archetypeId: 'chronomancer', abilityIds: ['haste', 'temporal-bolt', 'stasis', 'rewind'], relicIds: ['chrono-lens', 'sands-of-time'] },
+  loadout({ id: 'c1-archmage', name: 'Archmage', circle: 1, stats: { hp: 3, magic: 2, movespeed: 0 }, abilities: ['firebolt', 'meteor', 'frost-lance', 'arcane-ward', 'blink', 'mend'], passiveIds: [] }),
+  loadout({ id: 'c1-warlord', name: 'Battlemage', circle: 1, stats: { hp: 4, magic: 0, movespeed: 1 }, abilities: ['cleave', 'quick-stab', 'glacial-snare', 'blood-lash', 'mend'], passiveIds: [] }),
+  loadout({ id: 'c2-pyro', name: 'Pyromancer', circle: 2, stats: { hp: 2, magic: 1, movespeed: 0 }, abilities: ['firebolt', 'meteor', 'blink', 'arcane-ward'], passiveIds: [] }),
+  loadout({ id: 'c2-stalker', name: 'Stalker', circle: 2, stats: { hp: 2, magic: 0, movespeed: 1 }, abilities: ['frost-lance', 'quick-stab', 'thorn-volley'], passiveIds: [] }),
+  loadout({ id: 'c3-adept', name: 'Adept', circle: 3, stats: { hp: 2, magic: 0, movespeed: 0 }, abilities: ['firebolt', 'blink'], passiveIds: [] }),
+  loadout({ id: 'c3-brawler', name: 'Brawler', circle: 3, stats: { hp: 3, magic: 0, movespeed: 0 }, abilities: ['quick-stab', 'mend'], passiveIds: [] }),
 ];

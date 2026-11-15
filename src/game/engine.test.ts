@@ -44,13 +44,13 @@ describe('engine', () => {
     const g = createGame(config);
     const [dest, cost] = [...reachable(g, 'p1').entries()][0];
     const next = applyAction(g, { type: 'move', player: 'p1', to: { q: +dest.split(',')[0], r: +dest.split(',')[1] } });
-    expect(next.units.p1.moveLeft).toBe(g.units.p1.moveLeft - cost);
+    expect(next.mages.p1.moveLeft).toBe(g.mages.p1.moveLeft - cost);
   });
 
   it('cooldowns block recasting', () => {
     let g = createGame(config);
-    g = applyAction(g, { type: 'cast', player: 'p1', abilityId: 'arcane-ward', target: g.units.p1.pos });
-    expect(g.units.p1.shield).toBeGreaterThan(0);
+    g = applyAction(g, { type: 'cast', player: 'p1', abilityId: 'arcane-ward', target: g.mages.p1.pos });
+    expect(g.mages.p1.shield).toBeGreaterThan(0);
     expect(castError(g, 'p1', 'arcane-ward')).toMatch(/cooldown/);
   });
 

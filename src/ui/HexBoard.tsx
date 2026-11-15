@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ARCHETYPES } from '../game/content';
 import { hexPoints, key, toPixel, type Hex } from '../game/hex';
 import { PLAYERS, type GameState, type StatusKind } from '../game/types';
 
@@ -105,7 +104,7 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
       })}
 
       {PLAYERS.map((p) => {
-        const u = state.units[p];
+        const u = state.mages[p];
         const { x, y } = toPixel(u.pos, SIZE);
         const hpW = SIZE * 1.4;
         const active = state.active === p && !state.winner;
@@ -120,7 +119,7 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
             {active && <circle r={SIZE * 1.1} fill={`url(#glow-${p})`} className="unit-glow" />}
             <circle r={SIZE * 0.68} className="unit-body" />
             <text className="unit-icon" textAnchor="middle" dominantBaseline="central">
-              {ARCHETYPES[u.archetypeId]?.icon ?? '?'}
+              🧙
             </text>
             <g transform={`translate(${-hpW / 2} ${-SIZE * 1.05})`}>
               <rect width={hpW} height={5} rx={2} className="hp-bg" />

@@ -1,18 +1,20 @@
 import { useEffect, useRef } from 'react';
-import { ABILITIES, ARCHETYPES } from '../game/content';
+import { ABILITIES } from '../game/content';
+import { CIRCLE_NAME } from '../game/loadout';
 import { castError } from '../game/engine';
-import type { GameEvent, GameState, PlayerId, Unit } from '../game/types';
+import type { GameEvent, GameState, PlayerId, Mage } from '../game/types';
 import { STATUS_ICON } from './HexBoard';
 
-export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
-  const arch = ARCHETYPES[unit.archetypeId];
+export function MageCard({ unit, active }: { unit: Mage; active: boolean }) {
   return (
     <div className={`unit-card card-${unit.owner} ${active ? 'is-active' : ''}`}>
       <div className="unit-card-head">
-        <span className="unit-card-icon">{arch.icon}</span>
+        <span className="unit-card-icon">🧙</span>
         <div>
           <div className="unit-card-name">{unit.name}</div>
-          <div className="muted">{arch.name}</div>
+          <div className="muted">
+            {CIRCLE_NAME[unit.circle]} · 🔮 {unit.magic} Magic · 👣 {unit.movespeed}
+          </div>
         </div>
       </div>
       <Bar label="HP" value={unit.hp} max={unit.maxHp} cls="hp" extra={unit.shield ? `+${unit.shield}🛡` : ''} />
@@ -22,11 +24,10 @@ export function UnitCard({ unit, active }: { unit: Unit; active: boolean }) {
           <span key={i} className={`pip ${i < unit.ap ? 'on' : ''}`} />
         ))}
       </div>
-      {(unit.armor > 0 || unit.regen > 0 || unit.power !== 0) && (
+      {(unit.armor > 0 || unit.regen > 0) && (
         <div className="traits muted">
           {unit.armor > 0 && <span>🪨 {unit.armor} armor</span>}
           {unit.regen > 0 && <span>✚ {unit.regen} regen</span>}
-          {unit.power !== 0 && <span>💥 {unit.power > 0 ? '+' : ''}{unit.power} power</span>}
         </div>
       )}
       <div className="pips">
@@ -83,7 +84,7 @@ export function AbilityBar({
   onSelect: (id: string | null) => void;
   disabled: boolean;
 }) {
-  const unit = state.units[player];
+  const unit = state.mages[player];
   return (
     <div className="ability-bar">
       {unit.abilities.map((slot, i) => {

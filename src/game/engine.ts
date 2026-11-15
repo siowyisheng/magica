@@ -1,7 +1,7 @@
 import { generateBoard, moveCost, spawnFor } from './board';
 import { ABILITIES } from './content';
 import { distance, equals, key, line, neighbors, toPixel, type Hex } from './hex';
-import { buildUnit } from './loadout';
+import { buildMage } from './loadout';
 import {
   other,
   type AbilityDef,
@@ -11,7 +11,7 @@ import {
   type MatchConfig,
   type PlayerId,
   type Status,
-  type Unit,
+  type Mage,
 } from './types';
 
 // ---------------------------------------------------------------------------
@@ -22,16 +22,16 @@ import {
 
 export function createGame(config: MatchConfig): GameState {
   const tiles = generateBoard(config.seed, config.radius);
-  const units = {
-    p1: buildUnit('p1', config.names.p1, config.loadouts.p1, spawnFor('p1', config.radius)),
-    p2: buildUnit('p2', config.names.p2, config.loadouts.p2, spawnFor('p2', config.radius)),
+  const mages = {
+    p1: buildMage('p1', config.names.p1, config.loadouts.p1, spawnFor('p1', config.radius)),
+    p2: buildMage('p2', config.names.p2, config.loadouts.p2, spawnFor('p2', config.radius)),
   };
   return {
     config,
     turn: 1,
     active: 'p1',
     tiles,
-    units,
+    mages,
     events: [{ turn: 1, kind: 'turn', text: `${config.names.p1} takes the first turn.` }],
     winner: null,
   };
@@ -41,8 +41,8 @@ export function createGame(config: MatchConfig): GameState {
 
 /** Hexes the player's unit can move to this turn, with their movement cost. */
 export function reachable(state: GameState, player: PlayerId): Map<string, number> {
-  const u = state.units[player];
-  const blocked = key(state.units[other(player)].pos);
+  const u = state.mages[player];
+  const blocked = key(state.mages[other(player)].pos);
   const best = new Map<string, number>([[key(u.pos), 0]]);
   const frontier: Array<[Hex, number]> = [[u.pos, 0]];
   while (frontier.length) {
@@ -71,14 +71,14 @@ export function hasLOS(state: GameState, a: Hex, b: Hex): boolean {
     .every((h) => state.tiles[key(h)]?.terrain !== 'rock');
 }
 
-export const abilityRange = (u: Unit, def: AbilityDef): number =>
-  def.targeting === 'self' ? 0 : Math.max(1, def.range + u.rangeBonus);
+export const abilityRange = (_mage: Mage, def: AbilityDef): number =>
+  def.targeting === 'self' ? 0 : Math.max(1, def.range);
 
 /** Why the player can't cast this ability (at this target), or null if they can. */
 export function castError(state: GameState, player: PlayerId, abilityId: string, target?: Hex): string | null {
   if (state.winner) return 'The match is over.';
   if (state.active !== player) return 'Not your turn.';
-  const u = state.units[player];
+  const u = state.mages[player];
   const slot = u.abilities.find((a) => a.id === abilityId);
   const def = ABILITIES[abilityId];
   if (!slot || !def) return 'Ability not equipped.';
@@ -89,7 +89,7 @@ export function castError(state: GameState, player: PlayerId, abilityId: string,
 
   const tile = state.tiles[key(target)];
   if (!tile) return 'Off the board.';
-  const enemy = state.units[other(player)];
+  const enemy = state.mages[other(player)];
   const dist = distance(u.pos, target);
   if (def.targeting === 'self') return equals(target, u.pos) ? null : 'Targets yourself.';
   if (dist > abilityRange(u, def)) return 'Out of range.';
@@ -132,7 +132,7 @@ export function actionError(state: GameState, action: Action): string | null {
   }
 }
 
-export const hpFraction = (u: Unit) => u.hp / u.maxHp;
+export const hpFraction = (u: Mage) => u.hp / u.maxHp;
 
 // --- Transitions -----------------------------------------------------------
 
@@ -141,7 +141,7 @@ export function applyAction(prev: GameState, action: Action): GameState {
   if (actionError(prev, action)) return prev;
   const state = structuredClone(prev);
   const log = (e: Omit<GameEvent, 'turn'>) => state.events.push({ turn: state.turn, ...e });
-  const me = state.units[action.player];
+  const me = state.mages[action.player];
 
   switch (action.type) {
     case 'move': {
@@ -164,11 +164,11 @@ export function applyAction(prev: GameState, action: Action): GameState {
       if (action.reason === 'timeout') log({ kind: 'turn', text: `${me.name} ran out of time!` });
       state.turn += 1;
       if (state.turn > state.config.maxTurns) {
-        const [a, b] = [hpFraction(state.units.p1), hpFraction(state.units.p2)];
+        const [a, b] = [hpFraction(state.mages.p1), hpFraction(state.mages.p2)];
         state.winner = a === b ? 'draw' : a > b ? 'p1' : 'p2';
         log({
           kind: 'victory',
-          text: state.winner === 'draw' ? 'Time! The duel ends in a draw.' : `Time! ${state.units[state.winner].name} wins on health.`,
+          text: state.winner === 'draw' ? 'Time! The duel ends in a draw.' : `Time! ${state.mages[state.winner].name} wins on health.`,
         });
         break;
       }
@@ -183,18 +183,18 @@ export function applyAction(prev: GameState, action: Action): GameState {
 
 type Log = (e: Omit<GameEvent, 'turn'>) => void;
 
-function resolveEffect(state: GameState, caster: Unit, def: AbilityDef, target: Hex, log: Log) {
+function resolveEffect(state: GameState, caster: Mage, def: AbilityDef, target: Hex, log: Log) {
   const fx = def.effect;
-  const enemy = state.units[other(caster.owner)];
+  const enemy = state.mages[other(caster.owner)];
   switch (fx.type) {
     case 'damage': {
-      const victims = Object.values(state.units).filter(
+      const victims = Object.values(state.mages).filter(
         (u) => distance(u.pos, target) <= def.aoe && !(def.spareCaster && u.owner === caster.owner),
       );
       let stolen = 0;
       for (const v of victims) {
         if (fx.amount > 0) {
-          const dealt = dealDamage(v, fx.amount + caster.power, log);
+          const dealt = dealDamage(v, fx.amount, log);
           if (v.owner !== caster.owner) stolen += dealt;
         }
         if (fx.status && v.hp > 0) addStatus(v, fx.status, log);
@@ -205,10 +205,10 @@ function resolveEffect(state: GameState, caster: Unit, def: AbilityDef, target: 
       break;
     }
     case 'heal':
-      heal(caster, fx.amount + caster.power, log);
+      heal(caster, fx.amount, log);
       break;
     case 'shield': {
-      const amount = fx.amount + caster.power;
+      const amount = fx.amount;
       caster.shield += amount;
       log({ kind: 'status', text: `${caster.name} gains ${amount} shield.`, at: caster.pos, amount });
       break;
@@ -228,7 +228,7 @@ function resolveEffect(state: GameState, caster: Unit, def: AbilityDef, target: 
     case 'cleanse':
       if (caster.statuses.length) log({ kind: 'status', text: `${caster.name} is cleansed.` });
       caster.statuses = [];
-      heal(caster, fx.heal + caster.power, log);
+      heal(caster, fx.heal, log);
       break;
     case 'haste':
       caster.moveLeft += fx.move;
@@ -245,7 +245,7 @@ function resolveEffect(state: GameState, caster: Unit, def: AbilityDef, target: 
   }
 }
 
-function heal(u: Unit, amount: number, log: Log) {
+function heal(u: Mage, amount: number, log: Log) {
   const healed = Math.max(0, Math.min(u.maxHp - u.hp, amount));
   if (healed <= 0) return;
   u.hp += healed;
@@ -255,7 +255,7 @@ function heal(u: Unit, amount: number, log: Log) {
 const COLLISION_DAMAGE = 2;
 
 /** Shove `victim` |n| hexes away from (n > 0) or toward (n < 0) the caster. */
-function knockback(state: GameState, caster: Unit, victim: Unit, n: number, log: Log) {
+function knockback(state: GameState, caster: Mage, victim: Mage, n: number, log: Log) {
   const push = n > 0;
   const origin = toPixel(caster.pos, 1);
   let moved = 0;
@@ -295,7 +295,7 @@ function knockback(state: GameState, caster: Unit, victim: Unit, n: number, log:
 }
 
 /** Applies vulnerable + armor + shield. Returns HP actually lost. */
-function dealDamage(victim: Unit, amount: number, log: Log): number {
+function dealDamage(victim: Mage, amount: number, log: Log): number {
   const vuln = victim.statuses.find((s) => s.kind === 'vulnerable')?.power ?? 0;
   let total = amount + vuln;
   if (victim.armor > 0) total = Math.max(1, total - victim.armor);
@@ -312,7 +312,7 @@ function dealDamage(victim: Unit, amount: number, log: Log): number {
   return dealt;
 }
 
-function addStatus(u: Unit, s: Status, log: Log) {
+function addStatus(u: Mage, s: Status, log: Log) {
   const existing = u.statuses.find((x) => x.kind === s.kind);
   if (existing) {
     existing.turns = Math.max(existing.turns, s.turns);
@@ -330,7 +330,7 @@ const STATUS_VERB: Record<Status['kind'], string> = {
 };
 
 function startTurn(state: GameState, player: PlayerId, log: Log) {
-  const u = state.units[player];
+  const u = state.mages[player];
   u.shield = 0;
   const slow = u.statuses.find((s) => s.kind === 'slow')?.power ?? 0;
   const rooted = u.statuses.some((s) => s.kind === 'root');
@@ -345,13 +345,13 @@ function startTurn(state: GameState, player: PlayerId, log: Log) {
 
 function checkWinner(state: GameState, log: Log) {
   if (state.winner) return;
-  const dead1 = state.units.p1.hp <= 0;
-  const dead2 = state.units.p2.hp <= 0;
+  const dead1 = state.mages.p1.hp <= 0;
+  const dead2 = state.mages.p2.hp <= 0;
   if (!dead1 && !dead2) return;
   state.winner = dead1 && dead2 ? 'draw' : dead1 ? 'p2' : 'p1';
   log({
     kind: 'victory',
-    text: state.winner === 'draw' ? 'Both champions fall. Draw!' : `${state.units[state.winner].name} is victorious!`,
+    text: state.winner === 'draw' ? 'Both champions fall. Draw!' : `${state.mages[state.winner].name} is victorious!`,
   });
 }
 
