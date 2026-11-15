@@ -56,7 +56,7 @@ describe('validation', () => {
   });
 
   it('caps a Loadout at 8 Abilities, Staff Strike included', () => {
-    const nine = ['staff-strike', 'firebolt', 'meteor', 'frost-lance', 'cleave', 'quick-stab', 'blink', 'mend', 'smite'];
+    const nine = ['staff-strike', 'firebolt', 'meteor', 'frost-lance', 'icicle', 'spark', 'blink', 'mend', 'doom'];
     expect(validateLoadout(blank({ circle: 1, abilityIds: nine.slice(0, 8) })).join()).not.toMatch(/8/);
     expect(validateLoadout(blank({ circle: 1, abilityIds: nine })).join()).toMatch(/8/);
   });

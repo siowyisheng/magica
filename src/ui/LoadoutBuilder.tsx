@@ -285,6 +285,6 @@ export function abilitySummary(a: AbilityDef): string {
     if ('range' in s && s.range) parts.push(`rng ${s.range}`);
     if ('radius' in s) parts.push(`r${s.radius}`);
     if (a.effect.hit.damage) parts.push(`${a.effect.hit.damage} dmg`);
-  } else if (a.range) parts.push(`rng ${a.range}`);
+  } else if (a.targeting === 'tile') parts.push(`rng ${a.range}`);
   return parts.join(' · ');
 }

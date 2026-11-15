@@ -35,7 +35,7 @@ describe('Passives', () => {
       regeneration: 3,
       wellspring: 4,
     });
-    const eight = ['staff-strike', 'firebolt', 'frost-lance', 'doom', 'mend', 'blink', 'ward', 'smite'];
+    const eight = ['staff-strike', 'firebolt', 'frost-lance', 'doom', 'mend', 'blink', 'ward', 'icicle'];
     const l: Loadout = { ...loadout(['mana-well', 'iron-skin', 'regeneration', 'wellspring']), abilityIds: eight };
     expect(validateLoadout(l).join()).not.toMatch(/8/);
     expect(loadoutCost(loadout(['wellspring']))).toBe(4);

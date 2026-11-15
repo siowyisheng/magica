@@ -12,7 +12,7 @@ const loadout = (abilities: string[]): Loadout => ({
   abilityIds: ['staff-strike', ...abilities],
   passiveIds: [],
 });
-const KIT = ['firebolt', 'frost-lance', 'doom', 'quick-stab', 'counterspell', 'deflect', 'ward'];
+const KIT = ['firebolt', 'frost-lance', 'doom', 'counterspell', 'deflect', 'ward'];
 
 function duel(a: Hex = { q: 0, r: 2 }, b: Hex = { q: 0, r: -1 }): GameState {
   const g = createGame({
@@ -68,7 +68,7 @@ describe('Reaction Spells', () => {
 
   it('Counterspell cannot stop a Technique', () => {
     const close = duel({ q: 0, r: 0 }, { q: 0, r: -1 });
-    const stab = act(close, { type: 'cast', player: 'p1', abilityId: 'quick-stab', target: { q: 0, r: -1 } });
+    const stab = act(close, { type: 'cast', player: 'p1', abilityId: 'staff-strike', target: { q: 0, r: -1 } });
     const r = act(stab, { type: 'endTurn', player: 'p1' });
     expect(castError(r, 'p2', 'counterspell', r.mages.p2.pos, r.pending[0].id)).toMatch(/Technique/);
   });

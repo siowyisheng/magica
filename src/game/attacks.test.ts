@@ -13,7 +13,7 @@ const loadout = (abilities: string[]): Loadout => ({
 });
 
 /** Open board; P1 (attacker) at `a`, P2 at `b`. Both have plenty of Mana. */
-function duel(a: Hex, b: Hex, abilities = ['firebolt', 'doom', 'thorn-volley', 'quick-stab']): GameState {
+function duel(a: Hex, b: Hex, abilities = ['firebolt', 'icicle', 'plague', 'doom']): GameState {
   const g = createGame({
     seed: 3,
     radius: 6,
@@ -88,9 +88,9 @@ describe('dodging, by shape', () => {
   // [ability, P1 pos, P2 pos, aim, a safe hex for P2, a hex inside the area other than P2's]
   const cases: Array<[string, Hex, Hex, Hex, Hex, Hex]> = [
     ['firebolt', { q: 0, r: 2 }, { q: 0, r: -1 }, { q: 0, r: -1 }, { q: 1, r: -1 }, { q: 0, r: 0 }], // Line
-    ['doom', { q: 0, r: 4 }, { q: 0, r: -1 }, { q: 0, r: -1 }, { q: 1, r: -1 }, { q: 0, r: -1 }], // Single Hex
-    ['quick-stab', { q: 0, r: 1 }, { q: 0, r: 0 }, { q: 0, r: 0 }, { q: 0, r: -1 }, { q: 1, r: 0 }], // Melee Arc
-    ['thorn-volley', { q: 0, r: 3 }, { q: 0, r: 0 }, { q: 0, r: 0 }, { q: 0, r: -2 }, { q: 1, r: -1 }], // Burst r1
+    ['icicle', { q: 0, r: 4 }, { q: 0, r: -1 }, { q: 0, r: -1 }, { q: 1, r: -1 }, { q: 0, r: -1 }], // Single Hex
+    ['staff-strike', { q: 0, r: 1 }, { q: 0, r: 0 }, { q: 0, r: 0 }, { q: 0, r: -1 }, { q: 1, r: 0 }], // Melee Arc
+    ['plague', { q: 0, r: 3 }, { q: 0, r: 0 }, { q: 0, r: 0 }, { q: 0, r: -2 }, { q: 1, r: -1 }], // Burst r1
   ];
 
   for (const [ability, p1, p2, aim, safe, inside] of cases) {
@@ -123,7 +123,7 @@ describe('resolution', () => {
 
   it('hits every mage in the Threat Area, the caster included', () => {
     let g = duel({ q: 0, r: 1 }, { q: 0, r: -1 });
-    g = cast(g, 'thorn-volley', { q: 0, r: 0 }); // P1 stands in its own Burst
+    g = cast(g, 'plague', { q: 0, r: 0 }); // P1 stands in its own Burst
     g = endReaction(endTurn(g));
     expect(g.mages.p1.hp).toBeLessThan(g.mages.p1.maxHp);
     expect(g.mages.p2.hp).toBeLessThan(g.mages.p2.maxHp);

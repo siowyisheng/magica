@@ -56,37 +56,17 @@ export type AbilityEffect =
   /** Reaction, targeted: cancel one incoming Line and send it back at the attacker. */
   | { type: 'deflect' }
   | { type: 'heal'; amount: number }
+  /** Absorbs damage until the end of your next resolution. */
   | { type: 'shield'; amount: number }
+  /** Teleport to an empty hex within `range`. */
   | { type: 'blink' }
-  /** Swap positions with the target unit. */
-  | { type: 'swap' }
-  /** Pay HP (cannot kill you) to gain AP this turn. */
-  | { type: 'sacrifice'; hp: number; ap: number }
-  /** Remove all your statuses and heal. */
-  | { type: 'cleanse'; heal: number }
-  /** Gain extra move points this turn. */
-  | { type: 'haste'; move: number }
-  /** Reduce your other abilities' cooldowns. */
-  | { type: 'refresh'; amount: number }
-  /** Permanently change the target hex's terrain. */
-  | { type: 'terraform'; terrain: Terrain };
+  /** Extra Movement Points this turn. */
+  | { type: 'haste'; move: number };
 
-/** self: caster's own hex. enemy: a hex holding the opponent. tile: any hex in range. */
-export type Targeting = 'self' | 'enemy' | 'tile';
+/** For non-Attack Spells. self: cast on yourself. tile: an empty hex within range. */
+export type Targeting = 'self' | 'tile';
 
-export type School =
-  | 'fire'
-  | 'frost'
-  | 'steel'
-  | 'arcane'
-  | 'nature'
-  | 'blood'
-  | 'tide'
-  | 'death'
-  | 'earth'
-  | 'shadow'
-  | 'holy'
-  | 'time';
+export type School = 'fire' | 'frost' | 'steel' | 'arcane' | 'nature' | 'tide' | 'death' | 'earth' | 'time';
 
 export type AbilityKind = 'spell' | 'technique';
 
@@ -97,10 +77,6 @@ export interface AbilityDef {
   points: number;
   /** Mana per cast. Spells always cost some; Techniques never do. */
   mana: number;
-  name: string;
-  icon: string;
-  school: School;
-  description: string;
   /** Fast Spells cost no AP. Everything else costs exactly 1 AP (0 when cast as a reaction). */
   fast?: boolean;
   /**
@@ -108,16 +84,13 @@ export interface AbilityDef {
    * 'both' = defensive Spell that also works proactively in the Action Phase (for AP). Default 'action'.
    */
   timing?: 'action' | 'reaction' | 'both';
-  /**
-   * Own turns until ready again, ticking down at the start of your turn.
-   * 0 = recast freely in the same turn, 1 = once per turn, 2 = skip a turn, ...
-   */
-  cooldown: number;
-  range: number;
-  targeting: Targeting;
-  needsLOS: boolean;
-  /** Radius of splash around the target hex. 0 = single target. */
-  aoe: number;
+  name: string;
+  icon: string;
+  school: School;
+  description: string;
+  /** Non-Attack Spells only (Attacks aim with their Shape). */
+  targeting?: Targeting;
+  range?: number;
   effect: AbilityEffect;
 }
 
@@ -162,7 +135,6 @@ export interface PassiveDef {
 
 export interface AbilityState {
   id: string;
-  cooldown: number;
 }
 
 export interface Mage {

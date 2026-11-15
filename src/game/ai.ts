@@ -239,25 +239,13 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, _targe
     }
     case 'heal':
       return me.hp <= me.maxHp * 0.6 ? Math.min(me.maxHp - me.hp, fx.amount) / cost : 0;
-    case 'cleanse': {
-      const bad = me.statuses.length;
-      return bad > 0 || me.hp <= me.maxHp * 0.6 ? (bad * 2 + Math.min(me.maxHp - me.hp, fx.heal)) / cost : 0;
-    }
     case 'shield':
       // Shields hold until our next resolution: worth it when the enemy can reach us.
       return dist <= 6 && me.shield === 0 && me.ap === 1 ? 1 : 0;
-    case 'sacrifice':
-      return me.hp > me.maxHp * 0.6 && me.hp > fx.hp + 4 && dist <= 6 ? 0.8 : 0;
-    case 'refresh': {
-      const waiting = me.abilities.filter((a) => a.id !== def.id).reduce((n, a) => n + a.cooldown, 0);
-      return waiting >= 3 ? 1 : 0;
-    }
     case 'counter':
     case 'deflect':
     case 'haste':
     case 'blink':
-    case 'swap':
-    case 'terraform':
       return 0; // positional tricks are left to humans (and a smarter future bot)
   }
 }

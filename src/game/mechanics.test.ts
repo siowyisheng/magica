@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { chooseAction } from './ai';
 import { ABILITIES, DEFAULT_LOADOUTS } from './content';
-import { applyAction, castError, createGame, replay } from './engine';
+import { applyAction, createGame, replay } from './engine';
 import { key, type Hex } from './hex';
+import { validateLoadout } from './loadout';
 import type { Action, GameState, Loadout, MatchConfig } from './types';
 
-/** A duel on an all-plain board with p1 at a and p2 at b, p1 to act. */
-function arena(p1Abilities: string[], a: Hex, b: Hex): GameState {
+/** A duel on an all-plain board with P1 at a and P2 at b, P1 to act with plenty of Mana. */
+function arena(p1Abilities: string[], a: Hex, b: Hex, p2Passives: string[] = []): GameState {
   const stats = { hp: 3, magic: 0, movespeed: 0 };
   const l1: Loadout = { id: 'a', name: 'A', circle: 1, stats, abilityIds: ['staff-strike', ...p1Abilities], passiveIds: [] };
-  const l2: Loadout = { id: 'b', name: 'B', circle: 1, stats, abilityIds: ['staff-strike', 'cleave'], passiveIds: [] };
-  const g = createGame({ ...baseConfig(l1, l2) });
+  const l2: Loadout = { id: 'b', name: 'B', circle: 1, stats, abilityIds: ['staff-strike'], passiveIds: p2Passives };
+  const g = createGame(baseConfig(l1, l2));
   for (const t of Object.values(g.tiles)) t.terrain = 'plain';
   g.mages.p1.pos = a;
   g.mages.p2.pos = b;
-  g.mages.p1.ap = 10;
   g.mages.p1.mana = 99;
   g.crystals = [];
   return g;
@@ -37,25 +37,52 @@ function land(g: GameState): GameState {
   return g.phase === 'reaction' ? applyAction(g, { type: 'endReaction', player: 'p2' }) : g;
 }
 
-describe('content', () => {
-  it('ability ids are unique', () => {
-    expect(new Set(Object.values(ABILITIES).map((a) => a.icon + a.name)).size).toBe(Object.keys(ABILITIES).length);
+describe('catalogue', () => {
+  const all = Object.values(ABILITIES);
+  const spells = all.filter((a) => a.kind === 'spell');
+
+  it('has 3 Techniques, 4 Reaction Spells and about 14 other Spells', () => {
+    expect(all.filter((a) => a.kind === 'technique')).toHaveLength(3);
+    expect(spells.filter((a) => a.timing === 'reaction' || a.timing === 'both')).toHaveLength(4);
+    expect(spells.filter((a) => !a.timing || a.timing === 'action').length).toBeGreaterThanOrEqual(14);
+  });
+
+  it('spans Mana costs from 1–2 up to a 50+ game-ender that needs Magic 5', () => {
+    const costs = spells.map((a) => a.mana);
+    expect(Math.min(...costs)).toBeLessThanOrEqual(2);
+    const ender = spells.find((a) => a.mana >= 50)!;
+    expect(ender.mana).toBeGreaterThan(10 * 4); // out of reach below Magic 5
+    expect(ender.points).toBeGreaterThanOrEqual(8);
+  });
+
+  it('prices basics at 1–2 points and nothing above 12', () => {
+    expect(all.filter((a) => a.points <= 2).length).toBeGreaterThan(5);
+    expect(Math.max(...all.map((a) => a.points))).toBeLessThanOrEqual(12);
+  });
+
+  it('has unique names and icons', () => {
+    expect(new Set(all.map((a) => a.name)).size).toBe(all.length);
+    expect(new Set(all.map((a) => a.icon)).size).toBe(all.length);
+  });
+
+  it('ships 6 valid built-in Loadouts, 2 per Circle', () => {
+    for (const c of [1, 2, 3]) expect(DEFAULT_LOADOUTS.filter((l) => l.circle === c)).toHaveLength(2);
+    for (const l of DEFAULT_LOADOUTS) expect(validateLoadout(l), l.name).toEqual([]);
   });
 });
 
-describe('new mechanics', () => {
-  it('knockback pushes away from the caster', () => {
-    const g = land(cast(arena(['boulder-toss'], { q: 0, r: 2 }, { q: 0, r: 0 }), 'boulder-toss', { q: 0, r: 0 }));
+describe('Attack riders', () => {
+  it('knockback shoves away from where the Attack was launched', () => {
+    const g = land(cast(arena(['shield-bash'], { q: 0, r: 1 }, { q: 0, r: 0 }), 'shield-bash', { q: 0, r: 0 }));
     expect(g.mages.p2.pos).toEqual({ q: 0, r: -1 });
   });
 
-  it('knockback into rock deals collision damage and does not move', () => {
-    const g0 = arena(['boulder-toss'], { q: 0, r: 2 }, { q: 0, r: 0 });
+  it('knockback into Rock deals collision damage instead of moving', () => {
+    const g0 = arena(['shield-bash'], { q: 0, r: 1 }, { q: 0, r: 0 });
     g0.tiles[key({ q: 0, r: -1 })].terrain = 'rock';
-    const hp = g0.mages.p2.hp;
-    const g = land(cast(g0, 'boulder-toss', { q: 0, r: 0 }));
+    const g = land(cast(g0, 'shield-bash', { q: 0, r: 0 }));
     expect(g.mages.p2.pos).toEqual({ q: 0, r: 0 });
-    expect(g.mages.p2.hp).toBe(hp - 3 - 2);
+    expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(2 + 2);
   });
 
   it('negative knockback pulls toward the caster and stops adjacent', () => {
@@ -63,81 +90,41 @@ describe('new mechanics', () => {
     expect(g.mages.p2.pos).toEqual({ q: 0, r: 2 });
   });
 
-  it('lifesteal heals the caster', () => {
-    const g0 = arena(['exsanguinate'], { q: 0, r: 1 }, { q: 0, r: 0 });
+  it('lifesteal heals the caster by the damage dealt', () => {
+    const g0 = arena(['soul-drain'], { q: 0, r: 2 }, { q: 0, r: 0 });
     g0.mages.p1.hp = 5;
-    const g = land(cast(g0, 'exsanguinate', { q: 0, r: 0 }));
-    expect(g.mages.p1.hp).toBe(9);
+    expect(land(cast(g0, 'soul-drain', { q: 0, r: 0 })).mages.p1.hp).toBe(7);
   });
 
-  it('armor reduces damage, vulnerable increases it', () => {
-    const g0 = arena(['cleave', 'mark-for-death'], { q: 0, r: 1 }, { q: 0, r: 0 });
-    g0.mages.p2.armor = 1;
-    const hp = g0.mages.p2.hp;
-    // Mark lands first (status only), so the Cleave that resolves after it hits a vulnerable target.
-    let g = cast(g0, 'mark-for-death', { q: 0, r: 0 });
-    g = land(cast(g, 'cleave', { q: 0, r: 0 }));
-    const cleave = ABILITIES.cleave.effect as { hit: { damage: number } };
-    expect(g.mages.p2.hp).toBe(hp - (cleave.hit.damage + 2 - 1));
+  it('vulnerable adds to every later hit; Iron Skin takes 1 off', () => {
+    let g = arena(['doom', 'firebolt'], { q: 0, r: 3 }, { q: 0, r: 0 }, ['iron-skin']);
+    g = cast(g, 'doom', { q: 0, r: 0 }); // resolves first: status only
+    g = land(cast(g, 'firebolt', { q: 0, r: 0 }));
+    expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(3 + 2 - 1);
   });
 
-  it('swap trades places', () => {
-    const g = cast(arena(['shadow-swap'], { q: 0, r: 3 }, { q: 0, r: 0 }), 'shadow-swap', { q: 0, r: 0 });
-    expect(g.mages.p1.pos).toEqual({ q: 0, r: 0 });
-    expect(g.mages.p2.pos).toEqual({ q: 0, r: 3 });
+  it('poison ticks at the start of the victim’s turn', () => {
+    let g = land(cast(arena(['plague'], { q: 0, r: 3 }, { q: 0, r: 0 }), 'plague', { q: 0, r: 0 }));
+    const afterHit = g.mages.p2.hp;
+    g = applyAction(applyAction(g, { type: 'endTurn', player: 'p2' }), { type: 'endTurn', player: 'p1' });
+    expect(g.mages.p2.hp).toBe(afterHit - 1);
   });
 
-  it('terraform raises rock, but not under a unit', () => {
-    const g0 = arena(['raise-earth'], { q: 0, r: 3 }, { q: 0, r: 0 });
-    expect(castError(g0, 'p1', 'raise-earth', { q: 0, r: 0 })).toMatch(/occupied/);
-    const g = cast(g0, 'raise-earth', { q: 0, r: 1 });
-    expect(g.tiles[key({ q: 0, r: 1 })].terrain).toBe('rock');
-  });
-
-  it('sacrifice trades HP for AP and cannot kill you', () => {
-    const g0 = arena(['crimson-pact'], { q: 0, r: 3 }, { q: 0, r: 0 });
-    const g = cast(g0, 'crimson-pact', { q: 0, r: 3 });
-    expect(g.mages.p1.hp).toBe(g0.mages.p1.hp - 3);
-    expect(g.mages.p1.ap).toBe(g0.mages.p1.ap + 2);
-    g0.mages.p1.hp = 3;
-    expect(castError(g0, 'p1', 'crimson-pact')).toMatch(/HP/);
-  });
-
-  it('cleanse removes statuses; haste adds move; rewind cuts cooldowns', () => {
-    let g = arena(['purify', 'haste', 'rewind', 'stasis'], { q: 0, r: 3 }, { q: 0, r: 0 });
-    g.mages.p1.statuses = [{ kind: 'poison', turns: 3, power: 1 }];
-    g.mages.p1.abilities.find((a) => a.id === 'stasis')!.cooldown = 3;
-    g = cast(g, 'purify', { q: 0, r: 3 });
-    expect(g.mages.p1.statuses).toEqual([]);
-    const move = g.mages.p1.mp;
-    g = cast(g, 'haste', { q: 0, r: 3 });
-    expect(g.mages.p1.mp).toBe(move + 3);
-    g = cast(g, 'rewind', { q: 0, r: 3 });
-    expect(g.mages.p1.abilities.find((a) => a.id === 'stasis')!.cooldown).toBe(1);
-  });
-
-  it('poison ticks and regen heals at turn start', () => {
-    let g = arena(['soul-drain'], { q: 0, r: 3 }, { q: 0, r: 0 });
-    g.mages.p1.regen = 1;
-    g.mages.p2.statuses = [{ kind: 'poison', turns: 2, power: 1 }];
-    g.mages.p2.regen = 0;
-    const hp2 = g.mages.p2.hp;
-    g = applyAction(g, { type: 'endTurn', player: 'p1' });
-    expect(g.mages.p2.hp).toBe(hp2 - 1);
-    g.mages.p1.hp = 10;
-    g = applyAction(g, { type: 'endTurn', player: 'p2' });
-    expect(g.mages.p1.hp).toBe(11); // regen 1
+  it('Haste adds Movement Points without AP', () => {
+    const g = cast(arena(['haste'], { q: 0, r: 3 }, { q: 0, r: 0 }), 'haste', { q: 0, r: 3 });
+    expect(g.mages.p1.mp).toBe(3);
+    expect(g.mages.p1.ap).toBe(2);
   });
 });
 
-describe('every default matchup', () => {
-  it('AI vs AI terminates with legal moves and replays identically', { timeout: 30000 }, () => {
+describe('every built-in matchup', () => {
+  it('AI vs AI terminates with legal moves and replays identically', { timeout: 60000 }, () => {
     for (const a of DEFAULT_LOADOUTS) {
       for (const b of DEFAULT_LOADOUTS) {
         const config = baseConfig(a, b);
         let g = createGame(config);
         const actions: Action[] = [];
-        for (let i = 0; i < 3000 && !g.winner; i++) {
+        for (let i = 0; i < 4000 && !g.winner; i++) {
           const act = chooseAction(g, g.active);
           const next = applyAction(g, act);
           expect(next, `${a.name} vs ${b.name}: illegal ${JSON.stringify(act)}`).not.toBe(g);

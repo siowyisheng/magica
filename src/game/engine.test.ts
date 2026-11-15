@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { chooseAction } from './ai';
 import { DEFAULT_LOADOUTS } from './content';
-import { applyAction, castError, createGame, replay } from './engine';
+import { applyAction, createGame, replay } from './engine';
 import { distance, key, line, spiral } from './hex';
 import { validateLoadout } from './loadout';
 import type { Action, MatchConfig } from './types';
@@ -38,15 +38,6 @@ describe('engine', () => {
   it('rejects out-of-turn actions without changing state', () => {
     const g = createGame(config);
     expect(applyAction(g, { type: 'endTurn', player: 'p2' })).toBe(g);
-  });
-
-  it('cooldowns block recasting', () => {
-    let g = createGame(config);
-    g.mages.p1.mana = 30;
-    g = applyAction(g, { type: 'cast', player: 'p1', abilityId: 'ward', target: g.mages.p1.pos });
-    expect(g.mages.p1.shield).toBeGreaterThan(0);
-    g = applyAction(g, { type: 'cast', player: 'p1', abilityId: 'meteor', target: g.mages.p1.pos });
-    expect(castError(g, 'p1', 'meteor')).toMatch(/cooldown|AP/);
   });
 
   it('AI vs AI finishes deterministically and replays identically', () => {

@@ -1,318 +1,181 @@
-import type { AbilityDef, Loadout, PassiveDef, School, Shape, Status } from './types';
+import type { AbilityDef, Hit, Loadout, PassiveDef, School, Shape } from './types';
 
 // ---------------------------------------------------------------------------
-// Content tables. Add new abilities / archetypes / relics here; the loadout
-// builder, engine and AI pick them up automatically.
+// Content tables. Add Abilities and Passives here; the builder, engine and AI
+// pick them up automatically.
+//
+// Balance is estimated, not playtested. Rules of thumb used:
+// - Mana buys damage at roughly 1 damage per Mana for cheap spells, with
+//   bigger, harder-to-dodge Threat Areas paying more per point of damage.
+// - Defensive Spells prevent less damage per Mana than offence deals, so
+//   attacking is the better default.
+// - Loadout Points: 1–2 basics, 3–5 strong Abilities, 8–12 game-enders.
 // ---------------------------------------------------------------------------
 
 export const STAFF_STRIKE = 'staff-strike';
 
-/** Techniques from the original ability set (physical, no Mana once Mana exists). */
-const INTERIM_TECHNIQUES = new Set(['cleave', 'quick-stab', 'backstab', 'boulder-toss']);
+type Common = Pick<AbilityDef, 'id' | 'name' | 'icon' | 'school' | 'description' | 'points'> &
+  Partial<Pick<AbilityDef, 'fast' | 'timing'>>;
 
-/** The original set's damage effect, converted into an Attack by `priced`. */
-type LegacyDamage = { type: 'damage'; amount: number; status?: Status; lifesteal?: number; knockback?: number };
+const technique = (a: Common & { shape: Shape; hit: Hit }): AbilityDef => ({
+  ...a,
+  kind: 'technique',
+  mana: 0,
+  effect: { type: 'attack', shape: a.shape, hit: a.hit },
+});
 
-/** `apCost` is the original set's cost, now only used as a weight for interim prices. */
-type RawAbility = Omit<AbilityDef, 'kind' | 'points' | 'mana' | 'effect'> &
-  Partial<Pick<AbilityDef, 'kind' | 'points' | 'mana'>> & {
-    apCost: number;
-    effect: AbilityDef['effect'] | LegacyDamage;
-  };
+const attack = (a: Common & { mana: number; shape: Shape; hit: Hit }): AbilityDef => ({
+  ...a,
+  kind: 'spell',
+  effect: { type: 'attack', shape: a.shape, hit: a.hit },
+});
 
-/** Interim: re-express an original damage ability as an Attack with a Threat Area shape. */
-function legacyShape(a: RawAbility): Shape {
-  if (a.targeting === 'self') return { kind: 'burst', range: 0, radius: Math.max(1, a.aoe) };
-  if (a.targeting === 'tile') return { kind: 'burst', range: a.range, radius: Math.max(1, a.aoe) };
-  if (a.range <= 1) return { kind: 'meleeArc' };
-  return a.needsLOS ? { kind: 'line', range: a.range } : { kind: 'single', range: a.range };
-}
+const spell = (a: Common & Pick<AbilityDef, 'mana' | 'effect' | 'targeting' | 'range'>): AbilityDef => ({
+  ...a,
+  kind: 'spell',
+});
 
-/**
- * Interim pricing for the original ability set until the new catalogue lands.
- * Points: AP cost, +1 for area effects. Mana: 2 per AP, +2 per AoE radius.
- */
-const priced = (a: RawAbility): AbilityDef => {
-  const kind = a.kind ?? (INTERIM_TECHNIQUES.has(a.id) ? 'technique' : 'spell');
-  const { apCost, effect, ...rest } = a;
-  return {
-    ...rest,
-    effect:
-      effect.type === 'damage'
-        ? {
-            type: 'attack',
-            shape: legacyShape(a),
-            hit: { damage: effect.amount, status: effect.status, lifesteal: effect.lifesteal, knockback: effect.knockback },
-          }
-        : effect,
-    kind,
-    fast: a.fast ?? apCost === 0,
-    points: a.points ?? Math.max(1, apCost) + (a.aoe > 0 ? 1 : 0),
-    mana: kind === 'technique' ? 0 : (a.mana ?? Math.max(1, 2 * apCost + 2 * a.aoe)),
-  };
-};
+const LIST: AbilityDef[] = [
+  // --- Techniques: physical, AP only -----------------------------------------
+  technique({
+    id: STAFF_STRIKE, name: 'Staff Strike', icon: '🪄', school: 'steel', points: 0,
+    description: 'A plain whack with your staff. Every mage has it.',
+    shape: { kind: 'meleeArc' }, hit: { damage: 2 },
+  }),
+  technique({
+    id: 'spear-thrust', name: 'Spear Thrust', icon: '🗡️', school: 'steel', points: 2,
+    description: 'A long thrust that reaches two hexes.',
+    shape: { kind: 'line', range: 2 }, hit: { damage: 3 },
+  }),
+  technique({
+    id: 'shield-bash', name: 'Shield Bash', icon: '🥊', school: 'steel', points: 2,
+    description: 'Slam the enemy back a hex. Into rock, it hurts more.',
+    shape: { kind: 'meleeArc' }, hit: { damage: 2, knockback: 1 },
+  }),
 
-export const ABILITIES: Record<string, AbilityDef> = Object.fromEntries(
-  (
-    [
-      {
-        id: STAFF_STRIKE, name: 'Staff Strike', icon: '🪄', school: 'steel', kind: 'technique', points: 0, mana: 0,
-        description: 'A plain whack with your staff. Every mage has it.',
-        apCost: 1, cooldown: 0, range: 1, targeting: 'enemy', needsLOS: false, aoe: 0,
-        effect: { type: 'damage', amount: 2 },
-      },
-      {
-        id: 'firebolt', name: 'Firebolt', icon: '🔥', school: 'fire',
-        description: 'Hurl a bolt of flame. Sets the target burning.',
-        apCost: 2, cooldown: 1, range: 4, targeting: 'enemy', needsLOS: true, aoe: 0,
-        effect: { type: 'damage', amount: 3, status: { kind: 'burn', turns: 2, power: 1 } },
-      },
-      {
-        id: 'meteor', name: 'Meteor', icon: '☄️', school: 'fire',
-        description: 'Call down a meteor on any hex. Splashes everyone nearby — including you.',
-        apCost: 3, cooldown: 3, range: 5, targeting: 'tile', needsLOS: false, aoe: 1,
-        effect: { type: 'damage', amount: 4 },
-      },
-      {
-        id: 'frost-lance', name: 'Frost Lance', icon: '❄️', school: 'frost',
-        description: 'A long-range shard that slows the target.',
-        apCost: 2, cooldown: 1, range: 5, targeting: 'enemy', needsLOS: true, aoe: 0,
-        effect: { type: 'damage', amount: 2, status: { kind: 'slow', turns: 1, power: 2 } },
-      },
-      {
-        id: 'glacial-snare', name: 'Glacial Snare', icon: '🧊', school: 'frost',
-        description: 'Freeze the ground under your enemy. Roots them for a turn.',
-        apCost: 2, cooldown: 3, range: 3, targeting: 'enemy', needsLOS: true, aoe: 0,
-        effect: { type: 'damage', amount: 1, status: { kind: 'root', turns: 1, power: 0 } },
-      },
-      {
-        id: 'cleave', name: 'Cleave', icon: '🪓', school: 'steel',
-        description: 'A brutal melee strike.',
-        apCost: 2, cooldown: 0, range: 1, targeting: 'enemy', needsLOS: false, aoe: 0,
-        effect: { type: 'damage', amount: 4 },
-      },
-      {
-        id: 'quick-stab', name: 'Quick Stab', icon: '🗡️', school: 'steel',
-        description: 'A cheap jab. Spam it.',
-        apCost: 1, cooldown: 0, range: 1, targeting: 'enemy', needsLOS: false, aoe: 0,
-        effect: { type: 'damage', amount: 2 },
-      },
-      {
-        id: 'blink', name: 'Blink', icon: '✨', school: 'arcane', timing: 'both',
-        description: 'Teleport to an empty hex. Ignores terrain. Works as a reaction, too.',
-        apCost: 1, cooldown: 2, range: 3, targeting: 'tile', needsLOS: false, aoe: 0,
-        effect: { type: 'blink' },
-      },
-      {
-        id: 'ward', name: 'Ward', icon: '🛡️', school: 'arcane', timing: 'both', points: 2, mana: 4,
-        description: 'A shield that absorbs damage from every attack in your next resolution. Cast it as a reaction, or ahead of time for 1 AP.',
-        apCost: 1, cooldown: 0, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
-        effect: { type: 'shield', amount: 4 },
-      },
-      {
-        id: 'counterspell', name: 'Counterspell', icon: '🚫', school: 'arcane', timing: 'reaction', points: 3, mana: 6,
-        description: 'Reaction: cancel one incoming Spell. Useless against Techniques.',
-        apCost: 1, cooldown: 0, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
-        effect: { type: 'counter' },
-      },
-      {
-        id: 'deflect', name: 'Deflect', icon: '🪞', school: 'arcane', timing: 'reaction', points: 3, mana: 5,
-        description: 'Reaction: turn one incoming Line around and send it back at the attacker.',
-        apCost: 1, cooldown: 0, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
-        effect: { type: 'deflect' },
-      },
-      {
-        id: 'mend', name: 'Mend', icon: '🌿', school: 'nature',
-        description: 'Restore health.',
-        apCost: 2, cooldown: 2, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
-        effect: { type: 'heal', amount: 4 },
-      },
-      {
-        id: 'thorn-volley', name: 'Thorn Volley', icon: '🌵', school: 'nature',
-        description: 'Spray thorns over an area. No line of sight needed.',
-        apCost: 2, cooldown: 1, range: 4, targeting: 'tile', needsLOS: false, aoe: 1,
-        effect: { type: 'damage', amount: 3 },
-      },
-      // --- Shapes showcase -----------------------------------------------
-      {
-        id: 'fireball', name: 'Fireball', icon: '💥', school: 'fire', points: 4, mana: 9,
-        description: 'A bolt that flies in a Line and explodes where it stops.',
-        apCost: 1, cooldown: 0, range: 5, targeting: 'tile', needsLOS: false, aoe: 0,
-        effect: { type: 'attack', shape: { kind: 'explosiveLine', range: 5, radius: 1 }, hit: { damage: 4 } },
-      },
-      {
-        id: 'dragons-breath', name: "Dragon's Breath", icon: '🐉', school: 'fire', points: 4, mana: 8,
-        description: 'A 60° cone of fire that sets everything in it burning.',
-        apCost: 1, cooldown: 0, range: 3, targeting: 'tile', needsLOS: false, aoe: 0,
-        effect: { type: 'attack', shape: { kind: 'cone', range: 3 }, hit: { damage: 3, status: { kind: 'burn', turns: 2, power: 1 } } },
-      },
-      {
-        id: 'ice-shards', name: 'Ice Shards', icon: '💠', school: 'frost', points: 3, mana: 5,
-        description: 'Three icy Lines fanned 30° apart. Hard to stand between.',
-        apCost: 1, cooldown: 0, range: 4, targeting: 'tile', needsLOS: false, aoe: 0,
-        effect: { type: 'attack', shape: { kind: 'fan', range: 4 }, hit: { damage: 2, status: { kind: 'slow', turns: 1, power: 1 } } },
-      },
-      {
-        id: 'nova', name: 'Arcane Nova', icon: '🌟', school: 'arcane', points: 3, mana: 7,
-        description: 'Detonate everything within 2 of you. Step out before it lands!',
-        apCost: 1, cooldown: 0, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
-        effect: { type: 'attack', shape: { kind: 'selfBurst', radius: 2 }, hit: { damage: 4 } },
-      },
-      {
-        id: 'wall-of-fire', name: 'Wall of Fire', icon: '♨️', school: 'fire', points: 4, mana: 8,
-        description: 'Draw a 5-hex wall of flame anywhere you like. Burns whoever is caught in it.',
-        apCost: 1, cooldown: 0, range: 4, targeting: 'tile', needsLOS: false, aoe: 0,
-        effect: { type: 'attack', shape: { kind: 'wall', range: 4, length: 5 }, hit: { damage: 3, status: { kind: 'burn', turns: 2, power: 1 } } },
-      },
+  // --- Offensive Spells -------------------------------------------------------
+  attack({
+    id: 'spark', name: 'Spark', icon: '⚡', school: 'arcane', points: 1, mana: 2, fast: true,
+    description: 'Fast: a cheap zap that costs no AP.',
+    shape: { kind: 'line', range: 4 }, hit: { damage: 1 },
+  }),
+  attack({
+    id: 'firebolt', name: 'Firebolt', icon: '🔥', school: 'fire', points: 2, mana: 4,
+    description: 'A bolt of flame down a Line. Sets the target burning.',
+    shape: { kind: 'line', range: 5 }, hit: { damage: 3, status: { kind: 'burn', turns: 2, power: 1 } },
+  }),
+  attack({
+    id: 'frost-lance', name: 'Frost Lance', icon: '❄️', school: 'frost', points: 2, mana: 4,
+    description: 'A long icy Line that slows.',
+    shape: { kind: 'line', range: 6 }, hit: { damage: 2, status: { kind: 'slow', turns: 1, power: 1 } },
+  }),
+  attack({
+    id: 'icicle', name: 'Icicle', icon: '🧊', school: 'frost', points: 2, mana: 4,
+    description: 'Drops on one hex from above. Ignores rock.',
+    shape: { kind: 'single', range: 5 }, hit: { damage: 3 },
+  }),
+  attack({
+    id: 'fireball', name: 'Fireball', icon: '💥', school: 'fire', points: 4, mana: 9,
+    description: 'Flies down a Line and explodes where it stops.',
+    shape: { kind: 'explosiveLine', range: 5, radius: 1 }, hit: { damage: 4 },
+  }),
+  attack({
+    id: 'dragons-breath', name: "Dragon's Breath", icon: '🐉', school: 'fire', points: 4, mana: 8,
+    description: 'A 60° cone of fire that leaves everything burning.',
+    shape: { kind: 'cone', range: 3 }, hit: { damage: 3, status: { kind: 'burn', turns: 2, power: 1 } },
+  }),
+  attack({
+    id: 'ice-shards', name: 'Ice Shards', icon: '💠', school: 'frost', points: 3, mana: 6,
+    description: 'Three icy Lines fanned 30° apart. Slows.',
+    shape: { kind: 'fan', range: 4 }, hit: { damage: 2, status: { kind: 'slow', turns: 1, power: 1 } },
+  }),
+  attack({
+    id: 'nova', name: 'Arcane Nova', icon: '🌟', school: 'arcane', points: 3, mana: 7,
+    description: 'Detonates everything within 2 of you. Step out before it lands!',
+    shape: { kind: 'selfBurst', radius: 2 }, hit: { damage: 4 },
+  }),
+  attack({
+    id: 'wall-of-fire', name: 'Wall of Fire', icon: '♨️', school: 'fire', points: 4, mana: 8,
+    description: 'Draw a 5-hex wall of flame. Burns whoever is caught in it.',
+    shape: { kind: 'wall', range: 4, length: 5 }, hit: { damage: 3, status: { kind: 'burn', turns: 2, power: 1 } },
+  }),
+  attack({
+    id: 'plague', name: 'Plague', icon: '🦠', school: 'death', points: 3, mana: 5,
+    description: 'A miasma that poisons everyone in it for 3 turns.',
+    shape: { kind: 'burst', range: 4, radius: 1 }, hit: { damage: 1, status: { kind: 'poison', turns: 3, power: 1 } },
+  }),
+  attack({
+    id: 'riptide', name: 'Riptide', icon: '🪝', school: 'tide', points: 2, mana: 4,
+    description: 'A current down a Line that drags the target 2 hexes toward you.',
+    shape: { kind: 'line', range: 4 }, hit: { damage: 1, knockback: -2 },
+  }),
+  attack({
+    id: 'tidal-wave', name: 'Tidal Wave', icon: '🌊', school: 'tide', points: 4, mana: 10,
+    description: 'A crashing wave (radius 2) that shoves everyone 2 hexes away from you.',
+    shape: { kind: 'burst', range: 3, radius: 2 }, hit: { damage: 2, knockback: 2 },
+  }),
+  attack({
+    id: 'soul-drain', name: 'Soul Drain', icon: '👻', school: 'death', points: 3, mana: 6,
+    description: 'Siphon a soul from one hex. All damage dealt heals you.',
+    shape: { kind: 'single', range: 3 }, hit: { damage: 2, lifesteal: 1 },
+  }),
+  attack({
+    id: 'doom', name: 'Doom', icon: '⚰️', school: 'death', points: 2, mana: 5,
+    description: 'A curse on one hex: whoever is there takes +2 from every hit for 2 turns.',
+    shape: { kind: 'single', range: 6 }, hit: { damage: 0, status: { kind: 'vulnerable', turns: 2, power: 2 } },
+  }),
+  attack({
+    id: 'stasis', name: 'Stasis', icon: '🕰️', school: 'time', points: 3, mana: 6,
+    description: 'Freeze one hex in time. Whoever is there cannot move next turn.',
+    shape: { kind: 'single', range: 4 }, hit: { damage: 0, status: { kind: 'root', turns: 1, power: 0 } },
+  }),
+  attack({
+    id: 'meteor', name: 'Meteor', icon: '☄️', school: 'fire', points: 6, mana: 18,
+    description: 'A meteor (radius 2) anywhere within 6. Hard to outrun.',
+    shape: { kind: 'burst', range: 6, radius: 2 }, hit: { damage: 7 },
+  }),
+  attack({
+    id: 'cataclysm', name: 'Cataclysm', icon: '🌋', school: 'earth', points: 10, mana: 50,
+    description: 'Game-ender: a radius-4 eruption (61 hexes). Needs Magic 5+ to ever afford.',
+    shape: { kind: 'burst', range: 6, radius: 4 }, hit: { damage: 20 },
+  }),
 
-      // --- Blood · Bloodreaver -------------------------------------------
-      {
-        id: 'blood-lash', name: 'Blood Lash', icon: '🩸', school: 'blood',
-        description: 'A whip of blood. Half the damage dealt heals you.',
-        apCost: 2, cooldown: 1, range: 2, targeting: 'enemy', needsLOS: true, aoe: 0,
-        effect: { type: 'damage', amount: 3, lifesteal: 0.5 },
-      },
-      {
-        id: 'crimson-pact', name: 'Crimson Pact', icon: '💉', school: 'blood',
-        description: 'Pay 3 HP to gain 2 AP this turn. Free to cast.',
-        apCost: 0, cooldown: 3, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
-        effect: { type: 'sacrifice', hp: 3, ap: 2 },
-      },
-      {
-        id: 'exsanguinate', name: 'Exsanguinate', icon: '🫀', school: 'blood',
-        description: 'Tear the life out of an adjacent foe. All damage dealt heals you.',
-        apCost: 3, cooldown: 2, range: 1, targeting: 'enemy', needsLOS: false, aoe: 0,
-        effect: { type: 'damage', amount: 4, lifesteal: 1 },
-      },
+  // --- Utility Spells ---------------------------------------------------------
+  spell({
+    id: 'mend', name: 'Mend', icon: '🌿', school: 'nature', points: 2, mana: 5,
+    description: 'Restore 4 HP.',
+    targeting: 'self', effect: { type: 'heal', amount: 4 },
+  }),
+  spell({
+    id: 'haste', name: 'Haste', icon: '⏩', school: 'time', points: 2, mana: 3, fast: true,
+    description: 'Fast: +3 Movement Points this turn.',
+    targeting: 'self', effect: { type: 'haste', move: 3 },
+  }),
 
-      // --- Tide · Tidecaller ---------------------------------------------
-      {
-        id: 'riptide', name: 'Riptide', icon: '🪝', school: 'tide',
-        description: 'A current that drags the enemy 2 hexes toward you.',
-        apCost: 2, cooldown: 1, range: 4, targeting: 'enemy', needsLOS: true, aoe: 0,
-        effect: { type: 'damage', amount: 2, knockback: -2 },
-      },
-      {
-        id: 'tidal-wave', name: 'Tidal Wave', icon: '🌊', school: 'tide',
-        description: 'A crashing wave that shoves enemies 2 hexes away. Slamming into rock or the arena edge hurts.',
-        apCost: 3, cooldown: 2, range: 3, targeting: 'tile', needsLOS: false, aoe: 1,
-        effect: { type: 'damage', amount: 3, knockback: 2 },
-      },
-      {
-        id: 'cleansing-rain', name: 'Cleansing Rain', icon: '🌧️', school: 'tide',
-        description: 'Wash away every status on you and heal.',
-        apCost: 2, cooldown: 2, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
-        effect: { type: 'cleanse', heal: 3 },
-      },
+  // --- Reaction Spells (defensive: less Mana-efficient than offence) ---------
+  spell({
+    id: 'ward', name: 'Ward', icon: '🛡️', school: 'arcane', points: 2, mana: 6, timing: 'both',
+    description: 'A 4-point shield over every attack in your next resolution. React with it, or cast it ahead for 1 AP.',
+    targeting: 'self', effect: { type: 'shield', amount: 4 },
+  }),
+  spell({
+    id: 'counterspell', name: 'Counterspell', icon: '🚫', school: 'arcane', points: 3, mana: 7, timing: 'reaction',
+    description: 'Reaction: cancel one incoming Spell. Useless against Techniques.',
+    targeting: 'self', effect: { type: 'counter' },
+  }),
+  spell({
+    id: 'deflect', name: 'Deflect', icon: '🪞', school: 'arcane', points: 3, mana: 6, timing: 'reaction',
+    description: 'Reaction: turn one incoming Line around and send it back at the attacker.',
+    targeting: 'self', effect: { type: 'deflect' },
+  }),
+  spell({
+    id: 'blink', name: 'Blink', icon: '✨', school: 'arcane', points: 2, mana: 4, timing: 'both',
+    description: 'Teleport up to 3 hexes. As a reaction, it dodges without spending AP.',
+    targeting: 'tile', range: 3, effect: { type: 'blink' },
+  }),
+];
 
-      // --- Death · Gravebinder -------------------------------------------
-      {
-        id: 'soul-drain', name: 'Soul Drain', icon: '👻', school: 'death',
-        description: 'Siphon a soul. All damage dealt heals you.',
-        apCost: 2, cooldown: 1, range: 3, targeting: 'enemy', needsLOS: true, aoe: 0,
-        effect: { type: 'damage', amount: 3, lifesteal: 1 },
-      },
-      {
-        id: 'plague', name: 'Plague', icon: '🦠', school: 'death',
-        description: 'A miasma that poisons everyone in the area for 3 turns, you included. No line of sight needed.',
-        apCost: 2, cooldown: 2, range: 4, targeting: 'tile', needsLOS: false, aoe: 1,
-        effect: { type: 'damage', amount: 1, status: { kind: 'poison', turns: 3, power: 1 } },
-      },
-      {
-        id: 'doom', name: 'Doom', icon: '⚰️', school: 'death',
-        description: 'Curse the enemy from anywhere. For 2 turns they take +2 damage from every hit.',
-        apCost: 2, cooldown: 3, range: 6, targeting: 'enemy', needsLOS: false, aoe: 0,
-        effect: { type: 'damage', amount: 0, status: { kind: 'vulnerable', turns: 2, power: 2 } },
-      },
-
-      // --- Earth · Geomancer ---------------------------------------------
-      {
-        id: 'raise-earth', name: 'Raise Earth', icon: '🧱', school: 'earth',
-        description: 'Raise a permanent rock pillar on an empty hex. Blocks movement and line of sight.',
-        apCost: 1, cooldown: 2, range: 3, targeting: 'tile', needsLOS: false, aoe: 0,
-        effect: { type: 'terraform', terrain: 'rock' },
-      },
-      {
-        id: 'boulder-toss', name: 'Boulder Toss', icon: '🥌', school: 'earth',
-        description: 'Hurl a boulder that knocks the enemy back 1 hex.',
-        apCost: 2, cooldown: 1, range: 4, targeting: 'enemy', needsLOS: true, aoe: 0,
-        effect: { type: 'damage', amount: 3, knockback: 1 },
-      },
-      {
-        id: 'tremor', name: 'Tremor', icon: '🌋', school: 'earth',
-        description: 'Shake the ground around you (radius 2). Damages and slows.',
-        apCost: 3, cooldown: 2, range: 0, targeting: 'self', needsLOS: false, aoe: 2,
-        effect: { type: 'damage', amount: 3, status: { kind: 'slow', turns: 1, power: 1 } },
-      },
-
-      // --- Shadow · Shadowblade ------------------------------------------
-      {
-        id: 'shadow-swap', name: 'Shadow Swap', icon: '🌀', school: 'shadow',
-        description: 'Trade places with the enemy.',
-        apCost: 1, cooldown: 3, range: 4, targeting: 'enemy', needsLOS: true, aoe: 0,
-        effect: { type: 'swap' },
-      },
-      {
-        id: 'mark-for-death', name: 'Mark for Death', icon: '🎯', school: 'shadow',
-        description: 'Mark the enemy. For 2 turns they take +2 damage from every hit.',
-        apCost: 1, cooldown: 3, range: 5, targeting: 'enemy', needsLOS: true, aoe: 0,
-        effect: { type: 'damage', amount: 0, status: { kind: 'vulnerable', turns: 2, power: 2 } },
-      },
-      {
-        id: 'backstab', name: 'Backstab', icon: '🔪', school: 'shadow',
-        description: 'A precise, deadly melee strike.',
-        apCost: 2, cooldown: 0, range: 1, targeting: 'enemy', needsLOS: false, aoe: 0,
-        effect: { type: 'damage', amount: 3 },
-      },
-
-      // --- Holy · Lightbringer -------------------------------------------
-      {
-        id: 'smite', name: 'Smite', icon: '🔱', school: 'holy',
-        description: 'Strike with holy light at short range.',
-        apCost: 2, cooldown: 0, range: 2, targeting: 'enemy', needsLOS: true, aoe: 0,
-        effect: { type: 'damage', amount: 3 },
-      },
-      {
-        id: 'purify', name: 'Purify', icon: '🕊️', school: 'holy',
-        description: 'Cleanse every status on you and heal.',
-        apCost: 2, cooldown: 2, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
-        effect: { type: 'cleanse', heal: 4 },
-      },
-      {
-        id: 'radiant-nova', name: 'Radiant Nova', icon: '☀️', school: 'holy',
-        description: 'Explode with light, burning everything adjacent.',
-        apCost: 3, cooldown: 3, range: 0, targeting: 'self', needsLOS: false, aoe: 1,
-        effect: { type: 'damage', amount: 4, status: { kind: 'burn', turns: 1, power: 1 } },
-      },
-
-      // --- Time · Chronomancer -------------------------------------------
-      {
-        id: 'haste', name: 'Haste', icon: '⏩', school: 'time',
-        description: 'Speed up time around you: +3 move this turn.',
-        apCost: 1, cooldown: 2, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
-        effect: { type: 'haste', move: 3 },
-      },
-      {
-        id: 'temporal-bolt', name: 'Temporal Bolt', icon: '⏳', school: 'time',
-        description: 'A bolt of slowed time.',
-        apCost: 2, cooldown: 0, range: 4, targeting: 'enemy', needsLOS: true, aoe: 0,
-        effect: { type: 'damage', amount: 3, status: { kind: 'slow', turns: 1, power: 1 } },
-      },
-      {
-        id: 'stasis', name: 'Stasis', icon: '🕰️', school: 'time',
-        description: 'Freeze the enemy in time. They cannot move next turn.',
-        apCost: 2, cooldown: 3, range: 3, targeting: 'enemy', needsLOS: true, aoe: 0,
-        effect: { type: 'damage', amount: 0, status: { kind: 'root', turns: 1, power: 0 } },
-      },
-      {
-        id: 'rewind', name: 'Rewind', icon: '⏪', school: 'time',
-        description: 'Turn back the clock: your other cooldowns tick down by 2.',
-        apCost: 1, cooldown: 4, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
-        effect: { type: 'refresh', amount: 2 },
-      },
-    ] satisfies RawAbility[]
-  ).map((a) => [a.id, priced(a)]),
-);
+export const ABILITIES: Record<string, AbilityDef> = Object.fromEntries(LIST.map((a) => [a.id, a]));
 
 export const PASSIVES: Record<string, PassiveDef> = Object.fromEntries(
   (
@@ -331,12 +194,9 @@ export const SCHOOLS: Record<School, { name: string; icon: string }> = {
   steel: { name: 'Steel', icon: '⚔️' },
   arcane: { name: 'Arcane', icon: '✨' },
   nature: { name: 'Nature', icon: '🌿' },
-  blood: { name: 'Blood', icon: '🩸' },
   tide: { name: 'Tide', icon: '🌊' },
   death: { name: 'Death', icon: '💀' },
   earth: { name: 'Earth', icon: '⛰️' },
-  shadow: { name: 'Shadow', icon: '🌑' },
-  holy: { name: 'Holy', icon: '☀️' },
   time: { name: 'Time', icon: '⏳' },
 };
 
@@ -350,10 +210,40 @@ const loadout = (l: Omit<Loadout, 'abilityIds'> & { abilities: string[] }): Load
 });
 
 export const DEFAULT_LOADOUTS: Loadout[] = [
-  loadout({ id: 'c1-archmage', name: 'Archmage', circle: 1, stats: { hp: 3, magic: 2, movespeed: 0 }, abilities: ['firebolt', 'meteor', 'frost-lance', 'ward', 'counterspell', 'blink', 'mend'], passiveIds: [] }),
-  loadout({ id: 'c1-warlord', name: 'Battlemage', circle: 1, stats: { hp: 4, magic: 0, movespeed: 1 }, abilities: ['cleave', 'quick-stab', 'glacial-snare', 'blood-lash', 'mend'], passiveIds: [] }),
-  loadout({ id: 'c2-pyro', name: 'Pyromancer', circle: 2, stats: { hp: 2, magic: 1, movespeed: 0 }, abilities: ['firebolt', 'meteor', 'blink', 'ward'], passiveIds: [] }),
-  loadout({ id: 'c2-stalker', name: 'Stalker', circle: 2, stats: { hp: 2, magic: 0, movespeed: 1 }, abilities: ['frost-lance', 'quick-stab', 'thorn-volley'], passiveIds: [] }),
-  loadout({ id: 'c3-adept', name: 'Adept', circle: 3, stats: { hp: 2, magic: 0, movespeed: 0 }, abilities: ['firebolt', 'blink'], passiveIds: [] }),
-  loadout({ id: 'c3-brawler', name: 'Brawler', circle: 3, stats: { hp: 3, magic: 0, movespeed: 0 }, abilities: ['quick-stab', 'mend'], passiveIds: [] }),
+  loadout({
+    id: 'c1-archmage', name: 'Archmage', circle: 1,
+    stats: { hp: 0, magic: 2, movespeed: 0 },
+    abilities: ['firebolt', 'fireball', 'ward', 'counterspell', 'cataclysm'],
+    passiveIds: ['wellspring'],
+  }),
+  loadout({
+    id: 'c1-spellblade', name: 'Spellblade', circle: 1,
+    stats: { hp: 3, magic: 0, movespeed: 1 },
+    abilities: ['spear-thrust', 'shield-bash', 'firebolt', 'ice-shards', 'blink', 'ward', 'mend'],
+    passiveIds: ['iron-skin', 'regeneration'],
+  }),
+  loadout({
+    id: 'c2-pyromancer', name: 'Pyromancer', circle: 2,
+    stats: { hp: 2, magic: 1, movespeed: 0 },
+    abilities: ['firebolt', 'dragons-breath', 'wall-of-fire', 'ward'],
+    passiveIds: ['mana-well'],
+  }),
+  loadout({
+    id: 'c2-tidecaller', name: 'Tidecaller', circle: 2,
+    stats: { hp: 2, magic: 0, movespeed: 0 },
+    abilities: ['riptide', 'tidal-wave', 'frost-lance', 'deflect', 'blink'],
+    passiveIds: ['regeneration'],
+  }),
+  loadout({
+    id: 'c3-adept', name: 'Adept', circle: 3,
+    stats: { hp: 2, magic: 0, movespeed: 0 },
+    abilities: ['firebolt', 'icicle', 'ward'],
+    passiveIds: [],
+  }),
+  loadout({
+    id: 'c3-brawler', name: 'Brawler', circle: 3,
+    stats: { hp: 2, magic: 0, movespeed: 0 },
+    abilities: ['spear-thrust', 'shield-bash', 'haste'],
+    passiveIds: [],
+  }),
 ];

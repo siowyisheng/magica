@@ -12,7 +12,8 @@
 
 - `src/game/` must stay pure and deterministic: no React, no DOM, no `Date.now()`, no `Math.random()` (use `mulberry32` from `rng.ts` with a seed). Replays and spectating depend on this. The only exceptions are the edges that run outside a match: `storage.ts` (localStorage, ids) and `randomSeed()` (picks a new match's seed).
 - Every game rule change goes through `applyAction` in `engine.ts`, and the AI-vs-AI replay test must keep passing.
-- New abilities, archetypes and relics go in `content.ts`. New effect types need handling in both `engine.ts` (`resolveEffect`) and `ai.ts` (`scoreCast`).
+- New Abilities and Passives go in `content.ts`. New effect types need handling in both `engine.ts` and `ai.ts` (`scoreCast`); new Threat Area shapes go in `threat.ts`.
+- Use the domain language in `CONTEXT.md` (Mage, Circle, Ability, Spell, Technique, Attack, Threat Area, …) in code, tests and docs.
 - Keep `vite.config.ts` `base: './'` so the build stays loadable from `file://` for Windows packaging (Electron/Tauri).
 
 ## Agent skills

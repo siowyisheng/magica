@@ -4,6 +4,7 @@ import { CIRCLE_NAME } from '../game/loadout';
 import { AP_PER_TURN, apCost, castError, maxMana, mpPerAp } from '../game/engine';
 import type { GameEvent, GameState, PlayerId, Mage } from '../game/types';
 import { STATUS_ICON } from './HexBoard';
+import { abilitySummary } from './LoadoutBuilder';
 
 export function MageCard({ unit, active }: { unit: Mage; active: boolean }) {
   return (
@@ -54,9 +55,8 @@ export function MageCard({ unit, active }: { unit: Mage; active: boolean }) {
       )}
       <div className="mini-abilities">
         {unit.abilities.map((a) => (
-          <span key={a.id} title={ABILITIES[a.id].name} className={a.cooldown ? 'cd' : ''}>
+          <span key={a.id} title={ABILITIES[a.id].name}>
             {ABILITIES[a.id].icon}
-            {a.cooldown > 0 && <sub>{a.cooldown}</sub>}
           </span>
         ))}
       </div>
@@ -103,7 +103,7 @@ export function AbilityBar({
             className={`ability school-${def.school} ${selected === slot.id ? 'is-selected' : ''}`}
             disabled={disabled || !!err}
             onClick={() => onSelect(selected === slot.id ? null : slot.id)}
-            title={`${def.name} — ${def.description}\n${def.fast ? 'Fast (0 AP)' : '1 AP'} · ${def.mana} Mana · range ${def.range}${def.aoe ? ` · AoE ${def.aoe}` : ''}${def.cooldown ? ` · CD ${def.cooldown}` : ''}${err ? `\n${err}` : ''}`}
+            title={`${def.name} — ${def.description}\n${abilitySummary(def)}${err ? `\n${err}` : ''}`}
           >
             <span className="hotkey">{i + 1}</span>
             {def.timing === 'reaction' && <span className="badge reaction">React</span>}
@@ -115,7 +115,6 @@ export function AbilityBar({
               {def.fast || (state.phase === 'reaction' && def.timing && def.timing !== 'action') ? '0 AP' : `${apCost(def)} AP`}
               {def.mana > 0 && <span className="mana-cost"> · {def.mana}💧</span>}
             </span>
-            {slot.cooldown > 0 && <span className="cooldown-mask">{slot.cooldown}</span>}
           </button>
         );
       })}

@@ -135,7 +135,7 @@ export function abilityRange(def: AbilityDef): number {
         return s.range;
     }
   }
-  return def.targeting === 'self' ? 0 : Math.max(1, def.range);
+  return def.targeting === 'tile' ? Math.max(1, def.range ?? 0) : 0;
 }
 
 /** Why the player can't cast this Ability (at this target), or null if they can. */
@@ -156,10 +156,8 @@ export function castError(
   const reacting = state.phase === 'reaction';
   if (reacting && timing(def) === 'action') return 'Only Moves and Reaction Spells are allowed in the Reaction Phase.';
   if (!reacting && timing(def) === 'reaction') return 'Reaction Spells can only be cast in the Reaction Phase.';
-  if (slot.cooldown > 0) return `On cooldown (${slot.cooldown}).`;
   if (u.ap < castApCost(state, def)) return 'Not enough AP.';
   if (u.mana < def.mana) return 'Not enough Mana.';
-  if (def.effect.type === 'sacrifice' && u.hp <= def.effect.hp) return 'Not enough HP.';
   if (isTargetedReaction(def)) {
     if (attackId === undefined) return target ? 'Choose an incoming attack.' : null;
     const atk = incoming(state, player).find((a) => a.id === attackId);
@@ -183,20 +181,12 @@ export function castError(
     return threatArea(state.tiles, u.pos, def.effect.shape, target) ? null : "Can't aim there.";
   }
   const enemy = state.mages[other(player)];
+  if (def.targeting !== 'tile') return equals(target, u.pos) ? null : 'Targets yourself.';
   const dist = distance(u.pos, target);
-  if (def.targeting === 'self') return equals(target, u.pos) ? null : 'Targets yourself.';
+  if (dist === 0) return 'Pick another hex.';
   if (dist > abilityRange(def)) return 'Out of range.';
-  if (def.needsLOS && !hasLOS(state, u.pos, target)) return 'No line of sight.';
-  if (def.targeting === 'enemy' && !equals(target, enemy.pos)) return 'Must target the enemy.';
-  if (def.effect.type === 'blink') {
-    if (dist === 0) return 'Pick another hex.';
-    if (tile.terrain === 'rock') return "Can't blink into rock.";
-    if (equals(target, enemy.pos)) return 'Hex is occupied.';
-  }
-  if (def.effect.type === 'terraform') {
-    if (equals(target, enemy.pos) || equals(target, u.pos)) return 'Hex is occupied.';
-    if (tile.terrain === def.effect.terrain) return 'Already that terrain.';
-  }
+  if (tile.terrain === 'rock') return "Can't land on rock.";
+  if (equals(target, enemy.pos)) return 'Hex is occupied.';
   return null;
 }
 
@@ -219,8 +209,7 @@ export function impactArea(state: GameState, player: PlayerId, abilityId: string
   const def = ABILITIES[abilityId];
   if (!def) return [];
   if (def.effect.type === 'attack') return threatArea(state.tiles, state.mages[player].pos, def.effect.shape, target) ?? [];
-  if (Array.isArray(target)) return [];
-  return Object.values(state.tiles).filter((t) => distance(t, target) <= def.aoe);
+  return Array.isArray(target) ? [] : [target];
 }
 
 /** AP to cast now: none in the Reaction Phase, otherwise 1 unless Fast. */
@@ -283,7 +272,6 @@ export function applyAction(prev: GameState, action: Action): GameState {
       const def = ABILITIES[action.abilityId];
       me.ap -= castApCost(state, def);
       me.mana -= def.mana;
-      me.abilities.find((a) => a.id === def.id)!.cooldown = def.cooldown;
       if (def.effect.type === 'attack') {
         const aim = def.effect.shape.kind === 'wall' ? action.path! : action.target;
         const area = threatArea(state.tiles, me.pos, def.effect.shape, aim)!;
@@ -300,7 +288,7 @@ export function applyAction(prev: GameState, action: Action): GameState {
         react(state, me, def, action.attackId!, log);
       } else {
         log({ kind: 'cast', text: `${me.name} casts ${def.icon} ${def.name}.`, at: action.target });
-        resolveUtility(state, me, def, action.target, log);
+        resolveUtility(me, def, action.target, log);
       }
       checkWinner(state, log);
       break;
@@ -350,7 +338,6 @@ function startTurn(state: GameState, player: PlayerId, log: Log) {
   u.mp = 0;
   if (u.regen > 0) heal(u, u.regen, log);
   for (const s of u.statuses) if (s.kind === 'burn' || s.kind === 'poison') dealDamage(u, s.power, log);
-  for (const a of u.abilities) a.cooldown = Math.max(0, a.cooldown - 1);
   u.ap = AP_PER_TURN;
   log({ kind: 'turn', text: `${u.name}'s turn.` });
   checkWinner(state, log);
@@ -412,9 +399,8 @@ function react(state: GameState, me: Mage, def: AbilityDef, attackId: number, lo
 }
 
 /** Instant, non-Attack effects (healing, shields, blinks, …). */
-function resolveUtility(state: GameState, caster: Mage, def: AbilityDef, target: Hex, log: Log) {
+function resolveUtility(caster: Mage, def: AbilityDef, target: Hex, log: Log) {
   const fx = def.effect;
-  const enemy = state.mages[other(caster.owner)];
   switch (fx.type) {
     case 'attack':
     case 'counter':
@@ -430,31 +416,9 @@ function resolveUtility(state: GameState, caster: Mage, def: AbilityDef, target:
     case 'blink':
       caster.pos = target;
       break;
-    case 'swap':
-      [caster.pos, enemy.pos] = [enemy.pos, caster.pos];
-      log({ kind: 'move', text: `${caster.name} and ${enemy.name} trade places.`, at: caster.pos });
-      break;
-    case 'sacrifice':
-      caster.hp -= fx.hp;
-      caster.ap += fx.ap;
-      log({ kind: 'damage', text: `${caster.name} pays ${fx.hp} HP for ${fx.ap} AP.`, at: caster.pos, amount: fx.hp });
-      break;
-    case 'cleanse':
-      if (caster.statuses.length) log({ kind: 'status', text: `${caster.name} is cleansed.` });
-      caster.statuses = [];
-      heal(caster, fx.heal, log);
-      break;
     case 'haste':
       caster.mp += fx.move;
       log({ kind: 'status', text: `${caster.name} gains ${fx.move} Movement Points.` });
-      break;
-    case 'refresh':
-      for (const a of caster.abilities) if (a.id !== def.id) a.cooldown = Math.max(0, a.cooldown - fx.amount);
-      log({ kind: 'status', text: `${caster.name} rewinds their cooldowns.` });
-      break;
-    case 'terraform':
-      state.tiles[key(target)].terrain = fx.terrain;
-      log({ kind: 'cast', text: `The ground becomes ${fx.terrain}.`, at: target });
       break;
   }
 }

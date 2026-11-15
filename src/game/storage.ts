@@ -21,12 +21,12 @@ function write(k: string, v: unknown) {
   }
 }
 
-// v2: Circle-based Loadouts. Older saves (archetypes and relics) are discarded.
-const LOADOUTS = 'magica.loadouts.v2';
-const REPLAYS = 'magica.replays.v2';
+// v3: Circle-based Loadouts with the delayed-Attack catalogue. Older saves are discarded.
+const LOADOUTS = 'magica.loadouts.v3';
+const REPLAYS = 'magica.replays.v3';
 const MAX_REPLAYS = 25;
 
-const DEFAULTS_SEEN = 'magica.defaultsSeen.v2';
+const DEFAULTS_SEEN = 'magica.defaultsSeen.v3';
 
 /** Saved loadouts, plus any built-in defaults this player hasn't seen yet (e.g. after a content update). */
 export function loadLoadouts(): Loadout[] {
