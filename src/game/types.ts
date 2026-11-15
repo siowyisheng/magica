@@ -138,6 +138,18 @@ export interface Loadout {
   passiveIds: string[];
 }
 
+/** Always-on effects a Passive grants. Add a field here (and handle it) to support new kinds of Passive. */
+export interface PassiveMods {
+  /** Every hit taken is reduced by this much (minimum 1 still lands). */
+  armor?: number;
+  /** HP restored at the start of your turn. */
+  regen?: number;
+  /** Extra Mana regained each turn, on top of Magic. */
+  manaRegen?: number;
+  /** Absorb Mana yields this fraction more (0.5 = +50%). */
+  absorbBonus?: number;
+}
+
 export interface PassiveDef {
   id: string;
   name: string;
@@ -145,6 +157,7 @@ export interface PassiveDef {
   description: string;
   /** Loadout Points to include this Passive. */
   points: number;
+  mods: PassiveMods;
 }
 
 export interface AbilityState {
@@ -168,6 +181,9 @@ export interface Mage {
   mp: number;
   armor: number;
   regen: number;
+  manaRegen: number;
+  absorbBonus: number;
+  passiveIds: string[];
   abilities: AbilityState[];
   statuses: Status[];
 }

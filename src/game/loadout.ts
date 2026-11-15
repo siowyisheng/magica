@@ -61,6 +61,18 @@ export function validateLoadout(l: Loadout): string[] {
   return errors;
 }
 
+function passiveStats(ids: string[]) {
+  const out = { armor: 0, regen: 0, manaRegen: 0, absorbBonus: 0 };
+  for (const id of ids) {
+    const m = PASSIVES[id]?.mods ?? {};
+    out.armor += m.armor ?? 0;
+    out.regen += m.regen ?? 0;
+    out.manaRegen += m.manaRegen ?? 0;
+    out.absorbBonus += m.absorbBonus ?? 0;
+  }
+  return out;
+}
+
 export function buildMage(owner: PlayerId, name: string, l: Loadout, pos: Hex): Mage {
   const maxHp = statValue('hp', l.stats.hp);
   const movespeed = statValue('movespeed', l.stats.movespeed);
@@ -77,8 +89,8 @@ export function buildMage(owner: PlayerId, name: string, l: Loadout, pos: Hex): 
     mana: statValue('magic', l.stats.magic),
     movespeed,
     mp: 0,
-    armor: 0,
-    regen: 0,
+    ...passiveStats(l.passiveIds),
+    passiveIds: [...l.passiveIds],
     abilities: l.abilityIds.map((id) => ({ id, cooldown: 0 })),
     statuses: [],
   };

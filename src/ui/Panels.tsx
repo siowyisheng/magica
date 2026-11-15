@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { ABILITIES } from '../game/content';
+import { ABILITIES, PASSIVES } from '../game/content';
 import { CIRCLE_NAME } from '../game/loadout';
 import { AP_PER_TURN, apCost, castError, maxMana, mpPerAp } from '../game/engine';
 import type { GameEvent, GameState, PlayerId, Mage } from '../game/types';
@@ -18,17 +18,20 @@ export function MageCard({ unit, active }: { unit: Mage; active: boolean }) {
         </div>
       </div>
       <Bar label="HP" value={unit.hp} max={unit.maxHp} cls="hp" extra={unit.shield ? `+${unit.shield}🛡` : ''} />
-      <Bar label="Mana" value={unit.mana} max={maxMana(unit)} cls="mana" extra={`+${unit.magic}/turn`} />
+      <Bar label="Mana" value={unit.mana} max={maxMana(unit)} cls="mana" extra={`+${unit.magic + unit.manaRegen}/turn`} />
       <div className="pips">
         <span className="muted">AP</span>
         {Array.from({ length: Math.max(AP_PER_TURN, unit.ap) }, (_, i) => (
           <span key={i} className={`pip ${i < unit.ap ? 'on' : ''}`} />
         ))}
       </div>
-      {(unit.armor > 0 || unit.regen > 0) && (
+      {unit.passiveIds.length > 0 && (
         <div className="traits muted">
-          {unit.armor > 0 && <span>🪨 {unit.armor} armor</span>}
-          {unit.regen > 0 && <span>✚ {unit.regen} regen</span>}
+          {unit.passiveIds.map((id) => (
+            <span key={id} title={PASSIVES[id]?.description}>
+              {PASSIVES[id]?.icon} {PASSIVES[id]?.name}
+            </span>
+          ))}
         </div>
       )}
       <div className="pips">

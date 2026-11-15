@@ -307,7 +307,7 @@ export function applyAction(prev: GameState, action: Action): GameState {
     }
     case 'absorb': {
       const c = crystalAt(state, me.pos)!;
-      const gained = Math.min(maxMana(me) - me.mana, crystalYield(c, round(state)));
+      const gained = Math.min(maxMana(me) - me.mana, Math.floor(crystalYield(c, round(state)) * (1 + me.absorbBonus)));
       me.ap -= 1;
       me.mana += gained;
       log({ kind: 'heal', text: `${me.name} absorbs ${gained} Mana from the ${c.size} crystal.`, at: me.pos });
@@ -346,7 +346,7 @@ export function applyAction(prev: GameState, action: Action): GameState {
 function startTurn(state: GameState, player: PlayerId, log: Log) {
   const u = state.mages[player];
   // Each mage's first turn is turn 1 (P1) or 2 (P2); regen starts after that.
-  if (state.turn > 2) u.mana = Math.min(maxMana(u), u.mana + u.magic);
+  if (state.turn > 2) u.mana = Math.min(maxMana(u), u.mana + u.magic + u.manaRegen);
   u.mp = 0;
   if (u.regen > 0) heal(u, u.regen, log);
   for (const s of u.statuses) if (s.kind === 'burn' || s.kind === 'poison') dealDamage(u, s.power, log);

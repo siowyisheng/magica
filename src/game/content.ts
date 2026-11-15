@@ -314,7 +314,16 @@ export const ABILITIES: Record<string, AbilityDef> = Object.fromEntries(
   ).map((a) => [a.id, priced(a)]),
 );
 
-export const PASSIVES: Record<string, PassiveDef> = {};
+export const PASSIVES: Record<string, PassiveDef> = Object.fromEntries(
+  (
+    [
+      { id: 'mana-well', name: 'Mana Well', icon: '🏺', points: 3, description: 'Absorb Mana gives +50%.', mods: { absorbBonus: 0.5 } },
+      { id: 'iron-skin', name: 'Iron Skin', icon: '🪨', points: 3, description: 'Every hit you take is 1 lower (but at least 1).', mods: { armor: 1 } },
+      { id: 'regeneration', name: 'Regeneration', icon: '✚', points: 3, description: '+1 HP at the start of your turn.', mods: { regen: 1 } },
+      { id: 'wellspring', name: 'Wellspring', icon: '⛲', points: 4, description: '+1 Mana per turn on top of Magic.', mods: { manaRegen: 1 } },
+    ] satisfies PassiveDef[]
+  ).map((p) => [p.id, p]),
+);
 
 export const SCHOOLS: Record<School, { name: string; icon: string }> = {
   fire: { name: 'Fire', icon: '🔥' },
