@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { hexPoints, key, toPixel, type Hex } from '../game/hex';
+import { CRYSTAL_STATE_NAME } from '../game/crystals';
 import { PLAYERS, type GameState, type StatusKind } from '../game/types';
 
 const SIZE = 30;
@@ -100,6 +101,32 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
             {TERRAIN_ICON[t.terrain] && (
               <text className="terrain-icon" textAnchor="middle" dominantBaseline="central">
                 {TERRAIN_ICON[t.terrain]}
+              </text>
+            )}
+          </g>
+        );
+      })}
+
+      {state.crystals.map((c) => {
+        const { x, y } = toPixel(c.pos, SIZE);
+        return (
+          <g
+            key={c.size}
+            className={`crystal crystal-${c.size} crystal-${c.state}`}
+            transform={`translate(${x} ${y})`}
+            onClick={() => onHexClick?.(c.pos)}
+            onMouseEnter={() => onHexHover?.(c.pos)}
+          >
+            <title>{`${c.size === 'large' ? 'Large' : 'Small'} Mana Crystal · ${CRYSTAL_STATE_NAME[c.state]}`}</title>
+            <polygon points={c.size === 'large' ? '0,-17 12,-3 0,17 -12,-3' : '0,-12 8,-2 0,12 -8,-2'} />
+            {c.state === 'almostReady' && (
+              <text className="crystal-pip" y={SIZE * 0.78} textAnchor="middle">
+                1
+              </text>
+            )}
+            {c.state === 'spawning' && (
+              <text className="crystal-pip" y={SIZE * 0.78} textAnchor="middle">
+                2
               </text>
             )}
           </g>

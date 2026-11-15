@@ -245,3 +245,15 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .bar-row { grid-template-columns: 40px 1fr auto; }
 .mp-note { margin-left: 0.3rem; font-size: 0.75rem; }
 .is-reachable.costs-ap polygon { fill: #1b302e; stroke-dasharray: 4 3; }
+
+/* ---------- Mana Crystals ---------- */
+.crystal polygon { stroke-width: 2; transition: opacity 0.3s; }
+.crystal-large polygon { fill: #5b8cff; stroke: #cfe0ff; }
+.crystal-small polygon { fill: #8fd3ff; stroke: #e6f6ff; }
+.crystal-spawning polygon { opacity: 0.25; stroke-dasharray: 3 3; fill-opacity: 0.2; }
+.crystal-almostReady polygon { opacity: 0.6; fill-opacity: 0.55; }
+.crystal-ready polygon { filter: drop-shadow(0 0 6px #7aa2ff); animation: pulse 1.8s infinite; }
+.crystal-pip { font-size: 10px; fill: #cfe0ff; font-weight: 700; pointer-events: none; }
+.crystal { cursor: pointer; }
+button.absorb { position: relative; padding: 0.9rem 1.1rem; }
+button.absorb:not(:disabled) { border-color: #7aa2ff; box-shadow: 0 0 12px #5b8cff66; }

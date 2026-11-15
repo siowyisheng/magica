@@ -1,5 +1,6 @@
 import { ABILITIES } from './content';
-import { abilityRange, apCost, castError, hasLOS, moveBudget, reachable, validTargets } from './engine';
+import { crystalYield } from './crystals';
+import { abilityRange, absorbError, apCost, castError, hasLOS, moveBudget, mpPerAp, reachable, round, validTargets } from './engine';
 import { distance, fromKey, type Hex } from './hex';
 import { other, type Action, type GameState, type PlayerId } from './types';
 
@@ -11,6 +12,9 @@ import { other, type Action, type GameState, type PlayerId } from './types';
 export function chooseAction(state: GameState, player: PlayerId): Action {
   const me = state.mages[player];
   const enemy = state.mages[other(player)];
+
+  // 0. Free Mana under our feet.
+  if (!absorbError(state, player)) return { type: 'absorb', player };
 
   // 1. Best cast available right now.
   let best: { score: number; action: Action } | null = null;
@@ -26,7 +30,17 @@ export function chooseAction(state: GameState, player: PlayerId): Action {
   }
   if (best) return best.action;
 
-  // 2. Reposition to the ideal distance for our damage abilities.
+  // 2. Walk onto a Ready crystal if we can reach it and still have an AP left to absorb.
+  if (me.ap >= 2 || me.mp > 0) {
+    const budget = me.mp + (me.ap - 1) * mpPerAp(me);
+    const options = reachable(state, player);
+    const target = state.crystals
+      .filter((c) => c.state === 'ready' && (options.get(`${c.pos.q},${c.pos.r}`) ?? Infinity) <= budget)
+      .sort((a, b) => crystalYield(b, round(state)) - crystalYield(a, round(state)))[0];
+    if (target) return { type: 'move', player, to: target.pos };
+  }
+
+  // 3. Reposition to the ideal distance for our damage abilities.
   if (moveBudget(me) > 0) {
     const ranges = me.abilities
       .map((s) => ABILITIES[s.id])

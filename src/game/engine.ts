@@ -1,4 +1,5 @@
 import { generateBoard, moveCost, spawnFor } from './board';
+import { advanceCrystals, crystalAt, crystalYield, initialCrystals, respawnCrystal } from './crystals';
 import { ABILITIES } from './content';
 import { distance, equals, key, line, neighbors, toPixel, type Hex } from './hex';
 import { buildMage } from './loadout';
@@ -28,15 +29,19 @@ export function createGame(config: MatchConfig): GameState {
   };
   // Going second is a disadvantage: P2 starts with one extra turn of regen.
   mages.p2.mana = Math.min(maxMana(mages.p2), mages.p2.mana + mages.p2.magic);
-  return {
+  const state: GameState = {
     config,
     turn: 1,
     active: 'p1',
     tiles,
     mages,
+    crystals: [],
+    rng: (config.seed ^ 0x9e3779b9) >>> 0,
     events: [{ turn: 1, kind: 'turn', text: `${config.names.p1} takes the first turn.` }],
     winner: null,
   };
+  state.crystals = initialCrystals(state);
+  return state;
 }
 
 // --- Queries ---------------------------------------------------------------
@@ -152,12 +157,28 @@ export function actionError(state: GameState, action: Action): string | null {
       return reachable(state, action.player).has(key(action.to)) ? null : "Can't move there.";
     case 'cast':
       return castError(state, action.player, action.abilityId, action.target);
+    case 'absorb':
+      return absorbError(state, action.player);
     case 'endTurn':
       return null;
   }
 }
 
 export const maxMana = (m: Mage) => 10 * m.magic;
+
+/** A round is one turn by each mage. */
+export const round = (state: GameState) => Math.ceil(state.turn / 2);
+
+export function absorbError(state: GameState, player: PlayerId): string | null {
+  if (state.winner) return 'The match is over.';
+  if (state.active !== player) return 'Not your turn.';
+  const m = state.mages[player];
+  const c = crystalAt(state, m.pos);
+  if (!c) return 'Stand on a Mana Crystal to absorb it.';
+  if (c.state !== 'ready') return 'That crystal is not Ready yet.';
+  if (m.ap < 1) return 'Not enough AP.';
+  return null;
+}
 
 export const hpFraction = (u: Mage) => u.hp / u.maxHp;
 
@@ -190,6 +211,15 @@ export function applyAction(prev: GameState, action: Action): GameState {
       checkWinner(state, log);
       break;
     }
+    case 'absorb': {
+      const c = crystalAt(state, me.pos)!;
+      const gained = Math.min(maxMana(me) - me.mana, crystalYield(c, round(state)));
+      me.ap -= 1;
+      me.mana += gained;
+      log({ kind: 'heal', text: `${me.name} absorbs ${gained} Mana from the ${c.size} crystal.`, at: me.pos });
+      respawnCrystal(state, c);
+      break;
+    }
     case 'endTurn': {
       if (action.reason === 'timeout') log({ kind: 'turn', text: `${me.name} ran out of time!` });
       // Statuses last through the owner's turn (slow and root are read live while moving).
@@ -205,6 +235,7 @@ export function applyAction(prev: GameState, action: Action): GameState {
         break;
       }
       state.active = other(action.player);
+      if (state.active === 'p1') advanceCrystals(state); // a new round begins
       startTurn(state, state.active, log);
       checkWinner(state, log);
       break;

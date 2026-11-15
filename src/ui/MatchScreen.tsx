@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { chooseAction } from '../game/ai';
-import { applyAction, createGame, impactArea, reachable, validTargets } from '../game/engine';
+import { absorbError, applyAction, createGame, impactArea, reachable, round, validTargets } from '../game/engine';
 import { equals, key, type Hex } from '../game/hex';
 import { newId, saveReplay } from '../game/storage';
 import type { Action, GameState, MatchConfig, MatchRecord, PlayerId } from '../game/types';
@@ -101,6 +101,11 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
     else if (equals(h, state.mages[controlling].pos)) setSelected(null);
   };
 
+  const canAbsorb = !!controlling && !absorbError(state, controlling);
+  const absorb = useCallback(() => {
+    if (controlling) dispatch({ type: 'absorb', player: controlling });
+  }, [controlling, dispatch]);
+
   const endTurn = useCallback(() => {
     if (controlling) dispatch({ type: 'endTurn', player: controlling });
   }, [controlling, dispatch]);
@@ -114,6 +119,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
         const slot = stateRef.current.mages[controlling].abilities[n - 1];
         if (slot) setSelected((s) => (s === slot.id ? null : slot.id));
       } else if (e.key === 'Escape') setSelected(null);
+      else if (e.key.toLowerCase() === 'a') absorb();
       else if (e.key === ' ' || e.key.toLowerCase() === 'e') {
         e.preventDefault();
         endTurn();
@@ -121,7 +127,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [controlling, endTurn]);
+  }, [controlling, endTurn, absorb]);
 
   const barPlayer: PlayerId = mode === 'hotseat' ? state.active : 'p1';
   const winnerText =
@@ -134,7 +140,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
           ← Leave
         </button>
         <div className="round">
-          Round {Math.ceil(state.turn / 2)} <span className="muted">/ {Math.ceil(config.maxTurns / 2)}</span>
+          Round {round(state)} <span className="muted">/ {Math.ceil(config.maxTurns / 2)}</span>
         </div>
         <div className="live-pill" title="Open a second window and choose Spectate to watch this match">
           ● Broadcasting
@@ -157,6 +163,9 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       <footer className="controls">
         <TurnTimer remaining={remaining} total={config.turnSeconds} />
         <AbilityBar state={state} player={barPlayer} selected={selected} onSelect={setSelected} disabled={!controlling} />
+        <button className="absorb" onClick={absorb} disabled={!canAbsorb} title="Absorb Mana from the Ready crystal you stand on (1 AP)">
+          💎 Absorb<span className="hotkey">A</span>
+        </button>
         <button className="end-turn" onClick={endTurn} disabled={!controlling}>
           {controlling ? 'End turn' : `${state.mages[state.active].name}…`}
           <span className="hotkey">Space</span>

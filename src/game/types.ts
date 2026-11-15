@@ -160,6 +160,16 @@ export interface GameEvent {
   amount?: number;
 }
 
+export type CrystalSize = 'large' | 'small';
+/** Spawning → Almost Ready → Ready, one step per round. Only Ready crystals can be absorbed. */
+export type CrystalState = 'spawning' | 'almostReady' | 'ready';
+
+export interface Crystal {
+  size: CrystalSize;
+  pos: Hex;
+  state: CrystalState;
+}
+
 export interface GameState {
   config: MatchConfig;
   /** Increments on every end of turn. A "round" is two turns. */
@@ -167,6 +177,9 @@ export interface GameState {
   active: PlayerId;
   tiles: Record<string, Tile>;
   mages: Record<PlayerId, Mage>;
+  crystals: Crystal[];
+  /** Seeded PRNG state for in-match randomness (crystal placement). */
+  rng: number;
   events: GameEvent[];
   winner: PlayerId | 'draw' | null;
 }
@@ -174,6 +187,7 @@ export interface GameState {
 export type Action =
   | { type: 'move'; player: PlayerId; to: Hex }
   | { type: 'cast'; player: PlayerId; abilityId: string; target: Hex }
+  | { type: 'absorb'; player: PlayerId }
   | { type: 'endTurn'; player: PlayerId; reason?: 'timeout' };
 
 export interface MatchConfig {
