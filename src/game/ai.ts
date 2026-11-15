@@ -1,15 +1,49 @@
 import { ABILITIES } from './content';
 import { crystalYield } from './crystals';
-import { abilityRange, absorbError, apCost, castError, hasLOS, moveBudget, mpPerAp, reachable, round, validTargets } from './engine';
-import { distance, fromKey, type Hex } from './hex';
-import { other, type Action, type GameState, type PlayerId } from './types';
+import {
+  abilityRange,
+  absorbError,
+  apCost,
+  castError,
+  hasLOS,
+  incoming,
+  mpPerAp,
+  reachable,
+  round,
+  validTargets,
+  AP_PER_TURN,
+} from './engine';
+import { distance, fromKey, key, neighbors, type Hex } from './hex';
+import { aimableHexes, threatArea } from './threat';
+import { other, type Action, type GameState, type Hit, type Mage, type PlayerId } from './types';
 
-/**
- * Greedy bot: returns the single next action for `player`. Call it repeatedly
- * (with a small delay for readability) until it returns endTurn.
- * Every action it returns either spends AP or movement, so it always terminates.
- */
+// ---------------------------------------------------------------------------
+// Greedy bot. chooseAction returns the single next action for `player`; call
+// it repeatedly until it ends the phase/turn. Every action it returns spends
+// AP, Movement Points or Mana, or ends the phase, so it always terminates.
+// ---------------------------------------------------------------------------
+
 export function chooseAction(state: GameState, player: PlayerId): Action {
+  return state.phase === 'reaction' ? chooseReaction(state, player) : chooseMain(state, player);
+}
+
+const areaOf = (attacks: GameState['pending']) => new Set(attacks.flatMap((a) => a.area));
+
+/** Reaction Phase: step out of every incoming Threat Area as cheaply as possible, else brace. */
+function chooseReaction(state: GameState, player: PlayerId): Action {
+  const me = state.mages[player];
+  const danger = areaOf(incoming(state, player));
+  if (danger.has(key(me.pos))) {
+    const own = areaOf(state.pending.filter((a) => a.caster === player));
+    const escape = [...reachable(state, player)]
+      .filter(([k]) => !danger.has(k) && !own.has(k))
+      .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))[0];
+    if (escape) return { type: 'move', player, to: fromKey(escape[0]) };
+  }
+  return { type: 'endReaction', player };
+}
+
+function chooseMain(state: GameState, player: PlayerId): Action {
   const me = state.mages[player];
   const enemy = state.mages[other(player)];
 
@@ -19,40 +53,38 @@ export function chooseAction(state: GameState, player: PlayerId): Action {
   // 1. Best cast available right now.
   let best: { score: number; action: Action } | null = null;
   for (const slot of me.abilities) {
-    const def = ABILITIES[slot.id];
     if (castError(state, player, slot.id)) continue;
-    for (const target of validTargets(state, player, slot.id)) {
-      const score = scoreCast(state, player, slot.id, target);
-      if (score > 0 && (!best || score > best.score)) {
-        best = { score, action: { type: 'cast', player, abilityId: def.id, target } };
+    for (const [target, area] of castCandidates(state, player, slot.id)) {
+      const score = scoreCast(state, player, slot.id, target, area);
+      if (score > 0.3 && (!best || score > best.score)) {
+        best = { score, action: { type: 'cast', player, abilityId: slot.id, target } };
       }
     }
   }
   if (best) return best.action;
 
+  const options = reachable(state, player);
+  const ownDanger = areaOf(state.pending.filter((a) => a.caster === player));
+
   // 2. Walk onto a Ready crystal if we can reach it and still have an AP left to absorb.
   if (me.ap >= 2 || me.mp > 0) {
     const budget = me.mp + (me.ap - 1) * mpPerAp(me);
-    const options = reachable(state, player);
     const target = state.crystals
-      .filter((c) => c.state === 'ready' && (options.get(`${c.pos.q},${c.pos.r}`) ?? Infinity) <= budget)
+      .filter((c) => c.state === 'ready' && (options.get(key(c.pos)) ?? Infinity) <= budget && !ownDanger.has(key(c.pos)))
       .sort((a, b) => crystalYield(b, round(state)) - crystalYield(a, round(state)))[0];
     if (target) return { type: 'move', player, to: target.pos };
   }
 
-  // 3. Reposition to the ideal distance for our damage abilities.
-  if (moveBudget(me) > 0) {
-    const ranges = me.abilities
-      .map((s) => ABILITIES[s.id])
-      .filter((d) => d.effect.type === 'damage' && d.effect.amount > 0)
-      .map((d) => (d.targeting === 'self' ? d.aoe : abilityRange(me, d)));
-    const ideal = ranges.length ? Math.max(1, Math.min(...ranges)) : 1;
+  // 3. Reposition: get out of our own Threat Areas, then toward the ideal range for our attacks.
+  if (options.size) {
+    const ideal = idealRange(me);
     const scorePos = (h: Hex) =>
-      -Math.abs(distance(h, enemy.pos) - ideal) +
+      (ownDanger.has(key(h)) ? -100 : 0) -
+      Math.abs(distance(h, enemy.pos) - ideal) +
       (hasLOS(state, h, enemy.pos) ? 0.5 : 0);
     let bestPos: Hex | null = null;
     let bestScore = scorePos(me.pos);
-    for (const k of reachable(state, player).keys()) {
+    for (const k of options.keys()) {
       const h = fromKey(k);
       const s = scorePos(h);
       if (s > bestScore + 1e-9) {
@@ -60,65 +92,114 @@ export function chooseAction(state: GameState, player: PlayerId): Action {
         bestPos = h;
       }
     }
-    if (bestPos) return { type: 'move', player, to: bestPos };
+    // Don't burn the last AP just to shuffle around unless we're standing in our own attack.
+    const needsAp = bestPos ? options.get(key(bestPos))! > me.mp : false;
+    if (bestPos && (!needsAp || me.ap === AP_PER_TURN || ownDanger.has(key(me.pos)))) {
+      return { type: 'move', player, to: bestPos };
+    }
   }
 
   return { type: 'endTurn', player };
 }
 
-function scoreCast(state: GameState, player: PlayerId, abilityId: string, target: Hex): number {
+function idealRange(me: Mage): number {
+  const ranges = me.abilities
+    .map((s) => ABILITIES[s.id])
+    .filter((d) => d.effect.type === 'attack')
+    .map(abilityRange);
+  const ranged = ranges.filter((r) => r > 1);
+  return ranged.length ? Math.min(...ranged) : 1;
+}
+
+/** Aim points worth evaluating, with their Threat Areas. For Attacks, only aims that cover the enemy. */
+function castCandidates(state: GameState, player: PlayerId, abilityId: string): Array<[Hex, Set<string>]> {
+  const def = ABILITIES[abilityId];
+  if (def.effect.type !== 'attack') return validTargets(state, player, abilityId).map((t) => [t, new Set<string>()]);
+  const me = state.mages[player].pos;
+  const enemy = key(state.mages[other(player)].pos);
+  const out: Array<[Hex, Set<string>]> = [];
+  for (const aim of aimableHexes(state.tiles, me, def.effect.shape)) {
+    const area = threatArea(state.tiles, me, def.effect.shape, aim);
+    if (!area) continue;
+    const keys = new Set(area.map(key));
+    if (keys.has(enemy)) out.push([aim, keys]);
+  }
+  return out;
+}
+
+/** Movement the enemy needs to leave `area`, or Infinity if they can't. */
+function escapeCost(state: GameState, from: Hex, area: Set<string>): number {
+  if (!area.has(key(from))) return 0;
+  const seen = new Set([key(from)]);
+  let frontier = [from];
+  for (let d = 1; d <= 12; d++) {
+    const next: Hex[] = [];
+    for (const h of frontier)
+      for (const n of neighbors(h)) {
+        const k = key(n);
+        const t = state.tiles[k];
+        if (!t || t.terrain === 'rock' || seen.has(k)) continue;
+        if (!area.has(k)) return d;
+        seen.add(k);
+        next.push(n);
+      }
+    frontier = next;
+  }
+  return Infinity;
+}
+
+/** Expected value of landing `hit` on the enemy, given they get a Reaction Phase to dodge. */
+function attackValue(state: GameState, player: PlayerId, area: Set<string>, hit: Hit): number {
+  const enemy = state.mages[other(player)];
+  const vuln = enemy.statuses.find((s) => s.kind === 'vulnerable')?.power ?? 0;
+  const dmg = hit.damage > 0 ? Math.max(1, hit.damage + vuln - enemy.armor) : 0;
+  let full = dmg;
+  if (hit.status && !enemy.statuses.some((s) => s.kind === hit.status!.kind)) full += 1.5;
+  if (hit.lifesteal) full += dmg * hit.lifesteal * 0.5;
+  if (hit.knockback) full += 0.3;
+  if (dmg > 0 && enemy.hp + enemy.shield <= dmg) full += 100;
+
+  const per = mpPerAp(enemy);
+  const cost = escapeCost(state, enemy.pos, area);
+  const apToDodge = per > 0 ? Math.ceil(cost / per) : Infinity;
+  if (apToDodge > AP_PER_TURN) return full; // unavoidable
+  // Dodgeable: still worth something for the AP it forces them to burn.
+  return full * 0.3 + apToDodge * 1.2;
+}
+
+function scoreCast(state: GameState, player: PlayerId, abilityId: string, _target: Hex, area: Set<string>): number {
   const me = state.mages[player];
   const enemy = state.mages[other(player)];
   const def = ABILITIES[abilityId];
   const fx = def.effect;
   const dist = distance(me.pos, enemy.pos);
+  const cost = Math.max(1, apCost(def) + def.mana / 5);
   switch (fx.type) {
-    case 'damage': {
-      const hitsEnemy = distance(enemy.pos, target) <= def.aoe;
-      const hitsMe = !def.spareCaster && distance(me.pos, target) <= def.aoe;
-      const vuln = enemy.statuses.find((s) => s.kind === 'vulnerable')?.power ?? 0;
-      const raw = fx.amount > 0 ? fx.amount : 0;
-      const dmg = raw > 0 ? Math.max(1, raw + vuln - enemy.armor) : 0;
-      let score = 0;
-      if (hitsEnemy) {
-        score += dmg;
-        if (fx.status && !enemy.statuses.some((s) => s.kind === fx.status!.kind)) score += 1.5;
-        if (fx.lifesteal) score += dmg * fx.lifesteal * (me.hp < me.maxHp ? 0.8 : 0.2);
-        if (fx.knockback) score += 0.3;
-        if (dmg > 0 && enemy.hp + enemy.shield <= dmg) score += 100;
-      }
-      if (hitsMe) score -= (raw || 1) * 1.5; // don't nuke yourself
-      return score / Math.max(1, apCost(def) + def.mana / 4);
+    case 'attack': {
+      let score = attackValue(state, player, area, fx.hit);
+      // Standing in our own Threat Area is fine only if we can still walk out.
+      if (area.has(key(me.pos))) score -= me.ap > apCost(def) || me.mp > 1 ? 0.5 : fx.hit.damage * 1.5;
+      return score / cost;
     }
     case 'heal':
-      return me.hp <= me.maxHp * 0.6 ? Math.min(me.maxHp - me.hp, fx.amount) / Math.max(1, apCost(def)) : 0;
+      return me.hp <= me.maxHp * 0.6 ? Math.min(me.maxHp - me.hp, fx.amount) / cost : 0;
     case 'cleanse': {
       const bad = me.statuses.length;
-      const missing = me.maxHp - me.hp;
-      return bad > 0 || me.hp <= me.maxHp * 0.6 ? (bad * 2 + Math.min(missing, fx.heal)) / Math.max(1, apCost(def)) : 0;
+      return bad > 0 || me.hp <= me.maxHp * 0.6 ? (bad * 2 + Math.min(me.maxHp - me.hp, fx.heal)) / cost : 0;
     }
     case 'shield':
-      return dist <= 5 && me.ap === apCost(def) ? 1 : 0;
+      // Shields hold until our next resolution: worth it when the enemy can reach us.
+      return dist <= 6 && me.shield === 0 && me.ap === 1 ? 1 : 0;
     case 'sacrifice':
-      // Only when healthy and the enemy is within reach of our damage.
-      return me.hp > me.maxHp * 0.6 && me.hp > fx.hp + 4 && dist <= maxDamageRange(me) ? 1.2 : 0;
-    case 'haste':
-      return dist > maxDamageRange(me) && me.mp === 0 ? 1 : 0;
+      return me.hp > me.maxHp * 0.6 && me.hp > fx.hp + 4 && dist <= 6 ? 0.8 : 0;
     case 'refresh': {
       const waiting = me.abilities.filter((a) => a.id !== def.id).reduce((n, a) => n + a.cooldown, 0);
       return waiting >= 3 ? 1 : 0;
     }
+    case 'haste':
     case 'blink':
     case 'swap':
     case 'terraform':
       return 0; // positional tricks are left to humans (and a smarter future bot)
   }
-}
-
-function maxDamageRange(me: GameState['mages']['p1']): number {
-  const ranges = me.abilities
-    .map((s) => ABILITIES[s.id])
-    .filter((d) => d.effect.type === 'damage' && d.effect.amount > 0)
-    .map((d) => (d.targeting === 'self' ? d.aoe : abilityRange(me, d)));
-  return ranges.length ? Math.max(...ranges) : 1;
 }

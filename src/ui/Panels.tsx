@@ -13,7 +13,7 @@ export function MageCard({ unit, active }: { unit: Mage; active: boolean }) {
         <div>
           <div className="unit-card-name">{unit.name}</div>
           <div className="muted">
-            {CIRCLE_NAME[unit.circle]} · 🔮 {unit.magic} Magic · 👣 {unit.movespeed}
+            {CIRCLE_NAME[unit.circle]} · 🔮{unit.magic} · 👣{unit.movespeed}
           </div>
         </div>
       </div>
@@ -130,6 +130,19 @@ export function EventLog({ events }: { events: GameEvent[] }) {
         </div>
       ))}
     </div>
+  );
+}
+
+export function PhaseBanner({ state }: { state: GameState }) {
+  if (state.winner) return null;
+  const name = state.mages[state.active].name;
+  const incoming = state.pending.filter((a) => a.caster !== state.active).length;
+  return state.phase === 'reaction' ? (
+    <div className="phase-banner reaction">
+      ⚠ Reaction Phase · {name} faces {incoming} incoming attack{incoming === 1 ? '' : 's'}: move out of the red
+    </div>
+  ) : (
+    <div className="phase-banner action">Action Phase · {name}</div>
   );
 }
 

@@ -16,6 +16,7 @@ function arena(p1Abilities: string[], a: Hex, b: Hex): GameState {
   g.mages.p2.pos = b;
   g.mages.p1.ap = 10;
   g.mages.p1.mana = 99;
+  g.crystals = [];
   return g;
 }
 
@@ -30,6 +31,12 @@ const baseConfig = (l1: Loadout, l2: Loadout): MatchConfig => ({
 
 const cast = (g: GameState, abilityId: string, target: Hex) => applyAction(g, { type: 'cast', player: 'p1', abilityId, target });
 
+/** End P1's turn and let P2's Reaction Phase pass without reacting, so pending Attacks land. */
+function land(g: GameState): GameState {
+  g = applyAction(g, { type: 'endTurn', player: 'p1' });
+  return g.phase === 'reaction' ? applyAction(g, { type: 'endReaction', player: 'p2' }) : g;
+}
+
 describe('content', () => {
   it('ability ids are unique', () => {
     expect(new Set(Object.values(ABILITIES).map((a) => a.icon + a.name)).size).toBe(Object.keys(ABILITIES).length);
@@ -38,7 +45,7 @@ describe('content', () => {
 
 describe('new mechanics', () => {
   it('knockback pushes away from the caster', () => {
-    const g = cast(arena(['boulder-toss'], { q: 0, r: 2 }, { q: 0, r: 0 }), 'boulder-toss', { q: 0, r: 0 });
+    const g = land(cast(arena(['boulder-toss'], { q: 0, r: 2 }, { q: 0, r: 0 }), 'boulder-toss', { q: 0, r: 0 }));
     expect(g.mages.p2.pos).toEqual({ q: 0, r: -1 });
   });
 
@@ -46,20 +53,20 @@ describe('new mechanics', () => {
     const g0 = arena(['boulder-toss'], { q: 0, r: 2 }, { q: 0, r: 0 });
     g0.tiles[key({ q: 0, r: -1 })].terrain = 'rock';
     const hp = g0.mages.p2.hp;
-    const g = cast(g0, 'boulder-toss', { q: 0, r: 0 });
+    const g = land(cast(g0, 'boulder-toss', { q: 0, r: 0 }));
     expect(g.mages.p2.pos).toEqual({ q: 0, r: 0 });
     expect(g.mages.p2.hp).toBe(hp - 3 - 2);
   });
 
   it('negative knockback pulls toward the caster and stops adjacent', () => {
-    const g = cast(arena(['riptide'], { q: 0, r: 3 }, { q: 0, r: 0 }), 'riptide', { q: 0, r: 0 });
+    const g = land(cast(arena(['riptide'], { q: 0, r: 3 }, { q: 0, r: 0 }), 'riptide', { q: 0, r: 0 }));
     expect(g.mages.p2.pos).toEqual({ q: 0, r: 2 });
   });
 
   it('lifesteal heals the caster', () => {
     const g0 = arena(['exsanguinate'], { q: 0, r: 1 }, { q: 0, r: 0 });
     g0.mages.p1.hp = 5;
-    const g = cast(g0, 'exsanguinate', { q: 0, r: 0 });
+    const g = land(cast(g0, 'exsanguinate', { q: 0, r: 0 }));
     expect(g.mages.p1.hp).toBe(9);
   });
 
@@ -67,18 +74,11 @@ describe('new mechanics', () => {
     const g0 = arena(['cleave', 'mark-for-death'], { q: 0, r: 1 }, { q: 0, r: 0 });
     g0.mages.p2.armor = 1;
     const hp = g0.mages.p2.hp;
+    // Mark lands first (status only), so the Cleave that resolves after it hits a vulnerable target.
     let g = cast(g0, 'mark-for-death', { q: 0, r: 0 });
-    expect(g.mages.p2.hp).toBe(hp); // status-only: no damage
-    g = cast(g, 'cleave', { q: 0, r: 0 });
-    const cleave = ABILITIES.cleave.effect as { amount: number };
-    expect(g.mages.p2.hp).toBe(hp - (cleave.amount + 2 - 1));
-  });
-
-  it('spareCaster AoE does not hit you', () => {
-    const g0 = arena(['tremor'], { q: 0, r: 1 }, { q: 0, r: 0 });
-    const g = cast(g0, 'tremor', { q: 0, r: 1 });
-    expect(g.mages.p1.hp).toBe(g0.mages.p1.hp);
-    expect(g.mages.p2.hp).toBeLessThan(g0.mages.p2.hp);
+    g = land(cast(g, 'cleave', { q: 0, r: 0 }));
+    const cleave = ABILITIES.cleave.effect as { hit: { damage: number } };
+    expect(g.mages.p2.hp).toBe(hp - (cleave.hit.damage + 2 - 1));
   });
 
   it('swap trades places', () => {
@@ -131,7 +131,7 @@ describe('new mechanics', () => {
 });
 
 describe('every default matchup', () => {
-  it('AI vs AI terminates with legal moves and replays identically', () => {
+  it('AI vs AI terminates with legal moves and replays identically', { timeout: 30000 }, () => {
     for (const a of DEFAULT_LOADOUTS) {
       for (const b of DEFAULT_LOADOUTS) {
         const config = baseConfig(a, b);

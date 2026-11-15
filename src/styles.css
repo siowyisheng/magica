@@ -243,7 +243,7 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .bar-mana > div { background: linear-gradient(90deg, #3b5bdb, #7aa2ff); }
 .mana-cost { color: #9db8ff; }
 .bar-row { grid-template-columns: 40px 1fr auto; }
-.mp-note { margin-left: 0.3rem; font-size: 0.75rem; }
+.pips .mp-note { width: auto; white-space: nowrap; margin-left: 0.3rem; font-size: 0.75rem; }
 .is-reachable.costs-ap polygon { fill: #1b302e; stroke-dasharray: 4 3; }
 
 /* ---------- Mana Crystals ---------- */
@@ -257,3 +257,15 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .crystal { cursor: pointer; }
 button.absorb { position: relative; padding: 0.9rem 1.1rem; }
 button.absorb:not(:disabled) { border-color: #7aa2ff; box-shadow: 0 0 12px #5b8cff66; }
+
+/* ---------- Threat Areas & phases ---------- */
+.threat polygon { pointer-events: none; stroke-width: 2; }
+.threat-p1 polygon { fill: #4fb3ff2e; stroke: #4fb3ffaa; stroke-dasharray: 5 3; }
+.threat-p2 polygon { fill: #ff5d732e; stroke: #ff5d73cc; stroke-dasharray: 5 3; }
+.threat polygon { animation: threat-pulse 1.4s ease-in-out infinite; }
+.threat-icon { font-size: 15px; pointer-events: none; opacity: 0.9; }
+@keyframes threat-pulse { 50% { fill-opacity: 0.5; } }
+.phase-banner { font-size: 0.85rem; padding: 0.3rem 0.8rem; border-radius: 99px; border: 1px solid var(--line); }
+.phase-banner.reaction { color: #ffb347; border-color: #ffb34788; background: #ffb34714; animation: pulse 1.2s infinite; }
+.phase-banner.action { color: var(--muted); }
+.end-turn.resolve { background: linear-gradient(180deg, #ffb347, #d9772b); }

@@ -1,4 +1,4 @@
-import type { AbilityDef, Loadout, PassiveDef, School } from './types';
+import type { AbilityDef, Loadout, PassiveDef, School, Shape, Status } from './types';
 
 // ---------------------------------------------------------------------------
 // Content tables. Add new abilities / archetypes / relics here; the loadout
@@ -10,9 +10,23 @@ export const STAFF_STRIKE = 'staff-strike';
 /** Techniques from the original ability set (physical, no Mana once Mana exists). */
 const INTERIM_TECHNIQUES = new Set(['cleave', 'quick-stab', 'backstab', 'boulder-toss']);
 
+/** The original set's damage effect, converted into an Attack by `priced`. */
+type LegacyDamage = { type: 'damage'; amount: number; status?: Status; lifesteal?: number; knockback?: number };
+
 /** `apCost` is the original set's cost, now only used as a weight for interim prices. */
-type RawAbility = Omit<AbilityDef, 'kind' | 'points' | 'mana'> &
-  Partial<Pick<AbilityDef, 'kind' | 'points' | 'mana'>> & { apCost: number };
+type RawAbility = Omit<AbilityDef, 'kind' | 'points' | 'mana' | 'effect'> &
+  Partial<Pick<AbilityDef, 'kind' | 'points' | 'mana'>> & {
+    apCost: number;
+    effect: AbilityDef['effect'] | LegacyDamage;
+  };
+
+/** Interim: re-express an original damage ability as an Attack with a Threat Area shape. */
+function legacyShape(a: RawAbility): Shape {
+  if (a.targeting === 'self') return { kind: 'burst', range: 0, radius: Math.max(1, a.aoe) };
+  if (a.targeting === 'tile') return { kind: 'burst', range: a.range, radius: Math.max(1, a.aoe) };
+  if (a.range <= 1) return { kind: 'meleeArc' };
+  return a.needsLOS ? { kind: 'line', range: a.range } : { kind: 'single', range: a.range };
+}
 
 /**
  * Interim pricing for the original ability set until the new catalogue lands.
@@ -20,9 +34,17 @@ type RawAbility = Omit<AbilityDef, 'kind' | 'points' | 'mana'> &
  */
 const priced = (a: RawAbility): AbilityDef => {
   const kind = a.kind ?? (INTERIM_TECHNIQUES.has(a.id) ? 'technique' : 'spell');
-  const { apCost, ...rest } = a;
+  const { apCost, effect, ...rest } = a;
   return {
     ...rest,
+    effect:
+      effect.type === 'damage'
+        ? {
+            type: 'attack',
+            shape: legacyShape(a),
+            hit: { damage: effect.amount, status: effect.status, lifesteal: effect.lifesteal, knockback: effect.knockback },
+          }
+        : effect,
     kind,
     fast: a.fast ?? apCost === 0,
     points: a.points ?? Math.max(1, apCost) + (a.aoe > 0 ? 1 : 0),
@@ -128,8 +150,8 @@ export const ABILITIES: Record<string, AbilityDef> = Object.fromEntries(
       },
       {
         id: 'tidal-wave', name: 'Tidal Wave', icon: '🌊', school: 'tide',
-        description: 'A crashing wave that shoves enemies 2 hexes away. Slamming into rock or the arena edge hurts. Spares you.',
-        apCost: 3, cooldown: 2, range: 3, targeting: 'tile', needsLOS: false, aoe: 1, spareCaster: true,
+        description: 'A crashing wave that shoves enemies 2 hexes away. Slamming into rock or the arena edge hurts.',
+        apCost: 3, cooldown: 2, range: 3, targeting: 'tile', needsLOS: false, aoe: 1,
         effect: { type: 'damage', amount: 3, knockback: 2 },
       },
       {
@@ -174,8 +196,8 @@ export const ABILITIES: Record<string, AbilityDef> = Object.fromEntries(
       },
       {
         id: 'tremor', name: 'Tremor', icon: '🌋', school: 'earth',
-        description: 'Shake the ground around you (radius 2). Damages and slows. Spares you.',
-        apCost: 3, cooldown: 2, range: 0, targeting: 'self', needsLOS: false, aoe: 2, spareCaster: true,
+        description: 'Shake the ground around you (radius 2). Damages and slows.',
+        apCost: 3, cooldown: 2, range: 0, targeting: 'self', needsLOS: false, aoe: 2,
         effect: { type: 'damage', amount: 3, status: { kind: 'slow', turns: 1, power: 1 } },
       },
 
@@ -214,8 +236,8 @@ export const ABILITIES: Record<string, AbilityDef> = Object.fromEntries(
       },
       {
         id: 'radiant-nova', name: 'Radiant Nova', icon: '☀️', school: 'holy',
-        description: 'Explode with light, burning everything adjacent. Spares you.',
-        apCost: 3, cooldown: 3, range: 0, targeting: 'self', needsLOS: false, aoe: 1, spareCaster: true,
+        description: 'Explode with light, burning everything adjacent.',
+        apCost: 3, cooldown: 3, range: 0, targeting: 'self', needsLOS: false, aoe: 1,
         effect: { type: 'damage', amount: 4, status: { kind: 'burn', turns: 1, power: 1 } },
       },
 

@@ -6,7 +6,7 @@ import { newId, saveReplay } from '../game/storage';
 import type { Action, GameState, MatchConfig, MatchRecord, PlayerId } from '../game/types';
 import { BroadcastChannelTransport, SpectateHost } from '../net/spectate';
 import { HexBoard, type BoardHighlights } from './HexBoard';
-import { AbilityBar, EventLog, TurnTimer, MageCard } from './Panels';
+import { AbilityBar, EventLog, MageCard, PhaseBanner, TurnTimer } from './Panels';
 import { useCountdown } from './useCountdown';
 
 export type MatchMode = 'ai' | 'hotseat';
@@ -67,11 +67,18 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
   }, [state, isLocal, dispatch]);
 
   // --- Turn timer ----------------------------------------------------------
-  const remaining = useCountdown(state.turn, config.turnSeconds, !state.winner);
+  // The Reaction Phase gets its own, shorter clock: half the turn timer, at least 8s.
+  const reacting = state.phase === 'reaction';
+  const phaseSeconds = reacting ? Math.max(8, config.turnSeconds / 2) : config.turnSeconds;
+  const remaining = useCountdown(`${state.turn}:${state.phase}`, phaseSeconds, !state.winner);
   useEffect(() => {
-    if (remaining <= 0 && !stateRef.current.winner) {
-      dispatch({ type: 'endTurn', player: stateRef.current.active, reason: 'timeout' });
-    }
+    const s = stateRef.current;
+    if (remaining > 0 || s.winner) return;
+    dispatch(
+      s.phase === 'reaction'
+        ? { type: 'endReaction', player: s.active, reason: 'timeout' }
+        : { type: 'endTurn', player: s.active, reason: 'timeout' },
+    );
   }, [remaining, dispatch]);
 
   // --- Highlights ----------------------------------------------------------
@@ -79,7 +86,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
     if (!controlling) return {};
     if (selected) {
       const targets = new Set(validTargets(state, controlling, selected).map(key));
-      const impact = hover && targets.has(key(hover)) ? new Set(impactArea(state, selected, hover).map(key)) : undefined;
+      const impact = hover && targets.has(key(hover)) ? new Set(impactArea(state, controlling, selected, hover).map(key)) : undefined;
       return { targets, impact };
     }
     const all = reachable(state, controlling);
@@ -106,8 +113,10 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
     if (controlling) dispatch({ type: 'absorb', player: controlling });
   }, [controlling, dispatch]);
 
+  /** Ends the Reaction Phase (attacks land) or the whole turn, whichever we're in. */
   const endTurn = useCallback(() => {
-    if (controlling) dispatch({ type: 'endTurn', player: controlling });
+    if (!controlling) return;
+    dispatch({ type: stateRef.current.phase === 'reaction' ? 'endReaction' : 'endTurn', player: controlling });
   }, [controlling, dispatch]);
 
   // --- Hotkeys -------------------------------------------------------------
@@ -142,6 +151,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
         <div className="round">
           Round {round(state)} <span className="muted">/ {Math.ceil(config.maxTurns / 2)}</span>
         </div>
+        <PhaseBanner state={state} />
         <div className="live-pill" title="Open a second window and choose Spectate to watch this match">
           ● Broadcasting
         </div>
@@ -161,13 +171,13 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       </aside>
 
       <footer className="controls">
-        <TurnTimer remaining={remaining} total={config.turnSeconds} />
+        <TurnTimer remaining={remaining} total={phaseSeconds} />
         <AbilityBar state={state} player={barPlayer} selected={selected} onSelect={setSelected} disabled={!controlling} />
         <button className="absorb" onClick={absorb} disabled={!canAbsorb} title="Absorb Mana from the Ready crystal you stand on (1 AP)">
           💎 Absorb<span className="hotkey">A</span>
         </button>
-        <button className="end-turn" onClick={endTurn} disabled={!controlling}>
-          {controlling ? 'End turn' : `${state.mages[state.active].name}…`}
+        <button className={`end-turn ${reacting ? 'resolve' : ''}`} onClick={endTurn} disabled={!controlling}>
+          {!controlling ? `${state.mages[state.active].name}…` : reacting ? 'Brace & resolve' : 'End turn'}
           <span className="hotkey">Space</span>
         </button>
       </footer>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { hexPoints, key, toPixel, type Hex } from '../game/hex';
+import { ABILITIES } from '../game/content';
+import { fromKey, hexPoints, key, toPixel, type Hex } from '../game/hex';
 import { CRYSTAL_STATE_NAME } from '../game/crystals';
 import { PLAYERS, type GameState, type StatusKind } from '../game/types';
 
@@ -106,6 +107,23 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
           </g>
         );
       })}
+
+      {state.pending.map((a) => (
+        <g key={a.id} className={`threat threat-${a.caster}`}>
+          {a.area.map((k) => {
+            const { x, y } = toPixel(fromKey(k), SIZE);
+            return <polygon key={k} points={poly} transform={`translate(${x} ${y})`} />;
+          })}
+          {(() => {
+            const mid = toPixel(fromKey(a.area[Math.floor(a.area.length / 2)]), SIZE);
+            return (
+              <text className="threat-icon" x={mid.x} y={mid.y} textAnchor="middle" dominantBaseline="central">
+                {ABILITIES[a.abilityId]?.icon}
+              </text>
+            );
+          })()}
+        </g>
+      ))}
 
       {state.crystals.map((c) => {
         const { x, y } = toPixel(c.pos, SIZE);

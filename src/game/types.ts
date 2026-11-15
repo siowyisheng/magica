@@ -24,17 +24,27 @@ export interface Status {
   power: number;
 }
 
+/** The geometry of an Attack's Threat Area. */
+export type Shape =
+  | { kind: 'line'; range: number }
+  | { kind: 'single'; range: number }
+  | { kind: 'meleeArc' }
+  | { kind: 'burst'; range: number; radius: number };
+
+/** What an Attack does to each mage standing in its Threat Area when it resolves. */
+export interface Hit {
+  /** 0 = status-only. */
+  damage: number;
+  status?: Status;
+  /** Fraction of damage dealt to the other mage returned to the caster as healing. */
+  lifesteal?: number;
+  /** Hexes each victim is shoved away from where the Attack was launched. Negative = pulled toward. */
+  knockback?: number;
+}
+
 export type AbilityEffect =
-  | {
-      type: 'damage';
-      /** 0 = status-only (no hit, power not added). */
-      amount: number;
-      status?: Status;
-      /** Fraction of damage dealt to enemies returned to the caster as healing. */
-      lifesteal?: number;
-      /** Hexes each victim is shoved away from the caster. Negative = pulled toward. */
-      knockback?: number;
-    }
+  /** Offensive: becomes a pending Attack that resolves after the defender's Reaction Phase. */
+  | { type: 'attack'; shape: Shape; hit: Hit }
   | { type: 'heal'; amount: number }
   | { type: 'shield'; amount: number }
   | { type: 'blink' }
@@ -91,10 +101,8 @@ export interface AbilityDef {
   range: number;
   targeting: Targeting;
   needsLOS: boolean;
-  /** Radius of splash around the target hex. 0 = single target. Hits everyone, including you… */
+  /** Radius of splash around the target hex. 0 = single target. */
   aoe: number;
-  /** …unless this is set. */
-  spareCaster?: boolean;
   effect: AbilityEffect;
 }
 
@@ -170,6 +178,20 @@ export interface Crystal {
   state: CrystalState;
 }
 
+export interface PendingAttack {
+  id: number;
+  caster: PlayerId;
+  abilityId: string;
+  /** Where the caster stood when launching; knockback pushes away from here. */
+  origin: Hex;
+  /** Threat Area as hex keys, fixed at launch. */
+  area: string[];
+  hit: Hit;
+}
+
+/** Reaction Phase happens only when Attacks are pending against the active mage. */
+export type Phase = 'reaction' | 'action';
+
 export interface GameState {
   config: MatchConfig;
   /** Increments on every end of turn. A "round" is two turns. */
@@ -178,6 +200,10 @@ export interface GameState {
   tiles: Record<string, Tile>;
   mages: Record<PlayerId, Mage>;
   crystals: Crystal[];
+  phase: Phase;
+  /** Launched Attacks waiting to resolve, in launch order. */
+  pending: PendingAttack[];
+  nextAttackId: number;
   /** Seeded PRNG state for in-match randomness (crystal placement). */
   rng: number;
   events: GameEvent[];
@@ -188,6 +214,8 @@ export type Action =
   | { type: 'move'; player: PlayerId; to: Hex }
   | { type: 'cast'; player: PlayerId; abilityId: string; target: Hex }
   | { type: 'absorb'; player: PlayerId }
+  /** Finish the Reaction Phase: pending Attacks resolve, then the Action Phase begins. */
+  | { type: 'endReaction'; player: PlayerId; reason?: 'timeout' }
   | { type: 'endTurn'; player: PlayerId; reason?: 'timeout' };
 
 export interface MatchConfig {
