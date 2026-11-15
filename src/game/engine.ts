@@ -3,7 +3,7 @@ import { ABILITIES } from './content';
 import { advanceCrystals, crystalAt, crystalYield, initialCrystals, respawnCrystal } from './crystals';
 import { distance, equals, key, line, neighbors, toPixel, type Hex } from './hex';
 import { buildMage } from './loadout';
-import { aimableHexes, threatArea } from './threat';
+import { aimableHexes, isDrawn, shapeReach, threatArea } from './threat';
 import {
   other,
   type AbilityDef,
@@ -88,11 +88,11 @@ export function apForMove(m: Mage, cost: number): number {
 
 /** Hexes the player's mage can move to this turn, with their movement cost. */
 export function reachable(state: GameState, player: PlayerId): Map<string, number> {
-  const u = state.mages[player];
-  const budget = moveBudget(u);
+  const mage = state.mages[player];
+  const budget = moveBudget(mage);
   const blocked = key(state.mages[other(player)].pos);
-  const best = new Map<string, number>([[key(u.pos), 0]]);
-  const frontier: Array<[Hex, number]> = [[u.pos, 0]];
+  const best = new Map<string, number>([[key(mage.pos), 0]]);
+  const frontier: Array<[Hex, number]> = [[mage.pos, 0]];
   while (frontier.length) {
     frontier.sort((a, b) => a[1] - b[1]);
     const [cur, cost] = frontier.shift()!;
@@ -108,7 +108,7 @@ export function reachable(state: GameState, player: PlayerId): Map<string, numbe
       frontier.push([n, next]);
     }
   }
-  best.delete(key(u.pos));
+  best.delete(key(mage.pos));
   return best;
 }
 
@@ -121,20 +121,7 @@ export function hasLOS(state: GameState, a: Hex, b: Hex): boolean {
 
 /** Reach of an Ability, for display and AI positioning. */
 export function abilityRange(def: AbilityDef): number {
-  if (def.effect.type === 'attack') {
-    const s = def.effect.shape;
-    switch (s.kind) {
-      case 'meleeArc':
-        return 1;
-      case 'selfBurst':
-        return s.radius;
-      case 'burst':
-      case 'explosiveLine':
-        return s.range + s.radius;
-      default:
-        return s.range;
-    }
-  }
+  if (def.effect.type === 'attack') return shapeReach(def.effect.shape);
   return def.targeting === 'tile' ? Math.max(1, def.range ?? 0) : 0;
 }
 
@@ -149,15 +136,15 @@ export function castError(
 ): string | null {
   if (state.winner) return 'The match is over.';
   if (state.active !== player) return 'Not your turn.';
-  const u = state.mages[player];
-  const slot = u.abilities.find((a) => a.id === abilityId);
+  const mage = state.mages[player];
+  const slot = mage.abilities.find((a) => a.id === abilityId);
   const def = ABILITIES[abilityId];
   if (!slot || !def) return 'Ability not equipped.';
   const reacting = state.phase === 'reaction';
   if (reacting && timing(def) === 'action') return 'Only Moves and Reaction Spells are allowed in the Reaction Phase.';
   if (!reacting && timing(def) === 'reaction') return 'Reaction Spells can only be cast in the Reaction Phase.';
-  if (u.ap < castApCost(state, def)) return 'Not enough AP.';
-  if (u.mana < def.mana) return 'Not enough Mana.';
+  if (mage.ap < castApCost(state, def)) return 'Not enough AP.';
+  if (mage.mana < def.mana) return 'Not enough Mana.';
   if (isTargetedReaction(def)) {
     if (attackId === undefined) return target ? 'Choose an incoming attack.' : null;
     const atk = incoming(state, player).find((a) => a.id === attackId);
@@ -169,20 +156,20 @@ export function castError(
       return 'Only Lines can be deflected.';
     return null;
   }
-  if (def.effect.type === 'attack' && def.effect.shape.kind === 'wall') {
+  if (def.effect.type === 'attack' && isDrawn(def.effect.shape)) {
     if (!path) return target ? 'Draw the Wall: pick 5 connected hexes.' : null;
-    return threatArea(state.tiles, u.pos, def.effect.shape, path) ? null : "Can't draw the Wall there.";
+    return threatArea(state.tiles, mage.pos, def.effect.shape, path) ? null : "Can't draw the Wall there.";
   }
   if (!target) return null;
 
   const tile = state.tiles[key(target)];
   if (!tile) return 'Off the board.';
   if (def.effect.type === 'attack') {
-    return threatArea(state.tiles, u.pos, def.effect.shape, target) ? null : "Can't aim there.";
+    return threatArea(state.tiles, mage.pos, def.effect.shape, target) ? null : "Can't aim there.";
   }
   const enemy = state.mages[other(player)];
-  if (def.targeting !== 'tile') return equals(target, u.pos) ? null : 'Targets yourself.';
-  const dist = distance(u.pos, target);
+  if (def.targeting !== 'tile') return equals(target, mage.pos) ? null : 'Targets yourself.';
+  const dist = distance(mage.pos, target);
   if (dist === 0) return 'Pick another hex.';
   if (dist > abilityRange(def)) return 'Out of range.';
   if (tile.terrain === 'rock') return "Can't land on rock.";
@@ -195,7 +182,7 @@ export function validTargets(state: GameState, player: PlayerId, abilityId: stri
   if (castError(state, player, abilityId)) return [];
   const def = ABILITIES[abilityId];
   // A Wall's valid first hexes; the rest of the path is drawn from there.
-  if (def.effect.type === 'attack' && def.effect.shape.kind === 'wall')
+  if (def.effect.type === 'attack' && isDrawn(def.effect.shape))
     return aimableHexes(state.tiles, state.mages[player].pos, def.effect.shape);
   const candidates =
     def.effect.type === 'attack'
@@ -273,7 +260,7 @@ export function applyAction(prev: GameState, action: Action): GameState {
       me.ap -= castApCost(state, def);
       me.mana -= def.mana;
       if (def.effect.type === 'attack') {
-        const aim = def.effect.shape.kind === 'wall' ? action.path! : action.target;
+        const aim = isDrawn(def.effect.shape) ? action.path! : action.target;
         const area = threatArea(state.tiles, me.pos, def.effect.shape, aim)!;
         state.pending.push({
           id: state.nextAttackId++,
@@ -332,19 +319,19 @@ export function applyAction(prev: GameState, action: Action): GameState {
 }
 
 function startTurn(state: GameState, player: PlayerId, log: Log) {
-  const u = state.mages[player];
+  const mage = state.mages[player];
   // Each mage's first turn is turn 1 (P1) or 2 (P2); regen starts after that.
-  if (state.turn > 2) u.mana = Math.min(maxMana(u), u.mana + u.magic + u.manaRegen);
-  u.mp = 0;
-  if (u.regen > 0) heal(u, u.regen, log);
-  for (const s of u.statuses) if (s.kind === 'burn' || s.kind === 'poison') dealDamage(u, s.power, log);
-  u.ap = AP_PER_TURN;
-  log({ kind: 'turn', text: `${u.name}'s turn.` });
+  if (state.turn > 2) mage.mana = Math.min(maxMana(mage), mage.mana + mage.magic + mage.manaRegen);
+  mage.mp = 0;
+  if (mage.regen > 0) heal(mage, mage.regen, log);
+  for (const s of mage.statuses) if (s.kind === 'burn' || s.kind === 'poison') dealDamage(mage, s.power, log);
+  mage.ap = AP_PER_TURN;
+  log({ kind: 'turn', text: `${mage.name}'s turn.` });
   checkWinner(state, log);
   if (state.winner) return;
   if (incoming(state, player).length) {
     state.phase = 'reaction';
-    log({ kind: 'turn', text: `${u.name} must react to ${incoming(state, player).length} incoming attack(s).` });
+    log({ kind: 'turn', text: `${mage.name} must react to ${incoming(state, player).length} incoming attack(s).` });
   } else resolveIncoming(state, log);
 }
 
@@ -377,7 +364,7 @@ function resolveAttack(state: GameState, attack: PendingAttack, log: Log) {
 }
 
 function applyHit(state: GameState, attack: PendingAttack, hit: Hit, v: Mage, onDealt: (n: number) => unknown, log: Log) {
-  if (hit.damage > 0) onDealt(dealDamage(v, hit.damage, log));
+  if (hit.damage > 0) onDealt(dealDamage(v, hitDamage(v, hit.damage), log));
   if (hit.status && v.hp > 0) addStatus(v, hit.status, log);
   if (hit.knockback && v.owner !== attack.caster && v.hp > 0) knockback(state, attack.origin, v, hit.knockback, log);
 }
@@ -423,11 +410,11 @@ function resolveUtility(caster: Mage, def: AbilityDef, target: Hex, log: Log) {
   }
 }
 
-function heal(u: Mage, amount: number, log: Log) {
-  const healed = Math.max(0, Math.min(u.maxHp - u.hp, amount));
+function heal(mage: Mage, amount: number, log: Log) {
+  const healed = Math.max(0, Math.min(mage.maxHp - mage.hp, amount));
   if (healed <= 0) return;
-  u.hp += healed;
-  log({ kind: 'heal', text: `${u.name} heals ${healed}.`, at: u.pos, amount: healed });
+  mage.hp += healed;
+  log({ kind: 'heal', text: `${mage.name} heals ${healed}.`, at: mage.pos, amount: healed });
 }
 
 const COLLISION_DAMAGE = 2;
@@ -476,11 +463,18 @@ function knockback(state: GameState, origin: Hex, victim: Mage, n: number, log: 
   if (moved) log({ kind: 'move', text: `${victim.name} is ${push ? 'knocked back' : 'pulled in'}.`, at: victim.pos });
 }
 
-/** Applies vulnerable + armor + shield. Returns HP actually lost. */
-function dealDamage(victim: Mage, amount: number, log: Log): number {
+/**
+ * Damage an Attack's hit really does to `victim` before shields: vulnerable adds,
+ * armor (Iron Skin) subtracts, but a hit always deals at least 1.
+ * Damage-over-time ticks and collisions are not hits and skip this.
+ */
+export function hitDamage(victim: Mage, amount: number): number {
   const vuln = victim.statuses.find((s) => s.kind === 'vulnerable')?.power ?? 0;
-  let total = amount + vuln;
-  if (victim.armor > 0) total = Math.max(1, total - victim.armor);
+  return Math.max(1, amount + vuln - victim.armor);
+}
+
+/** Applies shields. Returns HP actually lost. */
+function dealDamage(victim: Mage, total: number, log: Log): number {
   const absorbed = Math.min(victim.shield, total);
   victim.shield -= absorbed;
   const dealt = Math.min(victim.hp, total - absorbed);
@@ -494,13 +488,13 @@ function dealDamage(victim: Mage, amount: number, log: Log): number {
   return dealt;
 }
 
-function addStatus(u: Mage, s: Status, log: Log) {
-  const existing = u.statuses.find((x) => x.kind === s.kind);
+function addStatus(mage: Mage, s: Status, log: Log) {
+  const existing = mage.statuses.find((x) => x.kind === s.kind);
   if (existing) {
     existing.turns = Math.max(existing.turns, s.turns);
     existing.power = Math.max(existing.power, s.power);
-  } else u.statuses.push({ ...s });
-  log({ kind: 'status', text: `${u.name} is ${STATUS_VERB[s.kind]}.`, at: u.pos });
+  } else mage.statuses.push({ ...s });
+  log({ kind: 'status', text: `${mage.name} is ${STATUS_VERB[s.kind]}.`, at: mage.pos });
 }
 
 const STATUS_VERB: Record<Status['kind'], string> = {

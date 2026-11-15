@@ -159,14 +159,14 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
         return (
           <g
             key={p}
-            className={`unit unit-${p} ${active ? 'is-active' : ''} ${u.hp <= 0 ? 'is-dead' : ''}`}
+            className={`mage mage-${p} ${active ? 'is-active' : ''} ${u.hp <= 0 ? 'is-dead' : ''}`}
             style={{ transform: `translate(${x}px, ${y}px)` }}
             onClick={() => onHexClick?.(u.pos)}
             onMouseEnter={() => onHexHover?.(u.pos)}
           >
-            {active && <circle r={SIZE * 1.1} fill={`url(#glow-${p})`} className="unit-glow" />}
-            <circle r={SIZE * 0.68} className="unit-body" />
-            <text className="unit-icon" textAnchor="middle" dominantBaseline="central">
+            {active && <circle r={SIZE * 1.1} fill={`url(#glow-${p})`} className="mage-glow" />}
+            <circle r={SIZE * 0.68} className="mage-body" />
+            <text className="mage-icon" textAnchor="middle" dominantBaseline="central">
               🧙
             </text>
             <g transform={`translate(${-hpW / 2} ${-SIZE * 1.05})`}>
@@ -175,7 +175,7 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
               {u.shield > 0 && <rect width={Math.min(hpW, (hpW * u.shield) / u.maxHp)} height={2} y={-3} className="shield-fill" />}
             </g>
             {u.statuses.length > 0 && (
-              <text y={SIZE * 0.95} className="unit-status" textAnchor="middle">
+              <text y={SIZE * 0.95} className="mage-status" textAnchor="middle">
                 {u.statuses.map((s) => STATUS_ICON[s.kind]).join('')}
               </text>
             )}

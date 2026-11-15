@@ -169,13 +169,13 @@ function Viewer({
         <div className="live-pill">{badge}</div>
       </header>
       <aside className="side left">
-        <MageCard unit={state.mages.p1} active={state.active === 'p1'} />
+        <MageCard mage={state.mages.p1} active={state.active === 'p1'} />
       </aside>
       <main className="board-wrap">
         <HexBoard state={state} />
       </main>
       <aside className="side right">
-        <MageCard unit={state.mages.p2} active={state.active === 'p2'} />
+        <MageCard mage={state.mages.p2} active={state.active === 'p2'} />
         <EventLog events={state.events} />
       </aside>
       <footer className="controls">{children ?? <span className="muted">Spectating — controls disabled</span>}</footer>

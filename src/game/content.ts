@@ -55,7 +55,7 @@ const LIST: AbilityDef[] = [
 
   // --- Offensive Spells -------------------------------------------------------
   attack({
-    id: 'spark', name: 'Spark', icon: '⚡', school: 'arcane', points: 1, mana: 2, fast: true,
+    id: 'spark', name: 'Spark', icon: '⚡', school: 'arcane', points: 1, mana: 1, fast: true,
     description: 'Fast: a cheap zap that costs no AP.',
     shape: { kind: 'line', range: 4 }, hit: { damage: 1 },
   }),
@@ -130,7 +130,7 @@ const LIST: AbilityDef[] = [
     shape: { kind: 'single', range: 4 }, hit: { damage: 0, status: { kind: 'root', turns: 1, power: 0 } },
   }),
   attack({
-    id: 'meteor', name: 'Meteor', icon: '☄️', school: 'fire', points: 6, mana: 18,
+    id: 'meteor', name: 'Meteor', icon: '☄️', school: 'fire', points: 5, mana: 18,
     description: 'A meteor (radius 2) anywhere within 6. Hard to outrun.',
     shape: { kind: 'burst', range: 6, radius: 2 }, hit: { damage: 7 },
   }),

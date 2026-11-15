@@ -6,6 +6,7 @@ import {
   apCost,
   castError,
   hasLOS,
+  hitDamage,
   incoming,
   mpPerAp,
   reachable,
@@ -14,7 +15,7 @@ import {
   AP_PER_TURN,
 } from './engine';
 import { distance, fromKey, key, neighbors, type Hex } from './hex';
-import { aimableHexes, threatArea } from './threat';
+import { aimableHexes, isDrawn, threatArea } from './threat';
 import { other, type Action, type GameState, type Hit, type Mage, type PendingAttack, type PlayerId } from './types';
 
 // ---------------------------------------------------------------------------
@@ -45,16 +46,17 @@ function chooseReaction(state: GameState, player: PlayerId): Action {
     .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))[0];
   if (escape) return { type: 'move', player, to: fromKey(escape[0]) };
 
-  const vuln = me.statuses.find((s) => s.kind === 'vulnerable')?.power ?? 0;
   const hitting = threats.filter((a) => a.area.includes(key(me.pos)));
-  const harm = (a: PendingAttack) => (a.hit.damage > 0 ? a.hit.damage + vuln : 0) + (a.hit.status ? 1.5 : 0);
+  const damage = (a: PendingAttack) => (a.hit.damage > 0 ? hitDamage(me, a.hit.damage) : 0);
+  const harm = (a: PendingAttack) => damage(a) + (a.hit.status ? 1.5 : 0);
   const total = hitting.reduce((n, a) => n + harm(a), 0);
-  const unshielded = hitting.reduce((n, a) => n + (a.hit.damage > 0 ? a.hit.damage + vuln : 0), 0) - me.shield;
+  const unshielded = hitting.reduce((n, a) => n + damage(a), 0) - me.shield;
 
-  let best: { value: number; action: Action } | null = null;
-  const consider = (value: number, mana: number, action: Action) => {
-    const v = value / Math.max(1, mana);
-    if (value >= 1 && (!best || v > best.value)) best = { value: v, action };
+  // The Reaction Spell that prevents the most damage; the cheapest one on a tie.
+  let best: { prevented: number; mana: number; action: Action } | null = null;
+  const consider = (prevented: number, mana: number, action: Action) => {
+    if (prevented < 1) return;
+    if (!best || prevented > best.prevented || (prevented === best.prevented && mana < best.mana)) best = { prevented, mana, action };
   };
   for (const slot of me.abilities) {
     const def = ABILITIES[slot.id];
@@ -153,7 +155,7 @@ function castCandidates(state: GameState, player: PlayerId, abilityId: string): 
   const enemy = key(enemyPos);
   const shape = def.effect.shape;
   const out: Array<[Hex, Set<string>, Hex[]?]> = [];
-  if (shape.kind === 'wall') {
+  if (isDrawn(shape)) {
     for (const path of wallsThrough(enemyPos, shape.length)) {
       const area = threatArea(state.tiles, me, shape, path);
       if (area) out.push([path[0], new Set(area.map(key)), path]);
@@ -207,8 +209,7 @@ function escapeCost(state: GameState, from: Hex, area: Set<string>): number {
 /** Expected value of landing `hit` on the enemy, given they get a Reaction Phase to dodge. */
 function attackValue(state: GameState, player: PlayerId, area: Set<string>, hit: Hit): number {
   const enemy = state.mages[other(player)];
-  const vuln = enemy.statuses.find((s) => s.kind === 'vulnerable')?.power ?? 0;
-  const dmg = hit.damage > 0 ? Math.max(1, hit.damage + vuln - enemy.armor) : 0;
+  const dmg = hit.damage > 0 ? hitDamage(enemy, hit.damage) : 0;
   let full = dmg;
   if (hit.status && !enemy.statuses.some((s) => s.kind === hit.status!.kind)) full += 1.5;
   if (hit.lifesteal) full += dmg * hit.lifesteal * 0.5;

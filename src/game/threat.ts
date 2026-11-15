@@ -89,7 +89,7 @@ function wallPath(tiles: Tiles, caster: Hex, shape: Extract<Shape, { kind: 'wall
 
 /** Threat Area for `shape` cast from `caster`. `aim` is a hex, or the drawn path for a Wall. Null = invalid aim. */
 export function threatArea(tiles: Tiles, caster: Hex, shape: Shape, aimOrPath: Hex | Hex[]): Hex[] | null {
-  if (shape.kind === 'wall') return Array.isArray(aimOrPath) ? wallPath(tiles, caster, shape, aimOrPath) : null;
+  if (isDrawn(shape)) return Array.isArray(aimOrPath) ? wallPath(tiles, caster, shape, aimOrPath) : null;
   if (Array.isArray(aimOrPath)) return null;
   const aim = aimOrPath;
   if (!tiles[key(aim)]) return null;
@@ -134,23 +134,41 @@ export function aimableHexes(tiles: Tiles, caster: Hex, shape: Shape): Hex[] {
     const d = distance(caster, t);
     switch (shape.kind) {
       case 'line':
-        return d >= 1 && d <= shape.range;
       case 'single':
+      case 'explosiveLine':
+      case 'cone':
+      case 'fan':
         return d >= 1 && d <= shape.range;
       case 'meleeArc':
         return d === 1;
       case 'burst':
         return d <= shape.range;
-      case 'explosiveLine':
-      case 'cone':
-      case 'fan':
-        return d >= 1 && d <= shape.range;
       case 'selfBurst':
         return d === 0;
       case 'wall':
         return d <= shape.range && t.terrain !== 'rock'; // where the first hex may go
     }
   });
+}
+
+/** True for shapes the caster draws hex by hex (aimed with a path rather than one hex). */
+export const isDrawn = (shape: Shape): shape is Extract<Shape, { kind: 'wall' }> => shape.kind === 'wall';
+
+/** Furthest hex (from the caster) a shape can threaten. */
+export function shapeReach(shape: Shape): number {
+  switch (shape.kind) {
+    case 'meleeArc':
+      return 1;
+    case 'selfBurst':
+      return shape.radius;
+    case 'burst':
+    case 'explosiveLine':
+      return shape.range + shape.radius;
+    case 'wall':
+      return shape.range + shape.length - 1;
+    default:
+      return shape.range;
+  }
 }
 
 export const SHAPE_NAME: Record<Shape['kind'], string> = {

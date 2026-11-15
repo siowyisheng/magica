@@ -17,6 +17,7 @@ import { equals, key, neighbors, type Hex } from '../game/hex';
 import { newId, saveReplay } from '../game/storage';
 import type { Action, GameState, MatchConfig, MatchRecord, PlayerId } from '../game/types';
 import { BroadcastChannelTransport, SpectateHost } from '../net/spectate';
+import { isDrawn } from '../game/threat';
 import { HexBoard, type BoardHighlights } from './HexBoard';
 import { AbilityBar, EventLog, MageCard, PhaseBanner, TurnTimer } from './Panels';
 import { useCountdown } from './useCountdown';
@@ -108,7 +109,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
   );
 
   const wallShape =
-    selectedDef?.effect.type === 'attack' && selectedDef.effect.shape.kind === 'wall' ? selectedDef.effect.shape : null;
+    selectedDef?.effect.type === 'attack' && isDrawn(selectedDef.effect.shape) ? selectedDef.effect.shape : null;
 
   const highlights = useMemo<BoardHighlights>(() => {
     if (!controlling) return {};
@@ -237,7 +238,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       </header>
 
       <aside className="side left">
-        <MageCard unit={state.mages.p1} active={state.active === 'p1'} />
+        <MageCard mage={state.mages.p1} active={state.active === 'p1'} />
       </aside>
 
       <main className="board-wrap">
@@ -245,7 +246,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       </main>
 
       <aside className="side right">
-        <MageCard unit={state.mages.p2} active={state.active === 'p2'} />
+        <MageCard mage={state.mages.p2} active={state.active === 'p2'} />
         <EventLog events={state.events} />
       </aside>
 

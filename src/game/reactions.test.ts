@@ -101,6 +101,15 @@ describe('Reaction Spells', () => {
 });
 
 describe('AI reactions', () => {
+  it('prefers the Reaction Spell that prevents the most damage over a cheaper, weaker one', () => {
+    let g = underFire('firebolt', 'frost-lance'); // 3 + 2 damage, plus statuses
+    g.mages.p2.statuses = [{ kind: 'root', turns: 1, power: 0 }];
+    const a = chooseAction(g, 'p2');
+    // Ward (6 Mana) stops 4 damage; Deflect (6) stops one Line's 3+status; Counterspell (7) one Spell.
+    // The biggest single prevention here is Ward's 4 vs Deflect's 3 + burn + 1 bonus = 5.5 → Deflect the Firebolt.
+    expect(a).toMatchObject({ type: 'cast', abilityId: 'deflect', attackId: g.pending.find((p) => p.abilityId === 'firebolt')!.id });
+  });
+
   it('casts a Reaction Spell when it cannot dodge', () => {
     let g = underFire('firebolt');
     g.mages.p2.statuses = [{ kind: 'root', turns: 1, power: 0 }];

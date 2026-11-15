@@ -60,6 +60,13 @@ describe('Passives', () => {
     expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(2); // Firebolt 3 − 1
   });
 
+  it('Iron Skin does not soften damage-over-time ticks (they are not hits)', () => {
+    let g = duel([], ['iron-skin']);
+    g.mages.p2.statuses = [{ kind: 'poison', turns: 2, power: 1 }];
+    g = endTurn(g);
+    expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(1);
+  });
+
   it('Regeneration: +1 HP at the start of your turn', () => {
     let g = duel(['regeneration']);
     g.mages.p1.hp = 5;

@@ -6,29 +6,29 @@ import type { GameEvent, GameState, PlayerId, Mage } from '../game/types';
 import { STATUS_ICON } from './HexBoard';
 import { abilitySummary } from './LoadoutBuilder';
 
-export function MageCard({ unit, active }: { unit: Mage; active: boolean }) {
+export function MageCard({ mage, active }: { mage: Mage; active: boolean }) {
   return (
-    <div className={`unit-card card-${unit.owner} ${active ? 'is-active' : ''}`}>
-      <div className="unit-card-head">
-        <span className="unit-card-icon">🧙</span>
+    <div className={`mage-card card-${mage.owner} ${active ? 'is-active' : ''}`}>
+      <div className="mage-card-head">
+        <span className="mage-card-icon">🧙</span>
         <div>
-          <div className="unit-card-name">{unit.name}</div>
+          <div className="mage-card-name">{mage.name}</div>
           <div className="muted">
-            {CIRCLE_NAME[unit.circle]} · 🔮{unit.magic} · 👣{unit.movespeed}
+            {CIRCLE_NAME[mage.circle]} · 🔮{mage.magic} · 👣{mage.movespeed}
           </div>
         </div>
       </div>
-      <Bar label="HP" value={unit.hp} max={unit.maxHp} cls="hp" extra={unit.shield ? `+${unit.shield}🛡` : ''} />
-      <Bar label="Mana" value={unit.mana} max={maxMana(unit)} cls="mana" extra={`+${unit.magic + unit.manaRegen}/turn`} />
+      <Bar label="HP" value={mage.hp} max={mage.maxHp} cls="hp" extra={mage.shield ? `+${mage.shield}🛡` : ''} />
+      <Bar label="Mana" value={mage.mana} max={maxMana(mage)} cls="mana" extra={`+${mage.magic + mage.manaRegen}/turn`} />
       <div className="pips">
         <span className="muted">AP</span>
-        {Array.from({ length: Math.max(AP_PER_TURN, unit.ap) }, (_, i) => (
-          <span key={i} className={`pip ${i < unit.ap ? 'on' : ''}`} />
+        {Array.from({ length: Math.max(AP_PER_TURN, mage.ap) }, (_, i) => (
+          <span key={i} className={`pip ${i < mage.ap ? 'on' : ''}`} />
         ))}
       </div>
-      {unit.passiveIds.length > 0 && (
+      {mage.passiveIds.length > 0 && (
         <div className="traits muted">
-          {unit.passiveIds.map((id) => (
+          {mage.passiveIds.map((id) => (
             <span key={id} title={PASSIVES[id]?.description}>
               {PASSIVES[id]?.icon} {PASSIVES[id]?.name}
             </span>
@@ -37,16 +37,16 @@ export function MageCard({ unit, active }: { unit: Mage; active: boolean }) {
       )}
       <div className="pips">
         <span className="muted">Move</span>
-        {Array.from({ length: unit.mp }, (_, i) => (
+        {Array.from({ length: mage.mp }, (_, i) => (
           <span key={i} className="pip move on" />
         ))}
         <span className="muted mp-note">
-          {unit.mp > 0 ? `${unit.mp} left · ` : ''}+{mpPerAp(unit)} per AP
+          {mage.mp > 0 ? `${mage.mp} left · ` : ''}+{mpPerAp(mage)} per AP
         </span>
       </div>
-      {unit.statuses.length > 0 && (
+      {mage.statuses.length > 0 && (
         <div className="statuses">
-          {unit.statuses.map((s) => (
+          {mage.statuses.map((s) => (
             <span key={s.kind} className={`status status-${s.kind}`}>
               {STATUS_ICON[s.kind]} {s.kind} · {s.turns}
             </span>
@@ -54,7 +54,7 @@ export function MageCard({ unit, active }: { unit: Mage; active: boolean }) {
         </div>
       )}
       <div className="mini-abilities">
-        {unit.abilities.map((a) => (
+        {mage.abilities.map((a) => (
           <span key={a.id} title={ABILITIES[a.id].name}>
             {ABILITIES[a.id].icon}
           </span>
@@ -91,10 +91,10 @@ export function AbilityBar({
   onSelect: (id: string | null) => void;
   disabled: boolean;
 }) {
-  const unit = state.mages[player];
+  const mage = state.mages[player];
   return (
     <div className="ability-bar">
-      {unit.abilities.map((slot, i) => {
+      {mage.abilities.map((slot, i) => {
         const def = ABILITIES[slot.id];
         const err = castError(state, player, slot.id);
         return (

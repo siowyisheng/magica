@@ -123,18 +123,18 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .is-target polygon { fill: #3d2f1c; stroke: var(--target); }
 .is-impact polygon { fill: #6b3418 !important; stroke: #ffd18a; }
 
-.unit { transition: transform 0.22s cubic-bezier(0.3, 0.7, 0.4, 1.2); cursor: pointer; }
-.unit-body { stroke-width: 3; }
-.unit-p1 .unit-body { fill: #10263a; stroke: var(--p1); }
-.unit-p2 .unit-body { fill: #3a1018; stroke: var(--p2); }
-.unit-icon { font-size: 22px; pointer-events: none; }
-.unit-glow { animation: pulse 1.6s infinite; pointer-events: none; }
-.unit.is-dead { opacity: 0.35; }
+.mage { transition: transform 0.22s cubic-bezier(0.3, 0.7, 0.4, 1.2); cursor: pointer; }
+.mage-body { stroke-width: 3; }
+.mage-p1 .mage-body { fill: #10263a; stroke: var(--p1); }
+.mage-p2 .mage-body { fill: #3a1018; stroke: var(--p2); }
+.mage-icon { font-size: 22px; pointer-events: none; }
+.mage-glow { animation: pulse 1.6s infinite; pointer-events: none; }
+.mage.is-dead { opacity: 0.35; }
 .hp-bg { fill: #000a; }
-.unit-p1 .hp-fill { fill: var(--p1); }
-.unit-p2 .hp-fill { fill: var(--p2); }
+.mage-p1 .hp-fill { fill: var(--p1); }
+.mage-p2 .hp-fill { fill: var(--p2); }
 .shield-fill { fill: #e6f0ff; }
-.unit-status { font-size: 11px; }
+.mage-status { font-size: 11px; }
 .floater { font-family: Cinzel, serif; font-weight: 800; font-size: 20px; pointer-events: none; animation: float-up 1.1s ease-out forwards; paint-order: stroke; stroke: #000; stroke-width: 3px; }
 .floater-damage { fill: #ff6b6b; }
 .floater-heal { fill: #7dff9b; }
@@ -142,12 +142,12 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 @keyframes float-up { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-36px); opacity: 0; } }
 
 /* ---------- Panels ---------- */
-.unit-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem; display: grid; gap: 0.5rem; transition: box-shadow 0.2s; }
-.unit-card.card-p1.is-active { box-shadow: 0 0 0 2px var(--p1), 0 0 24px #4fb3ff33; }
-.unit-card.card-p2.is-active { box-shadow: 0 0 0 2px var(--p2), 0 0 24px #ff5d7333; }
-.unit-card-head { display: flex; gap: 0.6rem; align-items: center; }
-.unit-card-icon { font-size: 2rem; }
-.unit-card-name { font-family: Cinzel, serif; font-weight: 600; }
+.mage-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem; display: grid; gap: 0.5rem; transition: box-shadow 0.2s; }
+.mage-card.card-p1.is-active { box-shadow: 0 0 0 2px var(--p1), 0 0 24px #4fb3ff33; }
+.mage-card.card-p2.is-active { box-shadow: 0 0 0 2px var(--p2), 0 0 24px #ff5d7333; }
+.mage-card-head { display: flex; gap: 0.6rem; align-items: center; }
+.mage-card-icon { font-size: 2rem; }
+.mage-card-name { font-family: Cinzel, serif; font-weight: 600; }
 .bar-row { display: grid; grid-template-columns: 36px 1fr auto; gap: 0.5rem; align-items: center; }
 .bar { height: 10px; background: #0008; border-radius: 99px; overflow: hidden; }
 .bar > div { height: 100%; transition: width 0.3s; }
