@@ -16,7 +16,7 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
   const [p1, setP1] = useState(valid[0]?.id ?? '');
   const [p2, setP2] = useState(valid[1]?.id ?? valid[0]?.id ?? '');
   const [turnSeconds, setTurnSeconds] = useState(20);
-  const [radius, setRadius] = useState(6);
+  const [radius, setRadius] = useState(7);
 
   const l1 = valid.find((l) => l.id === p1);
   const l2 = valid.find((l) => l.id === p2);
@@ -87,9 +87,9 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
         <span id="setup-arena">Arena size</span>
         <div className="segmented">
           {[
-            [5, 'Small'],
-            [6, 'Medium'],
-            [7, 'Large'],
+            [6, 'Small'],
+            [7, 'Medium'],
+            [8, 'Large'],
           ].map(([r, name]) => (
             <button key={r} className={radius === r ? 'is-selected' : ''} onClick={() => setRadius(r as number)}>
               {name}

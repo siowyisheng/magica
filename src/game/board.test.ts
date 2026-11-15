@@ -18,7 +18,7 @@ describe('rock-only arena', () => {
   });
 
   it('leaves all open ground as one connected area, with no sealed-off rooms', () => {
-    for (const radius of [4, 5, 6, 7])
+    for (const radius of [4, 5, 6, 7, 8])
       for (const s of seeds) {
         const b = generateBoard(s, radius);
         const open = Object.values(b).filter((t) => t.terrain === 'plain');
