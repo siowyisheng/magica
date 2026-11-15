@@ -57,7 +57,7 @@ describe('Passives', () => {
     g.mages.p1.mana = 30;
     g = applyAction(g, { type: 'cast', player: 'p1', abilityId: 'firebolt', target: g.mages.p2.pos });
     g = applyAction(endTurn(g), { type: 'endReaction', player: 'p2' });
-    expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(2); // Firebolt 3 − 1
+    expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(3); // Firebolt 4 − 1
   });
 
   it('Iron Skin does not soften damage-over-time ticks (they are not hits)', () => {

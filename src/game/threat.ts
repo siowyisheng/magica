@@ -1,4 +1,4 @@
-import { distance, hexRound, key, neighbors, spiral, type Hex } from './hex';
+import { distance, hexRound, key, line, neighbors, spiral, type Hex } from './hex';
 import type { Shape, Tile } from './types';
 
 // ---------------------------------------------------------------------------
@@ -41,6 +41,10 @@ function lineHexes(tiles: Tiles, from: Hex, aim: Hex, range: number): Hex[] {
 }
 
 const onBoard = (tiles: Tiles, hs: Hex[]) => hs.filter((h) => tiles[key(h)]);
+
+/** True when no Rock stands between `a` and `b` (the ends don't count). */
+const clearBetween = (tiles: Tiles, a: Hex, b: Hex) =>
+  line(a, b).slice(1, -1).every((h) => tiles[key(h)]?.terrain !== 'rock');
 
 const SQRT3 = Math.sqrt(3);
 const pixel = (h: Hex) => ({ x: SQRT3 * (h.q + h.r / 2), y: 1.5 * h.r });
@@ -87,8 +91,11 @@ function wallPath(tiles: Tiles, caster: Hex, shape: Extract<Shape, { kind: 'wall
   return path.map(({ q, r }) => ({ q, r }));
 }
 
-/** Threat Area for `shape` cast from `caster`. `aim` is a hex, or the drawn path for a Wall. Null = invalid aim. */
-export function threatArea(tiles: Tiles, caster: Hex, shape: Shape, aimOrPath: Hex | Hex[]): Hex[] | null {
+/**
+ * Threat Area for `shape` cast from `caster`. `aim` is a hex, or the drawn path for a Wall. Null = invalid aim.
+ * `foe` is where the enemy stands now: an Explosive Line bursts there if it reaches them first.
+ */
+export function threatArea(tiles: Tiles, caster: Hex, shape: Shape, aimOrPath: Hex | Hex[], foe?: Hex): Hex[] | null {
   if (isDrawn(shape)) return Array.isArray(aimOrPath) ? wallPath(tiles, caster, shape, aimOrPath) : null;
   if (Array.isArray(aimOrPath)) return null;
   const aim = aimOrPath;
@@ -98,16 +105,24 @@ export function threatArea(tiles: Tiles, caster: Hex, shape: Shape, aimOrPath: H
     case 'line':
       return d === 0 ? null : lineHexes(tiles, caster, aim, shape.range);
     case 'single':
-      return d === 0 || d > shape.range ? null : [aim];
+      if (d === 0 || d > shape.range) return null;
+      return shape.los && !clearBetween(tiles, caster, aim) ? null : [aim];
     case 'meleeArc':
       return d !== 1 ? null : onBoard(tiles, [aim, ...neighbors(aim).filter((n) => distance(n, caster) === 1)]);
     case 'burst':
       return d > shape.range ? null : onBoard(tiles, spiral(aim, shape.radius));
     case 'explosiveLine': {
-      if (d === 0) return null;
-      const path = lineHexes(tiles, caster, aim, shape.range);
-      const centre = path[path.length - 1] ?? caster;
-      return union(path, onBoard(tiles, spiral(centre, shape.radius)));
+      if (d === 0 || d > shape.range) return null;
+      // Fly toward the aimed hex, stopping before Rock or on the enemy.
+      const path: Hex[] = [];
+      for (const h of ray(caster, aim, d)) {
+        const t = tiles[key(h)];
+        if (!t || t.terrain === 'rock') break;
+        path.push(h);
+        if (foe && key(h) === key(foe)) break;
+      }
+      if (!path.length) return null;
+      return union(path, onBoard(tiles, spiral(path[path.length - 1], shape.radius)));
     }
     case 'cone': {
       if (d === 0) return null;
@@ -124,7 +139,7 @@ export function threatArea(tiles: Tiles, caster: Hex, shape: Shape, aimOrPath: H
       return union(...[-1, 0, 1].map((k) => angledLine(tiles, caster, dir + k * side, shape.range)));
     }
     case 'selfBurst':
-      return d !== 0 ? null : onBoard(tiles, spiral(caster, shape.radius));
+      return d !== 0 ? null : onBoard(tiles, spiral(caster, shape.radius)).filter((h) => key(h) !== key(caster));
   }
 }
 
@@ -133,8 +148,9 @@ export function aimableHexes(tiles: Tiles, caster: Hex, shape: Shape): Hex[] {
   return Object.values(tiles).filter((t) => {
     const d = distance(caster, t);
     switch (shape.kind) {
-      case 'line':
       case 'single':
+        return d >= 1 && d <= shape.range && (!shape.los || clearBetween(tiles, caster, t));
+      case 'line':
       case 'explosiveLine':
       case 'cone':
       case 'fan':

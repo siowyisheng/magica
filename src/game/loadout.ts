@@ -89,6 +89,7 @@ export function buildMage(owner: PlayerId, name: string, l: Loadout, pos: Hex): 
     mana: statValue('magic', l.stats.magic),
     movespeed,
     mp: 0,
+    empower: 0,
     ...passiveStats(l.passiveIds),
     passiveIds: [...l.passiveIds],
     abilities: l.abilityIds.map((id) => ({ id, cooldown: 0 })),

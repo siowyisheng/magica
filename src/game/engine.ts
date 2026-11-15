@@ -65,6 +65,7 @@ export const hpFraction = (m: Mage) => m.hp / m.maxHp;
 export const round = (state: GameState) => Math.ceil(state.turn / 2);
 /** AP an Ability costs: 1, or 0 if Fast. The same in the Reaction Phase as in the Action Phase. */
 export const apCost = (def: AbilityDef): number => (def.fast ? 0 : 1);
+const enemyPos = (state: GameState, player: PlayerId): Hex => state.mages[other(player)].pos;
 export const isAttack = (def: AbilityDef) => def.effect.type === 'attack';
 export const timing = (def: AbilityDef) => def.timing ?? 'action';
 /** Reaction Spells that must be aimed at one specific incoming Attack. */
@@ -174,15 +175,16 @@ export function castError(
   if (!tile) return 'Off the board.';
   if (def.effect.type === 'attack') {
     // An aim that threatens nothing (e.g. a Line straight into adjacent Rock) is not a valid aim.
-    return threatArea(state.tiles, mage.pos, def.effect.shape, target)?.length ? null : "Can't aim there.";
+    return threatArea(state.tiles, mage.pos, def.effect.shape, target, enemyPos(state, player))?.length ? null : "Can't aim there.";
   }
   const enemy = state.mages[other(player)];
   if (def.targeting !== 'tile') return equals(target, mage.pos) ? null : 'Targets yourself.';
   const dist = distance(mage.pos, target);
   if (dist === 0) return 'Pick another hex.';
   if (dist > abilityRange(def)) return 'Out of range.';
-  if (tile.terrain === 'rock') return "Can't land on rock.";
+  if (tile.terrain === 'rock') return def.effect.type === 'pillar' ? 'Already rock.' : "Can't land on rock.";
   if (equals(target, enemy.pos)) return 'Hex is occupied.';
+  if (def.effect.type === 'pillar' && crystalAt(state, target)) return 'A Mana Crystal is there.';
   // A step is walked, so Rock and the other mage can block the way.
   if (def.effect.type === 'step' && !walk(state, mage.pos, abilityRange(def), key(enemy.pos)).has(key(target))) return 'No way through.';
   return null;
@@ -206,7 +208,8 @@ export function validTargets(state: GameState, player: PlayerId, abilityId: stri
 export function impactArea(state: GameState, player: PlayerId, abilityId: string, target: Hex | Hex[]): Hex[] {
   const def = ABILITIES[abilityId];
   if (!def) return [];
-  if (def.effect.type === 'attack') return threatArea(state.tiles, state.mages[player].pos, def.effect.shape, target) ?? [];
+  if (def.effect.type === 'attack')
+    return threatArea(state.tiles, state.mages[player].pos, def.effect.shape, target, enemyPos(state, player)) ?? [];
   return Array.isArray(target) ? [] : [target];
 }
 
@@ -270,21 +273,21 @@ export function applyAction(prev: GameState, action: Action): GameState {
       me.mana -= def.mana;
       if (def.effect.type === 'attack') {
         const aim = isDrawn(def.effect.shape) ? action.path! : action.target;
-        const area = threatArea(state.tiles, me.pos, def.effect.shape, aim)!;
+        const area = threatArea(state.tiles, me.pos, def.effect.shape, aim, enemyPos(state, me.owner))!;
         state.pending.push({
           id: state.nextAttackId++,
           caster: me.owner,
           abilityId: def.id,
           origin: me.pos,
           area: area.map(key),
-          hit: def.effect.hit,
+          hit: boosted(me, def),
         });
         log({ kind: 'cast', text: `${me.name} launches ${def.icon} ${def.name}.`, at: action.target });
       } else if (isTargetedReaction(def)) {
         react(state, me, def, action.attackId!, log);
       } else {
         log({ kind: 'cast', text: `${me.name} casts ${def.icon} ${def.name}.`, at: action.target });
-        resolveUtility(me, def, action.target, log);
+        resolveUtility(state, me, def, action.target, log);
       }
       checkWinner(state, log);
       break;
@@ -307,6 +310,7 @@ export function applyAction(prev: GameState, action: Action): GameState {
       if (action.reason === 'timeout') log({ kind: 'turn', text: `${me.name} ran out of time!` });
       // Statuses last through the owner's turn (slow and root are read live while moving).
       me.statuses = me.statuses.map((s) => ({ ...s, turns: s.turns - 1 })).filter((s) => s.turns > 0);
+      me.empower = 0;
       state.turn += 1;
       if (state.turn > state.config.maxTurns) {
         const [a, b] = [hpFraction(state.mages.p1), hpFraction(state.mages.p2)];
@@ -332,6 +336,7 @@ function startTurn(state: GameState, player: PlayerId, log: Log) {
   // Each mage's first turn is turn 1 (P1) or 2 (P2); regen starts after that.
   if (state.turn > 2) mage.mana = Math.min(maxMana(mage), mage.mana + mage.magic + mage.manaRegen);
   mage.mp = 0;
+  mage.empower = 0;
   if (mage.regen > 0) heal(mage, mage.regen, log);
   for (const s of mage.statuses) if (s.kind === 'burn' || s.kind === 'poison') dealDamage(mage, s.power, log);
   mage.ap = AP_PER_TURN;
@@ -389,7 +394,7 @@ function react(state: GameState, me: Mage, def: AbilityDef, attackId: number, lo
   }
   const attacker = state.mages[atk.caster];
   const shape = (ABILITIES[atk.abilityId].effect as { shape: Shape }).shape;
-  const area = threatArea(state.tiles, me.pos, shape, attacker.pos) ?? [];
+  const area = threatArea(state.tiles, me.pos, shape, attacker.pos, attacker.pos) ?? [];
   if (!area.length) {
     log({ kind: 'cast', text: `${me.name} deflects ${name}, but it shatters against the rock.` });
     return;
@@ -398,8 +403,14 @@ function react(state: GameState, me: Mage, def: AbilityDef, attackId: number, lo
   log({ kind: 'cast', text: `${me.name} deflects ${name} back at ${attacker.name}!` });
 }
 
+/** The Hit an Attack launched now will carry: Techniques get the caster's Empower bonus. */
+function boosted(caster: Mage, def: AbilityDef): Hit {
+  const hit = (def.effect as { hit: Hit }).hit;
+  return def.kind === 'technique' && caster.empower > 0 && hit.damage > 0 ? { ...hit, damage: hit.damage + caster.empower } : hit;
+}
+
 /** Instant, non-Attack effects (healing, shields, blinks, steps, …). */
-function resolveUtility(caster: Mage, def: AbilityDef, target: Hex, log: Log) {
+function resolveUtility(state: GameState, caster: Mage, def: AbilityDef, target: Hex, log: Log) {
   const fx = def.effect;
   switch (fx.type) {
     case 'attack':
@@ -419,6 +430,23 @@ function resolveUtility(caster: Mage, def: AbilityDef, target: Hex, log: Log) {
     case 'step':
       caster.pos = target;
       log({ kind: 'move', text: `${caster.name} steps aside.`, at: target });
+      break;
+    case 'block': {
+      const first = incoming(state, caster.owner)[0];
+      if (!first) break;
+      const was = first.hit.damage;
+      first.hit = { ...first.hit, damage: Math.max(0, was - fx.amount) };
+      const a = ABILITIES[first.abilityId];
+      log({ kind: 'status', text: `${caster.name} blocks ${was - first.hit.damage} damage of ${a.icon} ${a.name}.`, at: caster.pos });
+      break;
+    }
+    case 'empower':
+      caster.empower += fx.bonus;
+      log({ kind: 'status', text: `${caster.name}'s Techniques deal +${fx.bonus} damage this turn.`, at: caster.pos });
+      break;
+    case 'pillar':
+      state.tiles[key(target)].terrain = 'rock';
+      log({ kind: 'cast', text: `${caster.name} raises a stone pillar.`, at: target });
       break;
     case 'haste':
       caster.mp += fx.move;

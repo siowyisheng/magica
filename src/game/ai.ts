@@ -66,6 +66,10 @@ function chooseReaction(state: GameState, player: PlayerId): Action {
           });
     } else if (fx.type === 'shield' && unshielded > 0) {
       consider(Math.min(fx.amount, unshielded), def.mana, { type: 'cast', player, abilityId: slot.id, target: me.pos });
+    } else if (fx.type === 'block') {
+      const first = threats[0];
+      if (first?.area.includes(key(me.pos)) && first.hit.damage > 0)
+        consider(Math.min(fx.amount, hitDamage(me, first.hit.damage)), def.mana, { type: 'cast', player, abilityId: slot.id, target: me.pos });
     } else if (fx.type === 'blink' || fx.type === 'step') {
       const out = validTargets(state, player, slot.id).find((h) => !danger.has(key(h)) && !own.has(key(h)));
       if (out) consider(total, def.mana, { type: 'cast', player, abilityId: slot.id, target: out });
@@ -139,7 +143,8 @@ function idealRange(me: Mage): number {
     .filter((d) => d.effect.type === 'attack')
     .map(abilityRange);
   const ranged = ranges.filter((r) => r > 1);
-  return ranged.length ? Math.min(...ranged) : 1;
+  // Unlimited ranges would send the bot to the board edge; stay within a comfortable 5.
+  return ranged.length ? Math.min(...ranged, 5) : 1;
 }
 
 /** Aim points worth evaluating, with their Threat Areas. For Attacks, only aims that cover the enemy. */
@@ -159,7 +164,7 @@ function castCandidates(state: GameState, player: PlayerId, abilityId: string): 
     return out;
   }
   for (const aim of aimableHexes(state.tiles, me, shape)) {
-    const area = threatArea(state.tiles, me, shape, aim);
+    const area = threatArea(state.tiles, me, shape, aim, enemyPos);
     if (!area) continue;
     const keys = new Set(area.map(key));
     if (keys.has(enemy)) out.push([aim, keys]);
@@ -244,6 +249,9 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, _targe
     case 'haste':
     case 'blink':
     case 'step':
+    case 'block':
+    case 'empower':
+    case 'pillar':
       return 0; // positional tricks are left to humans (and a smarter future bot)
   }
 }

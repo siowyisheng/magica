@@ -243,6 +243,9 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .category-head.reaction { margin: 1rem 0 0.2rem; padding-top: 0.8rem; border-top: 2px dashed #5b6bd6; color: #9aa7ff; }
 .cards.reaction .pick-card { border-color: #5b6bd6; }
 .pick-head { display: flex; justify-content: space-between; align-items: center; }
+.pick-costs { display: flex; align-items: center; gap: 0.4rem; }
+.pick-costs .mana-cost { min-width: 2.6rem; text-align: right; font-size: 0.8rem; font-weight: 600; color: #7fc8ff; }
+.pick-costs .mana-cost.none { color: var(--muted, #8a8fa3); font-weight: 400; }
 .price { font-size: 0.75rem; color: var(--gold); border: 1px solid #e8c46a55; border-radius: 99px; padding: 0.05rem 0.5rem; }
 .mana-cost { color: #9db8ff; }
 .bar-row { grid-template-columns: 40px 1fr auto; }

@@ -74,9 +74,9 @@ describe('Reaction Spells', () => {
   });
 
   it('Ward covers every Attack in this resolution, then fades', () => {
-    let g = underFire('firebolt', 'frost-lance'); // 3 + 2 damage
+    let g = underFire('firebolt', 'frost-lance'); // 4 + 4 damage
     g = resolve(react(g, 'ward')); // absorbs 4 across both
-    expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(1);
+    expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(4);
     expect(g.mages.p2.shield).toBe(0);
   });
 

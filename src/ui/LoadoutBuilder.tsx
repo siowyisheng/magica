@@ -16,7 +16,7 @@ import {
 import { timing } from '../game/engine';
 import { newId } from '../game/storage';
 import { SHAPE_NAME } from '../game/threat';
-import type { AbilityDef, Circle, Loadout, School, StatKey } from '../game/types';
+import { UNLIMITED, type AbilityDef, type Circle, type Loadout, type School, type StatKey } from '../game/types';
 
 interface Props {
   loadouts: Loadout[];
@@ -131,7 +131,13 @@ function Editor({
       >
         <span className="pick-head">
           <span className="pick-icon">{a.icon}</span>
-          <span className="price">{a.points} pts</span>
+          <span className="pick-costs">
+            {/* Mana always sits in the same place, so costs are easy to scan down the list. */}
+            <span className={`mana-cost ${a.mana ? '' : 'none'}`} title={a.mana ? `${a.mana} Mana` : 'No Mana cost'}>
+              {a.mana ? `💧 ${a.mana}` : '—'}
+            </span>
+            <span className="price">{a.points} pts</span>
+          </span>
         </span>
         <strong>{a.name}</strong>
         <span className="muted">{a.description}</span>
@@ -301,15 +307,17 @@ function Editor({
 /** Abilities usable in the Reaction Phase, shown in their own category. */
 const canReact = (a: AbilityDef) => timing(a) !== 'action';
 
+/** Everything about an Ability except its Mana cost, which has its own place on the card. Every non-Fast Ability costs 1 AP, so that is left unsaid. */
 export function abilitySummary(a: AbilityDef): string {
-  const parts = [a.kind === 'technique' ? 'Technique' : `${a.mana} Mana`, a.fast ? 'Fast' : '1 AP'];
+  const parts: string[] = [];
+  if (a.kind === 'technique') parts.push('Technique');
+  if (a.fast) parts.push('Fast');
   if (a.timing === 'reaction') parts.push('Reaction');
   if (a.timing === 'both') parts.push('Reaction or Action');
   if (a.effect.type === 'attack') {
     const s = a.effect.shape;
     parts.push(SHAPE_NAME[s.kind]);
-    if ('range' in s && s.range) parts.push(`rng ${s.range}`);
-    if ('radius' in s) parts.push(`r${s.radius}`);
+    if ('range' in s && s.range && s.range < UNLIMITED) parts.push(`rng ${s.range}`);
     if (a.effect.hit.damage) parts.push(`${a.effect.hit.damage} dmg`);
   } else if (a.targeting === 'tile') parts.push(a.effect.type === 'step' ? `walk ${a.range}` : `rng ${a.range}`);
   return parts.join(' · ');

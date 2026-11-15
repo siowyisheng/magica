@@ -67,18 +67,50 @@ describe('Burst', () => {
 });
 
 describe('Explosive Line', () => {
-  it('is a Line ending in a Burst at its last hex', () => {
-    const area = threatArea(openBoard(), at, { kind: 'explosiveLine', range: 3, radius: 1 }, { q: 0, r: -1 });
-    expect(area).toHaveLength(8); // 3 line hexes + 7 burst hexes, 2 shared
+  const fireball = { kind: 'explosiveLine', range: 99, radius: 1 } as const;
+
+  it('flies to the aimed hex and bursts there', () => {
+    const area = threatArea(openBoard(), at, fireball, { q: 0, r: -3 });
+    expect(area).toHaveLength(8); // 3 flight hexes + 7 burst hexes, 2 shared
     expect(keys(area)).toContain('1,-4');
+    expect(keys(area)).not.toContain('0,-5');
   });
 
-  it('explodes at the hex before a Rock', () => {
+  it('bursts at the hex before a Rock', () => {
     const b = openBoard();
     b['0,-3'].terrain = 'rock';
-    const area = keys(threatArea(b, at, { kind: 'explosiveLine', range: 5, radius: 1 }, { q: 0, r: -1 }));
+    const area = keys(threatArea(b, at, fireball, { q: 0, r: -5 }));
     expect(area).toContain('1,-3'); // a neighbour of (0,-2)
     expect(area).not.toContain('0,-4');
+  });
+
+  it('bursts on the enemy if it reaches them before the aimed hex', () => {
+    const area = keys(threatArea(openBoard(), at, fireball, { q: 0, r: -5 }, { q: 0, r: -2 }));
+    expect(area).toContain('0,-3'); // burst around (0,-2)
+    expect(area).not.toContain('0,-4');
+    expect(area).not.toContain('0,-5');
+  });
+
+  it('cannot be aimed straight into adjacent Rock, or past its range', () => {
+    const b = openBoard();
+    b['0,-1'].terrain = 'rock';
+    expect(threatArea(b, at, fireball, { q: 0, r: -4 })).toBeNull();
+    expect(threatArea(openBoard(), at, { kind: 'explosiveLine', range: 3, radius: 1 }, { q: 0, r: -4 })).toBeNull();
+  });
+});
+
+describe('Single Hex with line of sight', () => {
+  it('cannot be aimed through Rock, but a plain Single Hex can', () => {
+    const b = openBoard();
+    b['0,-2'].terrain = 'rock';
+    expect(threatArea(b, at, { kind: 'single', range: 7, los: true }, { q: 0, r: -4 })).toBeNull();
+    expect(threatArea(b, at, { kind: 'single', range: 7 }, { q: 0, r: -4 })).toHaveLength(1);
+    expect(threatArea(b, at, { kind: 'single', range: 7, los: true }, { q: 1, r: -4 })).toHaveLength(1);
+  });
+
+  it('is limited to its range', () => {
+    expect(threatArea(openBoard(), at, { kind: 'single', range: 6, los: true }, { q: 0, r: -6 })).toHaveLength(1);
+    expect(threatArea(openBoard(), at, { kind: 'single', range: 3, los: true }, { q: 0, r: -4 })).toBeNull();
   });
 });
 
@@ -114,8 +146,10 @@ describe('bigger Bursts and Self-Burst', () => {
       expect(threatArea(openBoard(), at, { kind: 'burst', range: 6, radius }, at)).toHaveLength(n);
   });
 
-  it('Self-Burst is centred on the caster and can only be aimed there', () => {
-    expect(threatArea(openBoard(), at, { kind: 'selfBurst', radius: 2 }, at)).toHaveLength(19);
+  it('Self-Burst is centred on the caster, leaves out the caster’s own hex, and can only be aimed there', () => {
+    const area = threatArea(openBoard(), at, { kind: 'selfBurst', radius: 2 }, at);
+    expect(area).toHaveLength(18);
+    expect(keys(area)).not.toContain('0,0');
     expect(threatArea(openBoard(), at, { kind: 'selfBurst', radius: 2 }, { q: 0, r: -1 })).toBeNull();
   });
 });

@@ -24,12 +24,17 @@ export interface Status {
   power: number;
 }
 
+/** A range so long that it never limits an aim: the board edge, Rock or line of sight do. Hidden in the UI. */
+export const UNLIMITED = 99;
+
 /** The geometry of an Attack's Threat Area. */
 export type Shape =
   | { kind: 'line'; range: number }
-  | { kind: 'single'; range: number }
+  /** `los`: the hex must be in line of sight (no Rock between). */
+  | { kind: 'single'; range: number; los?: boolean }
   | { kind: 'meleeArc' }
   | { kind: 'burst'; range: number; radius: number }
+  /** Flies toward the aimed hex and Bursts where it stops: there, or earlier at Rock or the enemy. */
   | { kind: 'explosiveLine'; range: number; radius: number }
   | { kind: 'cone'; range: number }
   | { kind: 'fan'; range: number }
@@ -62,6 +67,12 @@ export type AbilityEffect =
   | { type: 'blink' }
   /** Walk to an empty hex within `range` hexes, going round Rock and the other mage. */
   | { type: 'step' }
+  /** Reaction: reduce the damage of the first incoming Attack. */
+  | { type: 'block'; amount: number }
+  /** Your Techniques deal `bonus` more damage for the rest of this turn. */
+  | { type: 'empower'; bonus: number }
+  /** Turn an empty hex into Rock. */
+  | { type: 'pillar' }
   /** Extra Movement Points this turn. */
   | { type: 'haste'; move: number };
 
@@ -157,6 +168,8 @@ export interface Mage {
   regen: number;
   manaRegen: number;
   absorbBonus: number;
+  /** Bonus damage on Techniques launched this turn (Empower). Cleared when the turn ends. */
+  empower: number;
   passiveIds: string[];
   abilities: AbilityState[];
   statuses: Status[];

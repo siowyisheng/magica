@@ -68,10 +68,10 @@ A straight run of hexes from next to the caster out to a range, stopped by the f
 _Avoid_: Ray, beam (as the shape name)
 
 **Explosive Line**:
-A Line that ends in a Burst, at its last hex or the hex before a Rock.
+A projectile that flies toward a chosen hex and ends in a Burst: at the chosen hex, or earlier if it meets the enemy (it bursts on them) or a Rock (it bursts on the hex before). The hexes it flew over are part of the Threat Area.
 
 **Single Hex**:
-One chosen hex, not blocked by Rock.
+One chosen hex, not blocked by Rock. Some Single Hex Attacks need line of sight: a Rock between the caster and the hex blocks the aim.
 
 **Cone**:
 A 60° wedge spreading out from the caster to a range.
@@ -91,12 +91,12 @@ _Avoid_: Barrier
 Every hex within a radius of 1 to 4 around a chosen hex, not blocked by Rock. Radius 1 covers 7 hexes; radius 4 covers 61.
 
 **Self-Burst**:
-A Burst centred on the caster.
+A Burst centred on the caster that leaves out the caster's own hex.
 
 ## Board
 
 **Rock**:
-Impassable terrain that also stops Lines. It is the only terrain besides open ground.
+Impassable terrain that also stops Lines and line of sight. It is the only terrain besides open ground. Stone Pillar can create it mid-duel.
 _Avoid_: Wall (a Wall is a Threat Area shape), obstacle
 
 ## Resources
@@ -157,3 +157,15 @@ A Technique usable only in the Reaction Phase. It costs 1 AP and no Mana. Sidest
 **Step**:
 Walking up to a few hexes as a Reaction Technique, going round Rock and the other mage. It spends AP, not Movement Points. Sidestep Steps 1 hex and Dodge Roll up to 2. Blink is a teleport, not a Step.
 _Avoid_: Move (a Move spends Movement Points and happens only in the Action Phase)
+
+**Range**:
+How far an Ability reaches, in hexes. Some Lines and the Fireball have unlimited range: only the board edge, Rock or the enemy stops them, and no range is shown for them.
+
+**Block**:
+A Reaction Technique. It reduces the damage of the first incoming Attack, in launch order, by 4, whether or not that Attack would hit the mage.
+
+**Empower**:
+A Fast Spell that adds 3 damage to every Technique the caster launches for the rest of the turn. Techniques launched before it are unchanged, and it ends with the turn.
+
+**Stone Pillar**:
+A Spell that turns an empty hex into Rock at once. The hex can't hold a mage or a Mana Crystal.

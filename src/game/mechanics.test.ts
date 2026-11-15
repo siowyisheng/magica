@@ -41,11 +41,12 @@ describe('catalogue', () => {
   const all = Object.values(ABILITIES);
   const spells = all.filter((a) => a.kind === 'spell');
 
-  it('has 5 Techniques (2 of them Reaction Techniques), 4 Reaction Spells and about 14 other Spells', () => {
-    expect(all.filter((a) => a.kind === 'technique')).toHaveLength(5);
+  it('has 6 Techniques (3 of them Reaction Techniques), 4 Reaction Spells and about 14 other Spells', () => {
+    expect(all.filter((a) => a.kind === 'technique')).toHaveLength(6);
     expect(all.filter((a) => a.kind === 'technique' && a.timing === 'reaction').map((a) => [a.id, a.points, a.range])).toEqual([
       ['sidestep', 2, 1],
       ['dodge-roll', 4, 2],
+      ['block', 3, undefined],
     ]);
     expect(spells.filter((a) => a.timing === 'reaction' || a.timing === 'both')).toHaveLength(4);
     expect(spells.filter((a) => !a.timing || a.timing === 'action').length).toBeGreaterThanOrEqual(14);
@@ -104,7 +105,7 @@ describe('Attack riders', () => {
     let g = arena(['doom', 'firebolt'], { q: 0, r: 3 }, { q: 0, r: 0 }, ['iron-skin']);
     g = cast(g, 'doom', { q: 0, r: 0 }); // resolves first: status only
     g = land(cast(g, 'firebolt', { q: 0, r: 0 }));
-    expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(3 + 2 - 1);
+    expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(4 + 2 - 1);
   });
 
   it('poison ticks at the start of the victim’s turn', () => {

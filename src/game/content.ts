@@ -1,4 +1,4 @@
-import type { AbilityDef, Hit, Loadout, PassiveDef, School, Shape } from './types';
+import { UNLIMITED, type AbilityDef, type AbilityEffect, type Hit, type Loadout, type PassiveDef, type School, type Shape, type Targeting } from './types';
 
 // ---------------------------------------------------------------------------
 // Content tables. Add Abilities and Passives here; the builder, engine and AI
@@ -24,15 +24,17 @@ const technique = (a: Common & { shape: Shape; hit: Hit }): AbilityDef => ({
   effect: { type: 'attack', shape: a.shape, hit: a.hit },
 });
 
-/** A Reaction Technique that walks the mage a few hexes: a dodge that costs AP but no Mana. */
-const reactionStep = (a: Common & { range: number }): AbilityDef => ({
+/** A Technique usable only in the Reaction Phase: costs AP but no Mana. */
+const reactionTechnique = (a: Common & { effect: AbilityEffect; targeting: Targeting; range?: number }): AbilityDef => ({
   ...a,
   kind: 'technique',
   mana: 0,
   timing: 'reaction',
-  targeting: 'tile',
-  effect: { type: 'step' },
 });
+
+/** A Reaction Technique that walks the mage a few hexes: a dodge. */
+const reactionStep = (a: Common & { range: number }): AbilityDef =>
+  reactionTechnique({ ...a, targeting: 'tile', effect: { type: 'step' } });
 
 const attack = (a: Common & { mana: number; shape: Shape; hit: Hit }): AbilityDef => ({
   ...a,
@@ -53,7 +55,7 @@ const LIST: AbilityDef[] = [
     shape: { kind: 'meleeArc' }, hit: { damage: 2 },
   }),
   technique({
-    id: 'spear-thrust', name: 'Spear Thrust', icon: '🗡️', school: 'steel', points: 2,
+    id: 'spear-thrust', name: 'Spear Thrust', icon: '🗡️', school: 'steel', points: 4,
     description: 'A long thrust that reaches two hexes.',
     shape: { kind: 'line', range: 2 }, hit: { damage: 3 },
   }),
@@ -72,37 +74,42 @@ const LIST: AbilityDef[] = [
     id: 'dodge-roll', name: 'Dodge Roll', icon: '🤸', school: 'steel', points: 4, range: 2,
     description: 'Reaction: roll up to 2 hexes clear of the Attacks. Rock and your foe block the way.',
   }),
+  reactionTechnique({
+    id: 'block', name: 'Block', icon: '✋', school: 'steel', points: 3,
+    description: 'Reaction: reduce the damage of the first incoming Attack by 4.',
+    targeting: 'self', effect: { type: 'block', amount: 4 },
+  }),
 
   // --- Offensive Spells -------------------------------------------------------
   attack({
-    id: 'spark', name: 'Spark', icon: '⚡', school: 'arcane', points: 1, mana: 1, fast: true,
+    id: 'spark', name: 'Spark', icon: '⚡', school: 'arcane', points: 2, mana: 2, fast: true,
     description: 'Fast: a cheap zap that costs no AP.',
     shape: { kind: 'line', range: 4 }, hit: { damage: 1 },
   }),
   attack({
-    id: 'firebolt', name: 'Firebolt', icon: '🔥', school: 'fire', points: 2, mana: 4,
-    description: 'A bolt of flame down a Line. Sets the target burning.',
-    shape: { kind: 'line', range: 5 }, hit: { damage: 3, status: { kind: 'burn', turns: 2, power: 1 } },
+    id: 'firebolt', name: 'Firebolt', icon: '🔥', school: 'fire', points: 2, mana: 3,
+    description: 'A bolt of flame down a Line, to any distance. Sets the target burning.',
+    shape: { kind: 'line', range: UNLIMITED }, hit: { damage: 4, status: { kind: 'burn', turns: 2, power: 1 } },
   }),
   attack({
-    id: 'frost-lance', name: 'Frost Lance', icon: '❄️', school: 'frost', points: 2, mana: 4,
-    description: 'A long icy Line that slows.',
-    shape: { kind: 'line', range: 6 }, hit: { damage: 2, status: { kind: 'slow', turns: 1, power: 1 } },
+    id: 'frost-lance', name: 'Frost Lance', icon: '❄️', school: 'frost', points: 2, mana: 3,
+    description: 'An icy Line, to any distance, that slows.',
+    shape: { kind: 'line', range: UNLIMITED }, hit: { damage: 4, status: { kind: 'slow', turns: 1, power: 1 } },
   }),
   attack({
-    id: 'icicle', name: 'Icicle', icon: '🧊', school: 'frost', points: 2, mana: 4,
-    description: 'Drops on one hex from above. Ignores rock.',
-    shape: { kind: 'single', range: 5 }, hit: { damage: 3 },
+    id: 'icicle', name: 'Icicle', icon: '🧊', school: 'frost', points: 2, mana: 3,
+    description: 'Drops on one hex in your line of sight.',
+    shape: { kind: 'single', range: 7, los: true }, hit: { damage: 5 },
   }),
   attack({
-    id: 'fireball', name: 'Fireball', icon: '💥', school: 'fire', points: 4, mana: 9,
-    description: 'Flies down a Line and explodes where it stops.',
-    shape: { kind: 'explosiveLine', range: 5, radius: 1 }, hit: { damage: 4 },
+    id: 'fireball', name: 'Fireball', icon: '💥', school: 'fire', points: 3, mana: 5,
+    description: 'Flies toward a hex and explodes there, or sooner if it meets rock or your foe.',
+    shape: { kind: 'explosiveLine', range: UNLIMITED, radius: 1 }, hit: { damage: 8 },
   }),
   attack({
-    id: 'dragons-breath', name: "Dragon's Breath", icon: '🐉', school: 'fire', points: 4, mana: 8,
+    id: 'dragons-breath', name: "Dragon's Breath", icon: '🐉', school: 'fire', points: 2, mana: 3,
     description: 'A 60° cone of fire that leaves everything burning.',
-    shape: { kind: 'cone', range: 3 }, hit: { damage: 3, status: { kind: 'burn', turns: 2, power: 1 } },
+    shape: { kind: 'cone', range: 4 }, hit: { damage: 4, status: { kind: 'burn', turns: 2, power: 1 } },
   }),
   attack({
     id: 'ice-shards', name: 'Ice Shards', icon: '💠', school: 'frost', points: 3, mana: 6,
@@ -111,8 +118,8 @@ const LIST: AbilityDef[] = [
   }),
   attack({
     id: 'nova', name: 'Arcane Nova', icon: '🌟', school: 'arcane', points: 3, mana: 7,
-    description: 'Detonates everything within 2 of you. Step out before it lands!',
-    shape: { kind: 'selfBurst', radius: 2 }, hit: { damage: 4 },
+    description: 'Detonates everything within 2 of you, but not your own hex.',
+    shape: { kind: 'selfBurst', radius: 2 }, hit: { damage: 10 },
   }),
   attack({
     id: 'wall-of-fire', name: 'Wall of Fire', icon: '♨️', school: 'fire', points: 4, mana: 8,
@@ -170,6 +177,16 @@ const LIST: AbilityDef[] = [
     id: 'haste', name: 'Haste', icon: '⏩', school: 'time', points: 2, mana: 3, fast: true,
     description: 'Fast: +3 Movement Points this turn.',
     targeting: 'self', effect: { type: 'haste', move: 3 },
+  }),
+  spell({
+    id: 'empower', name: 'Empower', icon: '💪', school: 'arcane', points: 2, mana: 3, fast: true,
+    description: 'Fast: your Techniques deal +3 damage for the rest of this turn.',
+    targeting: 'self', effect: { type: 'empower', bonus: 3 },
+  }),
+  spell({
+    id: 'stone-pillar', name: 'Stone Pillar', icon: '🗿', school: 'earth', points: 2, mana: 3,
+    description: 'Raise a rock on an empty hex within 4. It blocks walking and Lines.',
+    targeting: 'tile', range: 4, effect: { type: 'pillar' },
   }),
 
   // --- Reaction Spells (defensive: less Mana-efficient than offence) ---------
@@ -239,7 +256,7 @@ export const DEFAULT_LOADOUTS: Loadout[] = [
   loadout({
     id: 'c1-spellblade', name: 'Spellblade', circle: 1,
     stats: { hp: 3, magic: 0, movespeed: 1 },
-    abilities: ['spear-thrust', 'shield-bash', 'firebolt', 'ice-shards', 'blink', 'ward', 'mend'],
+    abilities: ['spear-thrust', 'shield-bash', 'firebolt', 'ice-shards', 'blink', 'ward'],
     passiveIds: ['iron-skin', 'regeneration'],
   }),
   loadout({
@@ -262,7 +279,7 @@ export const DEFAULT_LOADOUTS: Loadout[] = [
   }),
   loadout({
     id: 'c3-brawler', name: 'Brawler', circle: 3,
-    stats: { hp: 2, magic: 0, movespeed: 0 },
+    stats: { hp: 1, magic: 0, movespeed: 0 },
     abilities: ['spear-thrust', 'shield-bash', 'haste'],
     passiveIds: [],
   }),
