@@ -123,7 +123,17 @@ export function hasLOS(state: GameState, a: Hex, b: Hex): boolean {
 export function abilityRange(def: AbilityDef): number {
   if (def.effect.type === 'attack') {
     const s = def.effect.shape;
-    return s.kind === 'meleeArc' ? 1 : s.kind === 'burst' ? s.range + s.radius : s.range;
+    switch (s.kind) {
+      case 'meleeArc':
+        return 1;
+      case 'selfBurst':
+        return s.radius;
+      case 'burst':
+      case 'explosiveLine':
+        return s.range + s.radius;
+      default:
+        return s.range;
+    }
   }
   return def.targeting === 'self' ? 0 : Math.max(1, def.range);
 }
@@ -135,6 +145,7 @@ export function castError(
   abilityId: string,
   target?: Hex,
   attackId?: number,
+  path?: Hex[],
 ): string | null {
   if (state.winner) return 'The match is over.';
   if (state.active !== player) return 'Not your turn.';
@@ -159,6 +170,10 @@ export function castError(
     if (def.effect.type === 'deflect' && (attacker.effect.type !== 'attack' || attacker.effect.shape.kind !== 'line'))
       return 'Only Lines can be deflected.';
     return null;
+  }
+  if (def.effect.type === 'attack' && def.effect.shape.kind === 'wall') {
+    if (!path) return target ? 'Draw the Wall: pick 5 connected hexes.' : null;
+    return threatArea(state.tiles, u.pos, def.effect.shape, path) ? null : "Can't draw the Wall there.";
   }
   if (!target) return null;
 
@@ -189,6 +204,9 @@ export function castError(
 export function validTargets(state: GameState, player: PlayerId, abilityId: string): Hex[] {
   if (castError(state, player, abilityId)) return [];
   const def = ABILITIES[abilityId];
+  // A Wall's valid first hexes; the rest of the path is drawn from there.
+  if (def.effect.type === 'attack' && def.effect.shape.kind === 'wall')
+    return aimableHexes(state.tiles, state.mages[player].pos, def.effect.shape);
   const candidates =
     def.effect.type === 'attack'
       ? aimableHexes(state.tiles, state.mages[player].pos, def.effect.shape)
@@ -197,10 +215,11 @@ export function validTargets(state: GameState, player: PlayerId, abilityId: stri
 }
 
 /** Hexes an Ability would affect if aimed at `target` (its Threat Area, for Attacks). */
-export function impactArea(state: GameState, player: PlayerId, abilityId: string, target: Hex): Hex[] {
+export function impactArea(state: GameState, player: PlayerId, abilityId: string, target: Hex | Hex[]): Hex[] {
   const def = ABILITIES[abilityId];
   if (!def) return [];
   if (def.effect.type === 'attack') return threatArea(state.tiles, state.mages[player].pos, def.effect.shape, target) ?? [];
+  if (Array.isArray(target)) return [];
   return Object.values(state.tiles).filter((t) => distance(t, target) <= def.aoe);
 }
 
@@ -229,7 +248,7 @@ export function actionError(state: GameState, action: Action): string | null {
     case 'move':
       return reachable(state, action.player).has(key(action.to)) ? null : "Can't move there.";
     case 'cast':
-      return castError(state, action.player, action.abilityId, action.target, action.attackId);
+      return castError(state, action.player, action.abilityId, action.target, action.attackId, action.path);
     case 'absorb':
       return absorbError(state, action.player);
     case 'endReaction':
@@ -266,7 +285,8 @@ export function applyAction(prev: GameState, action: Action): GameState {
       me.mana -= def.mana;
       me.abilities.find((a) => a.id === def.id)!.cooldown = def.cooldown;
       if (def.effect.type === 'attack') {
-        const area = threatArea(state.tiles, me.pos, def.effect.shape, action.target)!;
+        const aim = def.effect.shape.kind === 'wall' ? action.path! : action.target;
+        const area = threatArea(state.tiles, me.pos, def.effect.shape, aim)!;
         state.pending.push({
           id: state.nextAttackId++,
           caster: me.owner,

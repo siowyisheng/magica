@@ -133,6 +133,38 @@ export const ABILITIES: Record<string, AbilityDef> = Object.fromEntries(
         apCost: 2, cooldown: 1, range: 4, targeting: 'tile', needsLOS: false, aoe: 1,
         effect: { type: 'damage', amount: 3 },
       },
+      // --- Shapes showcase -----------------------------------------------
+      {
+        id: 'fireball', name: 'Fireball', icon: '💥', school: 'fire', points: 4, mana: 9,
+        description: 'A bolt that flies in a Line and explodes where it stops.',
+        apCost: 1, cooldown: 0, range: 5, targeting: 'tile', needsLOS: false, aoe: 0,
+        effect: { type: 'attack', shape: { kind: 'explosiveLine', range: 5, radius: 1 }, hit: { damage: 4 } },
+      },
+      {
+        id: 'dragons-breath', name: "Dragon's Breath", icon: '🐉', school: 'fire', points: 4, mana: 8,
+        description: 'A 60° cone of fire that sets everything in it burning.',
+        apCost: 1, cooldown: 0, range: 3, targeting: 'tile', needsLOS: false, aoe: 0,
+        effect: { type: 'attack', shape: { kind: 'cone', range: 3 }, hit: { damage: 3, status: { kind: 'burn', turns: 2, power: 1 } } },
+      },
+      {
+        id: 'ice-shards', name: 'Ice Shards', icon: '💠', school: 'frost', points: 3, mana: 5,
+        description: 'Three icy Lines fanned 30° apart. Hard to stand between.',
+        apCost: 1, cooldown: 0, range: 4, targeting: 'tile', needsLOS: false, aoe: 0,
+        effect: { type: 'attack', shape: { kind: 'fan', range: 4 }, hit: { damage: 2, status: { kind: 'slow', turns: 1, power: 1 } } },
+      },
+      {
+        id: 'nova', name: 'Arcane Nova', icon: '🌟', school: 'arcane', points: 3, mana: 7,
+        description: 'Detonate everything within 2 of you. Step out before it lands!',
+        apCost: 1, cooldown: 0, range: 0, targeting: 'self', needsLOS: false, aoe: 0,
+        effect: { type: 'attack', shape: { kind: 'selfBurst', radius: 2 }, hit: { damage: 4 } },
+      },
+      {
+        id: 'wall-of-fire', name: 'Wall of Fire', icon: '♨️', school: 'fire', points: 4, mana: 8,
+        description: 'Draw a 5-hex wall of flame anywhere you like. Burns whoever is caught in it.',
+        apCost: 1, cooldown: 0, range: 4, targeting: 'tile', needsLOS: false, aoe: 0,
+        effect: { type: 'attack', shape: { kind: 'wall', range: 4, length: 5 }, hit: { damage: 3, status: { kind: 'burn', turns: 2, power: 1 } } },
+      },
+
       // --- Blood · Bloodreaver -------------------------------------------
       {
         id: 'blood-lash', name: 'Blood Lash', icon: '🩸', school: 'blood',

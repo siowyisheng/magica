@@ -29,7 +29,13 @@ export type Shape =
   | { kind: 'line'; range: number }
   | { kind: 'single'; range: number }
   | { kind: 'meleeArc' }
-  | { kind: 'burst'; range: number; radius: number };
+  | { kind: 'burst'; range: number; radius: number }
+  | { kind: 'explosiveLine'; range: number; radius: number }
+  | { kind: 'cone'; range: number }
+  | { kind: 'fan'; range: number }
+  | { kind: 'selfBurst'; radius: number }
+  /** Drawn freely by the caster: `length` connected hexes, the first within `range`. */
+  | { kind: 'wall'; range: number; length: number };
 
 /** What an Attack does to each mage standing in its Threat Area when it resolves. */
 export interface Hit {
@@ -224,7 +230,7 @@ export interface GameState {
 export type Action =
   | { type: 'move'; player: PlayerId; to: Hex }
   /** `attackId` picks the incoming Attack for targeted Reaction Spells. */
-  | { type: 'cast'; player: PlayerId; abilityId: string; target: Hex; attackId?: number }
+  | { type: 'cast'; player: PlayerId; abilityId: string; target: Hex; attackId?: number; path?: Hex[] }
   | { type: 'absorb'; player: PlayerId }
   /** Finish the Reaction Phase: pending Attacks resolve, then the Action Phase begins. */
   | { type: 'endReaction'; player: PlayerId; reason?: 'timeout' }

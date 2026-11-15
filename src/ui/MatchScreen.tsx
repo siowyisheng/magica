@@ -13,7 +13,7 @@ import {
   round,
   validTargets,
 } from '../game/engine';
-import { equals, key, type Hex } from '../game/hex';
+import { equals, key, neighbors, type Hex } from '../game/hex';
 import { newId, saveReplay } from '../game/storage';
 import type { Action, GameState, MatchConfig, MatchRecord, PlayerId } from '../game/types';
 import { BroadcastChannelTransport, SpectateHost } from '../net/spectate';
@@ -40,6 +40,9 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
   const hostRef = useRef<SpectateHost | null>(null);
 
   const [selected, setSelected] = useState<string | null>(null);
+  /** Hexes drawn so far when the selected Ability is a Wall. */
+  const [wallPath, setWallPath] = useState<Hex[]>([]);
+  useEffect(() => setWallPath([]), [selected, state.turn, state.phase]);
   const [hover, setHover] = useState<Hex | null>(null);
 
   const isLocal = useCallback((p: PlayerId) => mode === 'hotseat' || p === 'p1', [mode]);
@@ -104,8 +107,20 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
     [state, controlling, selectedDef],
   );
 
+  const wallShape =
+    selectedDef?.effect.type === 'attack' && selectedDef.effect.shape.kind === 'wall' ? selectedDef.effect.shape : null;
+
   const highlights = useMemo<BoardHighlights>(() => {
     if (!controlling) return {};
+    if (selected && wallShape) {
+      const last = wallPath[wallPath.length - 1];
+      const taken = new Set(wallPath.map(key));
+      const next = last
+        ? neighbors(last).filter((n) => state.tiles[key(n)]?.terrain === 'plain' && !taken.has(key(n)))
+        : validTargets(state, controlling, selected);
+      const preview = hover && next.some((n) => equals(n, hover)) ? [...wallPath, hover] : wallPath;
+      return { targets: new Set(next.map(key)), impact: new Set(preview.map(key)) };
+    }
     if (selected && reactTargets.length) {
       const hovered = hover && reactTargets.find((a) => a.area.includes(key(hover)));
       return { targets: new Set(reactTargets.flatMap((a) => a.area)), impact: hovered ? new Set(hovered.area) : undefined };
@@ -121,7 +136,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       reachable: new Set(all.keys()),
       free: new Set([...all].filter(([, cost]) => cost <= mp).map(([k]) => k)),
     };
-  }, [state, controlling, selected, hover, reactTargets]);
+  }, [state, controlling, selected, hover, reactTargets, wallShape, wallPath]);
 
   const onHexClick = (h: Hex) => {
     if (!controlling) return;
@@ -129,6 +144,18 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       const atk = reactTargets.find((a) => a.area.includes(key(h)));
       if (atk) castAt(selected, state.mages[controlling].pos, atk.id);
       else setSelected(null);
+      return;
+    }
+    if (selected && wallShape) {
+      const last = wallPath[wallPath.length - 1];
+      if (last && equals(last, h)) setWallPath(wallPath.slice(0, -1)); // click the end again to undo
+      else if (highlights.targets?.has(key(h))) {
+        const path = [...wallPath, h];
+        if (path.length === wallShape.length) {
+          dispatch({ type: 'cast', player: controlling, abilityId: selected, target: path[0], path });
+          setWallPath([]);
+        } else setWallPath(path);
+      } else if (!wallPath.length) setSelected(null);
       return;
     }
     if (selected) {
@@ -225,6 +252,13 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       <footer className="controls">
         <TurnTimer remaining={remaining} total={phaseSeconds} />
         <AbilityBar state={state} player={barPlayer} selected={selected} onSelect={select} disabled={!controlling} />
+        {wallShape && (
+          <div className="react-targets">
+            <span className="muted">
+              Draw the wall: {wallPath.length}/{wallShape.length} hexes · click the end to undo · Esc cancels
+            </span>
+          </div>
+        )}
         {reactTargets.length > 0 && (
           <div className="react-targets">
             <span className="muted">{selectedDef!.name} which attack?</span>

@@ -14,6 +14,7 @@ import {
   validateLoadout,
 } from '../game/loadout';
 import { newId } from '../game/storage';
+import { SHAPE_NAME } from '../game/threat';
 import type { AbilityDef, Circle, Loadout, School, StatKey } from '../game/types';
 
 interface Props {
@@ -275,8 +276,15 @@ function Editor({
 }
 
 export function abilitySummary(a: AbilityDef): string {
-  const parts = [a.kind === 'technique' ? 'Technique' : `Spell · ${a.mana} Mana`, a.fast ? 'Fast' : '1 AP'];
-  if (a.range) parts.push(`rng ${a.range}`);
-  if (a.aoe) parts.push(`AoE ${a.aoe}`);
+  const parts = [a.kind === 'technique' ? 'Technique' : `${a.mana} Mana`, a.fast ? 'Fast' : '1 AP'];
+  if (a.timing === 'reaction') parts.push('Reaction');
+  if (a.timing === 'both') parts.push('Reaction or Action');
+  if (a.effect.type === 'attack') {
+    const s = a.effect.shape;
+    parts.push(SHAPE_NAME[s.kind]);
+    if ('range' in s && s.range) parts.push(`rng ${s.range}`);
+    if ('radius' in s) parts.push(`r${s.radius}`);
+    if (a.effect.hit.damage) parts.push(`${a.effect.hit.damage} dmg`);
+  } else if (a.range) parts.push(`rng ${a.range}`);
   return parts.join(' · ');
 }

@@ -87,10 +87,10 @@ function chooseMain(state: GameState, player: PlayerId): Action {
   let best: { score: number; action: Action } | null = null;
   for (const slot of me.abilities) {
     if (castError(state, player, slot.id)) continue;
-    for (const [target, area] of castCandidates(state, player, slot.id)) {
+    for (const [target, area, path] of castCandidates(state, player, slot.id)) {
       const score = scoreCast(state, player, slot.id, target, area);
       if (score > 0.3 && (!best || score > best.score)) {
-        best = { score, action: { type: 'cast', player, abilityId: slot.id, target } };
+        best = { score, action: { type: 'cast', player, abilityId: slot.id, target, path } };
       }
     }
   }
@@ -145,18 +145,41 @@ function idealRange(me: Mage): number {
 }
 
 /** Aim points worth evaluating, with their Threat Areas. For Attacks, only aims that cover the enemy. */
-function castCandidates(state: GameState, player: PlayerId, abilityId: string): Array<[Hex, Set<string>]> {
+function castCandidates(state: GameState, player: PlayerId, abilityId: string): Array<[Hex, Set<string>, Hex[]?]> {
   const def = ABILITIES[abilityId];
   if (def.effect.type !== 'attack') return validTargets(state, player, abilityId).map((t) => [t, new Set<string>()]);
   const me = state.mages[player].pos;
-  const enemy = key(state.mages[other(player)].pos);
-  const out: Array<[Hex, Set<string>]> = [];
-  for (const aim of aimableHexes(state.tiles, me, def.effect.shape)) {
-    const area = threatArea(state.tiles, me, def.effect.shape, aim);
+  const enemyPos = state.mages[other(player)].pos;
+  const enemy = key(enemyPos);
+  const shape = def.effect.shape;
+  const out: Array<[Hex, Set<string>, Hex[]?]> = [];
+  if (shape.kind === 'wall') {
+    for (const path of wallsThrough(enemyPos, shape.length)) {
+      const area = threatArea(state.tiles, me, shape, path);
+      if (area) out.push([path[0], new Set(area.map(key)), path]);
+    }
+    return out;
+  }
+  for (const aim of aimableHexes(state.tiles, me, shape)) {
+    const area = threatArea(state.tiles, me, shape, aim);
     if (!area) continue;
     const keys = new Set(area.map(key));
     if (keys.has(enemy)) out.push([aim, keys]);
   }
+  return out;
+}
+
+/** Straight Walls of `length` passing through `h`, along each of the three hex axes, at every offset. */
+function wallsThrough(h: Hex, length: number): Hex[][] {
+  const axes = [
+    { q: 1, r: 0 },
+    { q: 0, r: 1 },
+    { q: 1, r: -1 },
+  ];
+  const out: Hex[][] = [];
+  for (const d of axes)
+    for (let start = -(length - 1); start <= 0; start++)
+      out.push(Array.from({ length }, (_, i) => ({ q: h.q + d.q * (start + i), r: h.r + d.r * (start + i) })));
   return out;
 }
 

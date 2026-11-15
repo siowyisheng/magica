@@ -42,7 +42,56 @@ function lineHexes(tiles: Tiles, from: Hex, aim: Hex, range: number): Hex[] {
 
 const onBoard = (tiles: Tiles, hs: Hex[]) => hs.filter((h) => tiles[key(h)]);
 
-export function threatArea(tiles: Tiles, caster: Hex, shape: Shape, aim: Hex): Hex[] | null {
+const SQRT3 = Math.sqrt(3);
+const pixel = (h: Hex) => ({ x: SQRT3 * (h.q + h.r / 2), y: 1.5 * h.r });
+const angleTo = (from: Hex, to: Hex) => {
+  const a = pixel(from);
+  const b = pixel(to);
+  return Math.atan2(b.y - a.y, b.x - a.x);
+};
+const angleDiff = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+const EPS = 1e-6;
+
+/** Hexes along a straight ray at `angle` from `from`, out to hex distance `range`, stopping at Rock or the edge. */
+function angledLine(tiles: Tiles, from: Hex, angle: number, range: number): Hex[] {
+  const o = pixel(from);
+  const out: Hex[] = [];
+  const seen = new Set([key(from)]);
+  for (let t = 0.25; ; t += 0.25) {
+    const x = o.x + Math.cos(angle) * t;
+    const y = o.y + Math.sin(angle) * t;
+    // Pixel → fractional axial for pointy-top hexes of size 1, nudged off exact edges.
+    const h = hexRound((SQRT3 / 3) * x - y / 3 + 1e-6, (2 / 3) * y + 2e-6);
+    if (seen.has(key(h))) continue;
+    if (distance(from, h) > range) break;
+    const tile = tiles[key(h)];
+    if (!tile || tile.terrain === 'rock') break;
+    seen.add(key(h));
+    out.push(h);
+  }
+  return out;
+}
+
+const union = (...lists: Hex[][]) => [...new Map(lists.flat().map((h) => [key(h), h])).values()];
+
+function wallPath(tiles: Tiles, caster: Hex, shape: Extract<Shape, { kind: 'wall' }>, path: Hex[]): Hex[] | null {
+  if (path.length !== shape.length) return null;
+  if (distance(caster, path[0]) > shape.range) return null;
+  const seen = new Set<string>();
+  for (let i = 0; i < path.length; i++) {
+    const t = tiles[key(path[i])];
+    if (!t || t.terrain === 'rock' || seen.has(key(path[i]))) return null;
+    if (i > 0 && distance(path[i - 1], path[i]) !== 1) return null;
+    seen.add(key(path[i]));
+  }
+  return path.map(({ q, r }) => ({ q, r }));
+}
+
+/** Threat Area for `shape` cast from `caster`. `aim` is a hex, or the drawn path for a Wall. Null = invalid aim. */
+export function threatArea(tiles: Tiles, caster: Hex, shape: Shape, aimOrPath: Hex | Hex[]): Hex[] | null {
+  if (shape.kind === 'wall') return Array.isArray(aimOrPath) ? wallPath(tiles, caster, shape, aimOrPath) : null;
+  if (Array.isArray(aimOrPath)) return null;
+  const aim = aimOrPath;
   if (!tiles[key(aim)]) return null;
   const d = distance(caster, aim);
   switch (shape.kind) {
@@ -54,6 +103,28 @@ export function threatArea(tiles: Tiles, caster: Hex, shape: Shape, aim: Hex): H
       return d !== 1 ? null : onBoard(tiles, [aim, ...neighbors(aim).filter((n) => distance(n, caster) === 1)]);
     case 'burst':
       return d > shape.range ? null : onBoard(tiles, spiral(aim, shape.radius));
+    case 'explosiveLine': {
+      if (d === 0) return null;
+      const path = lineHexes(tiles, caster, aim, shape.range);
+      const centre = path[path.length - 1] ?? caster;
+      return union(path, onBoard(tiles, spiral(centre, shape.radius)));
+    }
+    case 'cone': {
+      if (d === 0) return null;
+      const dir = angleTo(caster, aim);
+      return spiral(caster, shape.range).filter(
+        (h) => tiles[key(h)] && distance(caster, h) >= 1 && angleDiff(angleTo(caster, h), dir) <= Math.PI / 6 + EPS,
+      );
+    }
+    case 'fan': {
+      if (d === 0) return null;
+      const dir = angleTo(caster, aim);
+      // Side prongs run along corner directions; tilt them a hair inward so ties stay inside the wedge.
+      const side = Math.PI / 6 - 0.01;
+      return union(...[-1, 0, 1].map((k) => angledLine(tiles, caster, dir + k * side, shape.range)));
+    }
+    case 'selfBurst':
+      return d !== 0 ? null : onBoard(tiles, spiral(caster, shape.radius));
   }
 }
 
@@ -70,6 +141,14 @@ export function aimableHexes(tiles: Tiles, caster: Hex, shape: Shape): Hex[] {
         return d === 1;
       case 'burst':
         return d <= shape.range;
+      case 'explosiveLine':
+      case 'cone':
+      case 'fan':
+        return d >= 1 && d <= shape.range;
+      case 'selfBurst':
+        return d === 0;
+      case 'wall':
+        return d <= shape.range && t.terrain !== 'rock'; // where the first hex may go
     }
   });
 }
@@ -79,4 +158,9 @@ export const SHAPE_NAME: Record<Shape['kind'], string> = {
   single: 'Single Hex',
   meleeArc: 'Melee Arc',
   burst: 'Burst',
+  explosiveLine: 'Explosive Line',
+  cone: 'Cone',
+  fan: 'Fan',
+  selfBurst: 'Self-Burst',
+  wall: 'Wall',
 };
