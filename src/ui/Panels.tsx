@@ -48,7 +48,6 @@ export function MageCard({ mage, active, scale }: { mage: Mage; active: boolean;
         max={maxMana(mage)}
         scaleMax={scale.mana}
         perSegment={MANA_PER_SEGMENT}
-        extra={`+${mage.magic + mage.manaRegen}/turn`}
       />
       {mage.passiveIds.length > 0 && (
         <div className="traits muted">

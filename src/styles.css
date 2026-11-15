@@ -150,10 +150,6 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .mage-card-icon { font-size: 2rem; }
 .mage-card-name { font-family: Cinzel, serif; font-weight: 600; }
 .bar-row { display: grid; grid-template-columns: 36px 1fr auto; gap: 0.5rem; align-items: center; }
-.bar { height: 10px; background: #0008; border-radius: 99px; overflow: hidden; }
-.bar > div { height: 100%; transition: width 0.3s; }
-.card-p1 .bar-hp > div { background: linear-gradient(90deg, #2b7fc4, var(--p1)); }
-.card-p2 .bar-hp > div { background: linear-gradient(90deg, #c43248, var(--p2)); }
 .bar-num { font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 .pips { display: flex; gap: 4px; align-items: center; }
 .pips .muted { width: 36px; }
@@ -241,7 +237,6 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .slot:disabled { opacity: 1; cursor: default; }
 .pick-head { display: flex; justify-content: space-between; align-items: center; }
 .price { font-size: 0.75rem; color: var(--gold); border: 1px solid #e8c46a55; border-radius: 99px; padding: 0.05rem 0.5rem; }
-.bar-mana > div { background: linear-gradient(90deg, #3b5bdb, #7aa2ff); }
 .mana-cost { color: #9db8ff; }
 .bar-row { grid-template-columns: 40px 1fr auto; }
 .pips .mp-note { width: auto; white-space: nowrap; margin-left: 0.3rem; font-size: 0.75rem; }
@@ -297,8 +292,8 @@ button.absorb:not(:disabled) { border-color: #7aa2ff; box-shadow: 0 0 12px #5b8c
 .bar-slot { min-width: 0; }
 .seg-bar { position: relative; height: 16px; border-radius: 4px; overflow: hidden; background: #0009; box-shadow: inset 0 0 0 1px #ffffff14; transition: width 0.3s; }
 .seg-fill { position: absolute; inset: 0 auto 0 0; transition: width 0.3s; }
-.card-p1 .bar-hp .seg-fill { background: linear-gradient(180deg, #7cc8ff, var(--p1) 55%, #2b7fc4); }
-.card-p2 .bar-hp .seg-fill { background: linear-gradient(180deg, #ff97a6, var(--p2) 55%, #c43248); }
+/* One HP colour for both mages (player colour stays on the card border), distinct from Mana blue. */
+.bar-hp .seg-fill { background: linear-gradient(180deg, #8af0a8, #3ccf72 55%, #1f9a50); }
 .bar-mana .seg-fill { background: linear-gradient(180deg, #a9c1ff, #6f8fff 55%, #3b5bdb); }
 .seg-divider { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #0d0b14; pointer-events: none; }
 .seg-text {
