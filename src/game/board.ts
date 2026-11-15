@@ -7,7 +7,9 @@ export const spawnFor = (player: PlayerId, radius: number): Hex =>
 
 /**
  * Generates a point-symmetric board (every hex mirrors to (-q,-r)), so both
- * players always get a fair map. Spawns are kept clear and guaranteed connected.
+ * players always get a fair map. Rock is laid as straight walls with doorways,
+ * often in parallel pairs, so the open ground reads as rooms and corridors.
+ * Spawns and the centre are kept clear and the open ground is one connected area.
  */
 export function generateBoard(seed: number, radius: number): Record<string, Tile> {
   for (let attempt = 0; attempt < 50; attempt++) {
@@ -18,29 +20,91 @@ export function generateBoard(seed: number, radius: number): Record<string, Tile
   return Object.fromEntries(spiral({ q: 0, r: 0 }, radius).map((h) => [key(h), { ...h, terrain: 'plain' as Terrain }]));
 }
 
-/** Applied to hexes outside the spawn zones, so overall coverage lands near 18%. */
-const ROCK_CHANCE = 0.2;
+/** Rock coverage the generator aims for, as a fraction of the board: somewhere in this range. */
+export const ROCK_TARGET = { min: 0.28, max: 0.36 };
+
+/** The three hex axes a wall can run along. */
+const AXES: readonly Hex[] = [
+  { q: 1, r: 0 },
+  { q: 0, r: 1 },
+  { q: 1, r: -1 },
+];
+const mirror = (h: Hex): Hex => ({ q: -h.q + 0, r: -h.r + 0 });
 
 function tryGenerate(seed: number, radius: number): Record<string, Tile> {
   const rand = mulberry32(seed);
-  const tiles: Record<string, Tile> = {};
+  const all = spiral({ q: 0, r: 0 }, radius);
   const spawns = [spawnFor('p1', radius), spawnFor('p2', radius)];
-  const nearSpawn = (h: Hex) => spawns.some((s) => distance(s, h) <= 1);
+  const onBoard = (h: Hex) => distance(h, { q: 0, r: 0 }) <= radius;
+  // Spawns get a clear room, and the centre (the Large crystal's home) a clear crossing.
+  const kept = (h: Hex) => spawns.some((s) => distance(s, h) <= 2) || distance(h, { q: 0, r: 0 }) <= 1;
+  const placeable = all.filter((h) => !kept(h));
+  const int = (n: number) => Math.floor(rand() * n);
 
-  for (const h of spiral({ q: 0, r: 0 }, radius)) {
-    const canonical = h.q > 0 || (h.q === 0 && h.r > 0);
-    if (!canonical) continue;
-    let terrain: Terrain = 'plain';
-    if (!nearSpawn(h)) {
-      if (rand() < ROCK_CHANCE) terrain = 'rock';
+  /** A straight wall of rock from `start` along `axis`, with doorways left open, and its mirror image. */
+  const wall = (rocks: Set<string>, start: Hex, axis: Hex, length: number) => {
+    const hexes: Hex[] = [];
+    for (let i = 0; i < length; i++) {
+      const h = { q: start.q + axis.q * i, r: start.r + axis.r * i };
+      if (!onBoard(h)) break;
+      hexes.push(h);
     }
-    tiles[key(h)] = { ...h, terrain };
-    const mirror = { q: -h.q + 0, r: -h.r + 0 };
-    tiles[key(mirror)] = { ...mirror, terrain };
+    const doors = new Set<number>();
+    if (hexes.length >= 5) doors.add(1 + int(hexes.length - 2));
+    if (hexes.length >= 7 && rand() < 0.5) doors.add(1 + int(hexes.length - 2));
+    hexes.forEach((h, i) => {
+      if (doors.has(i) || kept(h)) return;
+      rocks.add(key(h));
+      rocks.add(key(mirror(h)));
+    });
+  };
+
+  const rocks = new Set<string>();
+  const target = ROCK_TARGET.min + rand() * (ROCK_TARGET.max - ROCK_TARGET.min);
+  for (let tries = 0; tries < 300 && rocks.size / all.length < target; tries++) {
+    const trial = new Set(rocks);
+    const i = int(AXES.length);
+    const start = placeable[int(placeable.length)];
+    const length = 3 + int(6);
+    wall(trial, start, AXES[i], length);
+    if (rand() < 0.5) {
+      // A parallel twin 2 or 3 rows over leaves a corridor between the two walls.
+      const side = AXES[(i + 1) % AXES.length];
+      const gap = 2 + int(2);
+      wall(trial, { q: start.q + side.q * gap, r: start.r + side.r * gap }, AXES[i], length);
+    }
+    // Keep a wall only if all open ground stays one connected area (no sealed-off rooms).
+    if (allConnected(trial, all, spawns[0])) for (const k of trial) rocks.add(k);
   }
-  tiles[key({ q: 0, r: 0 })] = { q: 0, r: 0, terrain: 'plain' }; // the Large crystal's home
-  return tiles;
+
+  // Safety net: seal off any open pocket cut away from the spawns (the loop above should leave none).
+  const reachable = flood(rocks, all, spawns[0]);
+  for (const h of all) if (!rocks.has(key(h)) && !reachable.has(key(h))) rocks.add(key(h));
+
+  return Object.fromEntries(
+    all.map((h) => [key(h), { ...h, terrain: (rocks.has(key(h)) ? 'rock' : 'plain') as Terrain }]),
+  );
 }
+
+/** Open hexes reachable from `from` without crossing `rocks`. */
+function flood(rocks: Set<string>, all: Hex[], from: Hex): Set<string> {
+  const open = new Set(all.map(key));
+  const seen = new Set([key(from)]);
+  const queue = [from];
+  while (queue.length) {
+    const cur = queue.shift()!;
+    for (const n of neighbors(cur)) {
+      const k = key(n);
+      if (!open.has(k) || rocks.has(k) || seen.has(k)) continue;
+      seen.add(k);
+      queue.push(n);
+    }
+  }
+  return seen;
+}
+
+const allConnected = (rocks: Set<string>, all: Hex[], from: Hex) =>
+  flood(rocks, all, from).size === all.length - rocks.size;
 
 function connected(tiles: Record<string, Tile>, a: Hex, b: Hex): boolean {
   const seen = new Set([key(a)]);

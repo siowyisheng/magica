@@ -103,7 +103,7 @@ const LIST: AbilityDef[] = [
   }),
   attack({
     id: 'fireball', name: 'Fireball', icon: '💥', school: 'fire', points: 3, mana: 5,
-    description: 'Flies toward a hex and explodes there, or sooner if it meets rock or your foe.',
+    description: 'Flies toward a hex and explodes there, or sooner on rock or your foe. Aim past your foe in case they dodge.',
     shape: { kind: 'explosiveLine', range: UNLIMITED, radius: 1 }, hit: { damage: 8 },
   }),
   attack({
@@ -184,15 +184,15 @@ const LIST: AbilityDef[] = [
     targeting: 'self', effect: { type: 'empower', bonus: 3 },
   }),
   spell({
-    id: 'stone-pillar', name: 'Stone Pillar', icon: '🗿', school: 'earth', points: 2, mana: 3,
-    description: 'Raise a rock on an empty hex within 4. It blocks walking and Lines.',
-    targeting: 'tile', range: 4, effect: { type: 'pillar' },
+    id: 'stone-pillar', name: 'Stone Pillar', icon: '🗿', school: 'earth', points: 2, mana: 3, fast: true,
+    description: 'Fast: raise a rock on an empty hex within 5 and in line of sight. It blocks walking and Lines.',
+    targeting: 'tile', range: 5, effect: { type: 'pillar' },
   }),
 
   // --- Reaction Spells (defensive: less Mana-efficient than offence) ---------
   spell({
-    id: 'ward', name: 'Ward', icon: '🛡️', school: 'arcane', points: 2, mana: 6, timing: 'reaction',
-    description: 'Reaction: a 4-point shield over every Attack in this resolution.',
+    id: 'ward', name: 'Ward', icon: '🛡️', school: 'arcane', points: 2, mana: 6, fast: true, timing: 'reaction',
+    description: 'Fast Reaction: a 4-point shield over every Attack in this resolution.',
     targeting: 'self', effect: { type: 'shield', amount: 4 },
   }),
   spell({

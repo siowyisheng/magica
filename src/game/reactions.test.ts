@@ -96,12 +96,19 @@ describe('Reaction Spells', () => {
     expect(actionError(duel(), { type: 'cast', player: 'p1', abilityId: 'ward', target: { q: 0, r: 2 } })).not.toBeNull();
   });
 
-  it('a Reaction costs 1 AP, so two Reactions leave nothing for the Action Phase', () => {
+  it('Ward is Fast: it costs Mana but no AP', () => {
+    const g = underFire('firebolt');
+    const after = react(g, 'ward');
+    expect(after.mages.p2.ap).toBe(2);
+    expect(after.mages.p2.mana).toBeLessThan(g.mages.p2.mana);
+  });
+
+  it('other Reactions cost 1 AP, so two of them leave nothing for the Action Phase', () => {
     let g = underFire('firebolt', 'frost-lance');
-    g = react(g, 'ward');
+    g = react(g, 'counterspell', g.pending[0].id);
     g = react(g, 'counterspell', g.pending[0].id);
     expect(g.mages.p2.ap).toBe(0);
-    expect(castError(g, 'p2', 'deflect', g.mages.p2.pos, g.pending[0].id)).toMatch(/AP/);
+    expect(castError(g, 'p2', 'deflect')).toMatch(/AP/);
   });
 });
 

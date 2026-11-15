@@ -93,7 +93,7 @@ function wallPath(tiles: Tiles, caster: Hex, shape: Extract<Shape, { kind: 'wall
 
 /**
  * Threat Area for `shape` cast from `caster`. `aim` is a hex, or the drawn path for a Wall. Null = invalid aim.
- * `foe` is where the enemy stands now: an Explosive Line bursts there if it reaches them first.
+ * `foe` is where the enemy stands now: an Explosive Line also bursts there if they are in its way.
  */
 export function threatArea(tiles: Tiles, caster: Hex, shape: Shape, aimOrPath: Hex | Hex[], foe?: Hex): Hex[] | null {
   if (isDrawn(shape)) return Array.isArray(aimOrPath) ? wallPath(tiles, caster, shape, aimOrPath) : null;
@@ -113,16 +113,19 @@ export function threatArea(tiles: Tiles, caster: Hex, shape: Shape, aimOrPath: H
       return d > shape.range ? null : onBoard(tiles, spiral(aim, shape.radius));
     case 'explosiveLine': {
       if (d === 0 || d > shape.range) return null;
-      // Fly toward the aimed hex, stopping before Rock or on the enemy.
+      // Fly toward the aimed hex, stopping before Rock.
       const path: Hex[] = [];
       for (const h of ray(caster, aim, d)) {
         const t = tiles[key(h)];
         if (!t || t.terrain === 'rock') break;
         path.push(h);
-        if (foe && key(h) === key(foe)) break;
       }
       if (!path.length) return null;
-      return union(path, onBoard(tiles, spiral(path[path.length - 1], shape.radius)));
+      // It bursts on the enemy if they are still in its way, else at the end of the flight. The enemy may
+      // dodge a Reaction first, so both bursts are threatened, and the flight between them.
+      const end = path[path.length - 1];
+      const hit = foe ? path.find((h) => key(h) === key(foe)) : undefined;
+      return union(path, onBoard(tiles, spiral(end, shape.radius)), hit ? onBoard(tiles, spiral(hit, shape.radius)) : []);
     }
     case 'cone': {
       if (d === 0) return null;

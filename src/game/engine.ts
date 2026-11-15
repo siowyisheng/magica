@@ -184,7 +184,10 @@ export function castError(
   if (dist > abilityRange(def)) return 'Out of range.';
   if (tile.terrain === 'rock') return def.effect.type === 'pillar' ? 'Already rock.' : "Can't land on rock.";
   if (equals(target, enemy.pos)) return 'Hex is occupied.';
-  if (def.effect.type === 'pillar' && crystalAt(state, target)) return 'A Mana Crystal is there.';
+  if (def.effect.type === 'pillar') {
+    if (crystalAt(state, target)) return 'A Mana Crystal is there.';
+    if (!hasLOS(state, mage.pos, target)) return 'No line of sight.';
+  }
   // A step is walked, so Rock and the other mage can block the way.
   if (def.effect.type === 'step' && !walk(state, mage.pos, abilityRange(def), key(enemy.pos)).has(key(target))) return 'No way through.';
   return null;

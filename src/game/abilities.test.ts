@@ -64,10 +64,23 @@ describe('Fireball', () => {
     expect(g.pending[0].area).not.toContain('0,-2');
   });
 
-  it('explodes early on the enemy standing in its path', () => {
+  it('explodes on the enemy standing in its path, and also at the aimed hex behind them in case they dodge', () => {
     const g = cast(duel({ q: 0, r: 4 }, { q: 0, r: 0 }), 'fireball', { q: 0, r: -4 });
-    expect(g.pending[0].area).toContain('0,0');
-    expect(g.pending[0].area).not.toContain('0,-2');
+    expect(g.pending[0].area).toContain('1,0'); // burst around the enemy
+    expect(g.pending[0].area).toContain('0,-4'); // the aimed hex
+    expect(g.pending[0].area).not.toContain('2,-2'); // but nowhere else
+  });
+
+  it('flies on to the aimed hex if the enemy dodges out of the way', () => {
+    let g = cast(duel({ q: 0, r: 4 }, { q: 0, r: 0 }), 'fireball', { q: 0, r: -4 });
+    g.mages.p1.pos = { q: 0, r: -4 }; // stand in the far burst: it still lands there
+    expect(g.pending[0].area).toContain('0,-4');
+    g = act(g, { type: 'endTurn', player: 'p1' });
+    g.mages.p2.abilities.push({ id: 'dodge-roll' });
+    g = act(g, { type: 'cast', player: 'p2', abilityId: 'dodge-roll', target: { q: -2, r: 0 } });
+    g = act(g, { type: 'endReaction', player: 'p2' });
+    expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp);
+    expect(g.mages.p1.hp).toBeLessThan(g.mages.p1.maxHp);
   });
 
   it('explodes early at Rock', () => {
@@ -162,10 +175,10 @@ describe('Empower', () => {
 });
 
 describe('Stone Pillar', () => {
-  it('turns an empty hex into Rock at once, for 1 AP and 3 Mana', () => {
+  it('turns an empty hex into Rock at once, as a Fast Spell for 3 Mana', () => {
     const g = cast(duel(), 'stone-pillar', { q: 1, r: 1 });
     expect(g.tiles['1,1'].terrain).toBe('rock');
-    expect(g.mages.p1.ap).toBe(1);
+    expect(g.mages.p1.ap).toBe(2);
     expect(g.mages.p1.mana).toBe(27);
   });
 
@@ -178,6 +191,16 @@ describe('Stone Pillar', () => {
     expect(castError(g, 'p1', 'stone-pillar', g.mages.p1.pos)).toMatch(/another/);
     expect(castError(g, 'p1', 'stone-pillar', { q: 2, r: 1 })).toMatch(/Crystal/);
     expect(castError(g, 'p1', 'stone-pillar', { q: 0, r: -4 })).toMatch(/range/);
+    expect(castError(g, 'p1', 'stone-pillar', { q: 0, r: 5 })).toBeNull(); // range 5
+    expect(castError(g, 'p1', 'stone-pillar', { q: 0, r: 8 })).toBeTruthy();
+  });
+
+  it('needs line of sight to the hex', () => {
+    const g = duel({ q: 0, r: 4 }, { q: 3, r: -3 });
+    g.tiles['0,3'].terrain = 'rock';
+    expect(castError(g, 'p1', 'stone-pillar', { q: 0, r: 1 })).toMatch(/line of sight/);
+    expect(castError(g, 'p1', 'stone-pillar', { q: 2, r: 2 })).toBeNull();
+    expect(validTargets(g, 'p1', 'stone-pillar').some((h) => h.q === 0 && h.r === 1)).toBe(false);
   });
 
   it('blocks walking and Lines', () => {
@@ -189,6 +212,8 @@ describe('Stone Pillar', () => {
 
 describe('balance', () => {
   it('prices Spear Thrust 4, Spark 2 (2 Mana), Dragon’s Breath and Fireball cheaper, Block 3, Empower and Stone Pillar 2', () => {
+    expect(ABILITIES.ward.fast).toBe(true);
+    expect(ABILITIES['stone-pillar']).toMatchObject({ fast: true, range: 5 });
     expect(ABILITIES['spear-thrust'].points).toBe(4);
     expect([ABILITIES.spark.points, ABILITIES.spark.mana]).toEqual([2, 2]);
     expect(ABILITIES['dragons-breath']).toMatchObject({ points: 2, mana: 3 });

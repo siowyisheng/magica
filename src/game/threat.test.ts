@@ -84,10 +84,18 @@ describe('Explosive Line', () => {
     expect(area).not.toContain('0,-4');
   });
 
-  it('bursts on the enemy if it reaches them before the aimed hex', () => {
+  it('bursts on the enemy if it reaches them before the aimed hex, and also at the aimed hex in case they move', () => {
     const area = keys(threatArea(openBoard(), at, fireball, { q: 0, r: -5 }, { q: 0, r: -2 }));
-    expect(area).toContain('0,-3'); // burst around (0,-2)
-    expect(area).not.toContain('0,-4');
+    expect(area).toContain('1,-3'); // burst around the enemy at (0,-2)
+    expect(area).toContain('1,-5'); // burst around the aimed hex
+    expect(area).not.toContain('2,-3');
+  });
+
+  it('aimed past a Rock, flies only as far as the Rock whether or not the enemy is in the way', () => {
+    const b = openBoard();
+    b['0,-4'].terrain = 'rock';
+    const area = keys(threatArea(b, at, fireball, { q: 0, r: -6 }, { q: 0, r: -2 }));
+    expect(area).toContain('0,-3');
     expect(area).not.toContain('0,-5');
   });
 

@@ -34,7 +34,7 @@ export type Shape =
   | { kind: 'single'; range: number; los?: boolean }
   | { kind: 'meleeArc' }
   | { kind: 'burst'; range: number; radius: number }
-  /** Flies toward the aimed hex and Bursts where it stops: there, or earlier at Rock or the enemy. */
+  /** Flies toward the aimed hex and Bursts on the enemy if they are in its way, else where the flight ends (the hex, or before Rock). */
   | { kind: 'explosiveLine'; range: number; radius: number }
   | { kind: 'cone'; range: number }
   | { kind: 'fan'; range: number }

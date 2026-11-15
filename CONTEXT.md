@@ -68,7 +68,7 @@ A straight run of hexes from next to the caster out to a range, stopped by the f
 _Avoid_: Ray, beam (as the shape name)
 
 **Explosive Line**:
-A projectile that flies toward a chosen hex and ends in a Burst: at the chosen hex, or earlier if it meets the enemy (it bursts on them) or a Rock (it bursts on the hex before). The hexes it flew over are part of the Threat Area.
+A projectile that flies toward a chosen hex and ends in a Burst. The Rock stops it on the hex before. If the enemy is in its way it bursts on them, but the Threat Area also includes the Burst at the end of its flight, because the enemy may dodge in their Reaction Phase and the projectile then flies on. The hexes it flew over are part of the Threat Area.
 
 **Single Hex**:
 One chosen hex, not blocked by Rock. Some Single Hex Attacks need line of sight: a Rock between the caster and the hex blocks the aim.
@@ -96,7 +96,7 @@ A Burst centred on the caster that leaves out the caster's own hex.
 ## Board
 
 **Rock**:
-Impassable terrain that also stops Lines and line of sight. It is the only terrain besides open ground. Stone Pillar can create it mid-duel.
+Impassable terrain that also stops Lines and line of sight. It is the only terrain besides open ground. About a third of the board is Rock, laid out as walls with doorways so the open ground forms rooms and corridors, all connected. Stone Pillar can create more mid-duel.
 _Avoid_: Wall (a Wall is a Threat Area shape), obstacle
 
 ## Resources
@@ -143,13 +143,13 @@ _Avoid_: Power, Mana (Mana is the resource, Magic is the stat)
 An Ability that costs Mana.
 
 **Reaction**:
-An Ability a defender uses in their Reaction Phase: a Reaction Spell, a Reaction Technique, or Blink. Like any Ability it costs 1 AP, so reacting leaves less AP for the Action Phase. A targeted Reaction Spell can't target an Attack that was itself produced by a reaction (such as a Deflected Line). The defender can still Step or Blink out of such an Attack, or Ward against it.
+An Ability a defender uses in their Reaction Phase: a Reaction Spell, a Reaction Technique, or Blink. Like any Ability it costs 1 AP unless it is Fast, so reacting usually leaves less AP for the Action Phase. A targeted Reaction Spell can't target an Attack that was itself produced by a reaction (such as a Deflected Line). The defender can still Step or Blink out of such an Attack, or Ward against it.
 
 **Fast Spell**:
 A spell that costs no AP to cast. It still costs Mana.
 
 **Reaction Spell**:
-A defensive Spell cast during the Reaction Phase to mitigate, counter, deflect or block incoming Attacks. It costs 1 AP and Mana. Ward, Counterspell and Deflect are reaction-only; Blink also works in the Action Phase. Some target one specific pending Attack; others cover every Attack in that resolution. Counterspell cancels Spells only, not Techniques. Deflect works on Lines only.
+A defensive Spell cast during the Reaction Phase to mitigate, counter, deflect or block incoming Attacks. It costs Mana and 1 AP, except Ward, which is Fast and costs no AP. Ward, Counterspell and Deflect are reaction-only; Blink also works in the Action Phase. Some target one specific pending Attack; others cover every Attack in that resolution. Counterspell cancels Spells only, not Techniques. Deflect works on Lines only.
 
 **Reaction Technique**:
 A Technique usable only in the Reaction Phase. It costs 1 AP and no Mana. Sidestep and Dodge Roll are Reaction Techniques that Step the mage out of a Threat Area.
@@ -168,4 +168,4 @@ A Reaction Technique. It reduces the damage of the first incoming Attack, in lau
 A Fast Spell that adds 3 damage to every Technique the caster launches for the rest of the turn. Techniques launched before it are unchanged, and it ends with the turn.
 
 **Stone Pillar**:
-A Spell that turns an empty hex into Rock at once. The hex can't hold a mage or a Mana Crystal.
+A Fast Spell that turns an empty hex within 5, in line of sight, into Rock at once. The hex can't hold a mage or a Mana Crystal.
