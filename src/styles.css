@@ -240,3 +240,6 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .slot:disabled { opacity: 1; cursor: default; }
 .pick-head { display: flex; justify-content: space-between; align-items: center; }
 .price { font-size: 0.75rem; color: var(--gold); border: 1px solid #e8c46a55; border-radius: 99px; padding: 0.05rem 0.5rem; }
+.bar-mana > div { background: linear-gradient(90deg, #3b5bdb, #7aa2ff); }
+.mana-cost { color: #9db8ff; }
+.bar-row { grid-template-columns: 40px 1fr auto; }

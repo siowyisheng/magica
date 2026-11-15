@@ -26,6 +26,8 @@ export function createGame(config: MatchConfig): GameState {
     p1: buildMage('p1', config.names.p1, config.loadouts.p1, spawnFor('p1', config.radius)),
     p2: buildMage('p2', config.names.p2, config.loadouts.p2, spawnFor('p2', config.radius)),
   };
+  // Going second is a disadvantage: P2 starts with one extra turn of regen.
+  mages.p2.mana = Math.min(maxMana(mages.p2), mages.p2.mana + mages.p2.magic);
   return {
     config,
     turn: 1,
@@ -84,6 +86,7 @@ export function castError(state: GameState, player: PlayerId, abilityId: string,
   if (!slot || !def) return 'Ability not equipped.';
   if (slot.cooldown > 0) return `On cooldown (${slot.cooldown}).`;
   if (u.ap < def.apCost) return 'Not enough AP.';
+  if (u.mana < def.mana) return 'Not enough Mana.';
   if (def.effect.type === 'sacrifice' && u.hp <= def.effect.hp) return 'Not enough HP.';
   if (!target) return null;
 
@@ -132,6 +135,8 @@ export function actionError(state: GameState, action: Action): string | null {
   }
 }
 
+export const maxMana = (m: Mage) => 10 * m.magic;
+
 export const hpFraction = (u: Mage) => u.hp / u.maxHp;
 
 // --- Transitions -----------------------------------------------------------
@@ -154,6 +159,7 @@ export function applyAction(prev: GameState, action: Action): GameState {
     case 'cast': {
       const def = ABILITIES[action.abilityId];
       me.ap -= def.apCost;
+      me.mana -= def.mana;
       me.abilities.find((a) => a.id === def.id)!.cooldown = def.cooldown;
       log({ kind: 'cast', text: `${me.name} casts ${def.icon} ${def.name}.`, at: action.target });
       resolveEffect(state, me, def, action.target, log);
@@ -332,6 +338,8 @@ const STATUS_VERB: Record<Status['kind'], string> = {
 function startTurn(state: GameState, player: PlayerId, log: Log) {
   const u = state.mages[player];
   u.shield = 0;
+  // Each mage's first turn is turn 1 (P1) or 2 (P2); regen starts after that.
+  if (state.turn > 2) u.mana = Math.min(maxMana(u), u.mana + u.magic);
   const slow = u.statuses.find((s) => s.kind === 'slow')?.power ?? 0;
   const rooted = u.statuses.some((s) => s.kind === 'root');
   u.moveLeft = rooted ? 0 : Math.max(0, u.move - slow);

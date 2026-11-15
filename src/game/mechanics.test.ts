@@ -15,6 +15,7 @@ function arena(p1Abilities: string[], a: Hex, b: Hex): GameState {
   g.mages.p1.pos = a;
   g.mages.p2.pos = b;
   g.mages.p1.ap = 10;
+  g.mages.p1.mana = 99;
   return g;
 }
 

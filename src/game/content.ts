@@ -10,23 +10,27 @@ export const STAFF_STRIKE = 'staff-strike';
 /** Techniques from the original ability set (physical, no Mana once Mana exists). */
 const INTERIM_TECHNIQUES = new Set(['cleave', 'quick-stab', 'backstab', 'boulder-toss']);
 
-type RawAbility = Omit<AbilityDef, 'kind' | 'points'> & Partial<Pick<AbilityDef, 'kind' | 'points'>>;
+type RawAbility = Omit<AbilityDef, 'kind' | 'points' | 'mana'> & Partial<Pick<AbilityDef, 'kind' | 'points' | 'mana'>>;
 
 /**
- * Interim pricing for the original ability set until the new catalogue lands:
- * AP cost, +1 for area effects.
+ * Interim pricing for the original ability set until the new catalogue lands.
+ * Points: AP cost, +1 for area effects. Mana: 2 per AP, +2 per AoE radius.
  */
-const priced = (a: RawAbility): AbilityDef => ({
-  ...a,
-  kind: a.kind ?? (INTERIM_TECHNIQUES.has(a.id) ? 'technique' : 'spell'),
-  points: a.points ?? Math.max(1, a.apCost) + (a.aoe > 0 ? 1 : 0),
-});
+const priced = (a: RawAbility): AbilityDef => {
+  const kind = a.kind ?? (INTERIM_TECHNIQUES.has(a.id) ? 'technique' : 'spell');
+  return {
+    ...a,
+    kind,
+    points: a.points ?? Math.max(1, a.apCost) + (a.aoe > 0 ? 1 : 0),
+    mana: kind === 'technique' ? 0 : (a.mana ?? Math.max(1, 2 * a.apCost + 2 * a.aoe)),
+  };
+};
 
 export const ABILITIES: Record<string, AbilityDef> = Object.fromEntries(
   (
     [
       {
-        id: STAFF_STRIKE, name: 'Staff Strike', icon: '🪄', school: 'steel', kind: 'technique', points: 0,
+        id: STAFF_STRIKE, name: 'Staff Strike', icon: '🪄', school: 'steel', kind: 'technique', points: 0, mana: 0,
         description: 'A plain whack with your staff. Every mage has it.',
         apCost: 1, cooldown: 0, range: 1, targeting: 'enemy', needsLOS: false, aoe: 0,
         effect: { type: 'damage', amount: 2 },

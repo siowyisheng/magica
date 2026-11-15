@@ -75,6 +75,7 @@ export function buildMage(owner: PlayerId, name: string, l: Loadout, pos: Hex): 
     ap: 4,
     maxAp: 4,
     magic: statValue('magic', l.stats.magic),
+    mana: statValue('magic', l.stats.magic),
     movespeed,
     move: movespeed,
     moveLeft: movespeed,

@@ -75,6 +75,8 @@ export interface AbilityDef {
   kind: AbilityKind;
   /** Loadout Points to include this Ability in a Loadout. */
   points: number;
+  /** Mana per cast. Spells always cost some; Techniques never do. */
+  mana: number;
   name: string;
   icon: string;
   school: School;
@@ -137,6 +139,7 @@ export interface Mage {
   ap: number;
   maxAp: number;
   magic: number;
+  mana: number;
   movespeed: number;
   move: number;
   moveLeft: number;

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ABILITIES } from '../game/content';
 import { CIRCLE_NAME } from '../game/loadout';
-import { castError } from '../game/engine';
+import { castError, maxMana } from '../game/engine';
 import type { GameEvent, GameState, PlayerId, Mage } from '../game/types';
 import { STATUS_ICON } from './HexBoard';
 
@@ -18,6 +18,7 @@ export function MageCard({ unit, active }: { unit: Mage; active: boolean }) {
         </div>
       </div>
       <Bar label="HP" value={unit.hp} max={unit.maxHp} cls="hp" extra={unit.shield ? `+${unit.shield}🛡` : ''} />
+      <Bar label="Mana" value={unit.mana} max={maxMana(unit)} cls="mana" extra={`+${unit.magic}/turn`} />
       <div className="pips">
         <span className="muted">AP</span>
         {Array.from({ length: Math.max(unit.maxAp, unit.ap) }, (_, i) => (
@@ -101,7 +102,9 @@ export function AbilityBar({
             <span className="hotkey">{i + 1}</span>
             <span className="ability-icon">{def.icon}</span>
             <span className="ability-name">{def.name}</span>
-            <span className="ability-cost">{def.apCost} AP</span>
+            <span className="ability-cost">
+              {def.apCost} AP{def.mana > 0 && <span className="mana-cost"> · {def.mana}💧</span>}
+            </span>
             {slot.cooldown > 0 && <span className="cooldown-mask">{slot.cooldown}</span>}
           </button>
         );

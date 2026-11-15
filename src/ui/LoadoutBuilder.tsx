@@ -275,7 +275,7 @@ function Editor({
 }
 
 export function abilitySummary(a: AbilityDef): string {
-  const parts = [a.kind === 'technique' ? 'Technique' : 'Spell', `${a.apCost} AP`];
+  const parts = [a.kind === 'technique' ? 'Technique' : `Spell · ${a.mana} Mana`, `${a.apCost} AP`];
   if (a.range) parts.push(`rng ${a.range}`);
   if (a.aoe) parts.push(`AoE ${a.aoe}`);
   return parts.join(' · ');

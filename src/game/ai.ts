@@ -74,7 +74,7 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, target
         if (dmg > 0 && enemy.hp + enemy.shield <= dmg) score += 100;
       }
       if (hitsMe) score -= (raw || 1) * 1.5; // don't nuke yourself
-      return score / Math.max(1, def.apCost);
+      return score / Math.max(1, def.apCost + def.mana / 4);
     }
     case 'heal':
       return me.hp <= me.maxHp * 0.6 ? Math.min(me.maxHp - me.hp, fx.amount) / def.apCost : 0;
