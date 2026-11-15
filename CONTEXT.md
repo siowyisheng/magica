@@ -143,10 +143,10 @@ _Avoid_: Power, Mana (Mana is the resource, Magic is the stat)
 An Ability that costs Mana.
 
 **Reaction**:
-Anything a defender does in their Reaction Phase: Moving out of a Threat Area or casting a Reaction Spell. A reaction can't itself be reacted to.
+Anything a defender does in their Reaction Phase: Moving out of a Threat Area or casting a Reaction Spell. A targeted Reaction Spell can't target an Attack that was itself produced by a reaction (such as a Deflected Line). The defender can still Move out of such an Attack or Ward against it.
 
 **Fast Spell**:
 A spell that costs no AP to cast. It still costs Mana.
 
 **Reaction Spell**:
-A defensive Spell cast during the Reaction Phase to mitigate, counter, deflect or block incoming Attacks. It costs no AP. Some target one specific pending Attack; others cover every Attack in that resolution.
+A defensive Spell cast during the Reaction Phase to mitigate, counter, deflect or block incoming Attacks. It costs no AP. Some target one specific pending Attack; others cover every Attack in that resolution. Counterspell cancels Spells only, not Techniques. Deflect works on Lines only.
