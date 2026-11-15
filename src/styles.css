@@ -66,7 +66,8 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 @keyframes pulse { 50% { opacity: 0.3; } }
 
 .setup { max-width: 520px; display: grid; gap: 1rem; }
-.setup label { display: grid; gap: 0.35rem; color: var(--muted); font-size: 0.9rem; }
+.setup label,
+.setup .field { display: grid; gap: 0.35rem; color: var(--muted); font-size: 0.9rem; }
 .segmented { display: flex; gap: 0.3rem; }
 .segmented button { flex: 1; }
 .errors { color: var(--danger); }

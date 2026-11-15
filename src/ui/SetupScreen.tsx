@@ -54,8 +54,8 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
       <h2>New duel</h2>
       {valid.length === 0 && <p className="errors">You need at least one valid loadout.</p>}
 
-      <label>
-        Mode
+      <div className="field" role="group" aria-labelledby="setup-mode">
+        <span id="setup-mode">Mode</span>
         <div className="segmented">
           <button className={mode === 'ai' ? 'is-selected' : ''} onClick={() => setMode('ai')}>
             vs AI
@@ -64,7 +64,7 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
             Hotseat
           </button>
         </div>
-      </label>
+      </div>
       <label>
         {mode === 'ai' ? 'Your loadout' : 'Player 1 loadout'}
         <LoadoutSelect value={p1} onChange={setP1} />
@@ -73,8 +73,8 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
         {mode === 'ai' ? 'AI loadout' : 'Player 2 loadout'}
         <LoadoutSelect value={p2} onChange={setP2} />
       </label>
-      <label>
-        Turn timer
+      <div className="field" role="group" aria-labelledby="setup-timer">
+        <span id="setup-timer">Turn timer</span>
         <div className="segmented">
           {[10, 20, 30, 60].map((s) => (
             <button key={s} className={turnSeconds === s ? 'is-selected' : ''} onClick={() => setTurnSeconds(s)}>
@@ -82,9 +82,9 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
             </button>
           ))}
         </div>
-      </label>
-      <label>
-        Arena size
+      </div>
+      <div className="field" role="group" aria-labelledby="setup-arena">
+        <span id="setup-arena">Arena size</span>
         <div className="segmented">
           {[
             [5, 'Small'],
@@ -96,7 +96,7 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
             </button>
           ))}
         </div>
-      </label>
+      </div>
       <button className="primary big" disabled={!l1 || !l2} onClick={start}>
         Enter the arena
       </button>
