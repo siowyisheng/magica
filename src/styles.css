@@ -235,6 +235,13 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .slot.empty { border-style: dashed; background: transparent; }
 .slot-name { font-size: 0.7rem; }
 .slot:disabled { opacity: 1; cursor: default; }
+.slot-groups { display: grid; grid-template-columns: 1fr auto; gap: 1rem; margin-bottom: 0.8rem; align-items: start; }
+.slot-group h4 { margin: 0 0 0.35rem; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted, #8a8fa3); }
+.slot-group .slots { display: flex; flex-wrap: wrap; margin-bottom: 0; }
+.slot-group .slot { width: 78px; }
+.slot-group.reaction { padding-left: 1rem; border-left: 2px dashed #5b6bd6; min-width: 120px; }
+.category-head.reaction { margin: 1rem 0 0.2rem; padding-top: 0.8rem; border-top: 2px dashed #5b6bd6; color: #9aa7ff; }
+.cards.reaction .pick-card { border-color: #5b6bd6; }
 .pick-head { display: flex; justify-content: space-between; align-items: center; }
 .price { font-size: 0.75rem; color: var(--gold); border: 1px solid #e8c46a55; border-radius: 99px; padding: 0.05rem 0.5rem; }
 .mana-cost { color: #9db8ff; }

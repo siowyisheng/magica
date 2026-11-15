@@ -63,6 +63,7 @@ export const maxMana = (m: Mage) => 10 * m.magic;
 export const hpFraction = (m: Mage) => m.hp / m.maxHp;
 /** A round is one turn by each mage. */
 export const round = (state: GameState) => Math.ceil(state.turn / 2);
+/** AP an Ability costs: 1, or 0 if Fast. The same in the Reaction Phase as in the Action Phase. */
 export const apCost = (def: AbilityDef): number => (def.fast ? 0 : 1);
 export const isAttack = (def: AbilityDef) => def.effect.type === 'attack';
 export const timing = (def: AbilityDef) => def.timing ?? 'action';
@@ -86,13 +87,13 @@ export function apForMove(m: Mage, cost: number): number {
   return per > 0 ? Math.ceil((cost - m.mp) / per) : Infinity;
 }
 
-/** Hexes the player's mage can move to this turn, with their movement cost. */
-export function reachable(state: GameState, player: PlayerId): Map<string, number> {
-  const mage = state.mages[player];
-  const budget = moveBudget(mage);
-  const blocked = key(state.mages[other(player)].pos);
-  const best = new Map<string, number>([[key(mage.pos), 0]]);
-  const frontier: Array<[Hex, number]> = [[mage.pos, 0]];
+/**
+ * Hexes reachable from `from` by walking at most `budget` hexes, with their cost.
+ * Rock and the hex `blocked` can't be entered. `from` itself is left out.
+ */
+function walk(state: GameState, from: Hex, budget: number, blocked: string): Map<string, number> {
+  const best = new Map<string, number>([[key(from), 0]]);
+  const frontier: Array<[Hex, number]> = [[from, 0]];
   while (frontier.length) {
     frontier.sort((a, b) => a[1] - b[1]);
     const [cur, cost] = frontier.shift()!;
@@ -108,8 +109,15 @@ export function reachable(state: GameState, player: PlayerId): Map<string, numbe
       frontier.push([n, next]);
     }
   }
-  best.delete(key(mage.pos));
+  best.delete(key(from));
   return best;
+}
+
+/** Hexes the player's mage can Move to this turn, with their movement cost. Nobody Moves in the Reaction Phase. */
+export function reachable(state: GameState, player: PlayerId): Map<string, number> {
+  if (state.phase === 'reaction') return new Map();
+  const mage = state.mages[player];
+  return walk(state, mage.pos, moveBudget(mage), key(state.mages[other(player)].pos));
 }
 
 /** Rocks block line of sight. Mages don't. */
@@ -141,9 +149,9 @@ export function castError(
   const def = ABILITIES[abilityId];
   if (!slot || !def) return 'Ability not equipped.';
   const reacting = state.phase === 'reaction';
-  if (reacting && timing(def) === 'action') return 'Only Moves and Reaction Spells are allowed in the Reaction Phase.';
-  if (!reacting && timing(def) === 'reaction') return 'Reaction Spells can only be cast in the Reaction Phase.';
-  if (mage.ap < castApCost(state, def)) return 'Not enough AP.';
+  if (reacting && timing(def) === 'action') return 'Only Reactions are allowed in the Reaction Phase.';
+  if (!reacting && timing(def) === 'reaction') return 'Reactions can only be used in the Reaction Phase.';
+  if (mage.ap < apCost(def)) return 'Not enough AP.';
   if (mage.mana < def.mana) return 'Not enough Mana.';
   if (isTargetedReaction(def)) {
     if (attackId === undefined) return target ? 'Choose an incoming attack.' : null;
@@ -175,6 +183,8 @@ export function castError(
   if (dist > abilityRange(def)) return 'Out of range.';
   if (tile.terrain === 'rock') return "Can't land on rock.";
   if (equals(target, enemy.pos)) return 'Hex is occupied.';
+  // A step is walked, so Rock and the other mage can block the way.
+  if (def.effect.type === 'step' && !walk(state, mage.pos, abilityRange(def), key(enemy.pos)).has(key(target))) return 'No way through.';
   return null;
 }
 
@@ -200,13 +210,10 @@ export function impactArea(state: GameState, player: PlayerId, abilityId: string
   return Array.isArray(target) ? [] : [target];
 }
 
-/** AP to cast now: none in the Reaction Phase, otherwise 1 unless Fast. */
-export const castApCost = (state: GameState, def: AbilityDef) => (state.phase === 'reaction' ? 0 : apCost(def));
-
 export function absorbError(state: GameState, player: PlayerId): string | null {
   if (state.winner) return 'The match is over.';
   if (state.active !== player) return 'Not your turn.';
-  if (state.phase === 'reaction') return 'Only Moves are allowed in the Reaction Phase.';
+  if (state.phase === 'reaction') return 'Only Reactions are allowed in the Reaction Phase.';
   const m = state.mages[player];
   const c = crystalAt(state, m.pos);
   if (!c) return 'Stand on a Mana Crystal to absorb it.';
@@ -223,6 +230,7 @@ export function actionError(state: GameState, action: Action): string | null {
   if (action.player !== state.active) return 'Not your turn.';
   switch (action.type) {
     case 'move':
+      if (state.phase === 'reaction') return 'No Moving in the Reaction Phase. Use a Reaction.';
       return reachable(state, action.player).has(key(action.to)) ? null : "Can't move there.";
     case 'cast':
       return castError(state, action.player, action.abilityId, action.target, action.attackId, action.path);
@@ -258,7 +266,7 @@ export function applyAction(prev: GameState, action: Action): GameState {
     }
     case 'cast': {
       const def = ABILITIES[action.abilityId];
-      me.ap -= castApCost(state, def);
+      me.ap -= apCost(def);
       me.mana -= def.mana;
       if (def.effect.type === 'attack') {
         const aim = isDrawn(def.effect.shape) ? action.path! : action.target;
@@ -390,7 +398,7 @@ function react(state: GameState, me: Mage, def: AbilityDef, attackId: number, lo
   log({ kind: 'cast', text: `${me.name} deflects ${name} back at ${attacker.name}!` });
 }
 
-/** Instant, non-Attack effects (healing, shields, blinks, …). */
+/** Instant, non-Attack effects (healing, shields, blinks, steps, …). */
 function resolveUtility(caster: Mage, def: AbilityDef, target: Hex, log: Log) {
   const fx = def.effect;
   switch (fx.type) {
@@ -407,6 +415,10 @@ function resolveUtility(caster: Mage, def: AbilityDef, target: Hex, log: Log) {
       break;
     case 'blink':
       caster.pos = target;
+      break;
+    case 'step':
+      caster.pos = target;
+      log({ kind: 'move', text: `${caster.name} steps aside.`, at: target });
       break;
     case 'haste':
       caster.mp += fx.move;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { ABILITIES, PASSIVES } from '../game/content';
 import { CIRCLE_NAME } from '../game/loadout';
-import { AP_PER_TURN, apCost, castError, maxMana } from '../game/engine';
+import { AP_PER_TURN, apCost, castError, maxMana, timing } from '../game/engine';
 import type { GameEvent, GameState, PlayerId, Mage } from '../game/types';
 import { STATUS_ICON } from './HexBoard';
 import { abilitySummary } from './LoadoutBuilder';
@@ -164,6 +164,8 @@ export function AbilityBar({
     <div className="ability-bar">
       {mage.abilities.map((slot, i) => {
         const def = ABILITIES[slot.id];
+        // Reaction-only Abilities have no use in the Action Phase, so they leave the bar until a Reaction Phase.
+        if (state.phase === 'action' && timing(def) === 'reaction') return null;
         const err = castError(state, player, slot.id);
         return (
           <button
@@ -180,7 +182,7 @@ export function AbilityBar({
             <span className="ability-icon">{def.icon}</span>
             <span className="ability-name">{def.name}</span>
             <span className="ability-cost">
-              {def.fast || (state.phase === 'reaction' && def.timing && def.timing !== 'action') ? '0 AP' : `${apCost(def)} AP`}
+              {apCost(def)} AP
               {def.mana > 0 && <span className="mana-cost"> · {def.mana}💧</span>}
             </span>
           </button>
@@ -212,7 +214,7 @@ export function PhaseBanner({ state }: { state: GameState }) {
   const incoming = state.pending.filter((a) => a.caster !== state.active).length;
   return state.phase === 'reaction' ? (
     <div className="phase-banner reaction">
-      ⚠ Reaction Phase · {name} faces {incoming} incoming attack{incoming === 1 ? '' : 's'}: move out of the red
+      ⚠ Reaction Phase · {name} faces {incoming} incoming attack{incoming === 1 ? '' : 's'}: use a Reaction to dodge or block
     </div>
   ) : (
     <div className="phase-banner action">Action Phase · {name}</div>

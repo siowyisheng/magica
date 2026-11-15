@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionError, applyAction, createGame, validTargets } from './engine';
+import { actionError, applyAction, createGame, reachable, validTargets } from './engine';
 import type { Hex } from './hex';
 import type { Action, GameState, Loadout, PlayerId } from './types';
 
@@ -13,7 +13,7 @@ const loadout = (abilities: string[]): Loadout => ({
 });
 
 /** Open board; P1 (attacker) at `a`, P2 at `b`. Both have plenty of Mana. */
-function duel(a: Hex, b: Hex, abilities = ['firebolt', 'icicle', 'plague', 'doom']): GameState {
+function duel(a: Hex, b: Hex, abilities = ['firebolt', 'icicle', 'plague', 'doom', 'dodge-roll', 'blink']): GameState {
   const g = createGame({
     seed: 3,
     radius: 6,
@@ -39,7 +39,6 @@ const cast = (g: GameState, abilityId: string, target: Hex, player: PlayerId = '
   act(g, { type: 'cast', player, abilityId, target });
 const endTurn = (g: GameState) => act(g, { type: 'endTurn', player: g.active });
 const endReaction = (g: GameState) => act(g, { type: 'endReaction', player: g.active });
-const move = (g: GameState, to: Hex) => act(g, { type: 'move', player: g.active, to });
 
 describe('delayed Attacks', () => {
   it('do no damage until the defender’s Reaction Phase ends', () => {
@@ -63,7 +62,7 @@ describe('delayed Attacks', () => {
     expect(g.phase).toBe('action');
   });
 
-  it('only allow Moves and ending the phase during the Reaction Phase', () => {
+  it('only allow Reactions and ending the phase during the Reaction Phase', () => {
     let g = cast(duel({ q: 0, r: 2 }, { q: 0, r: -1 }), 'firebolt', { q: 0, r: -1 });
     g = endTurn(g);
     expect(actionError(g, { type: 'cast', player: 'p2', abilityId: 'firebolt', target: { q: 0, r: 2 } })).toMatch(/Reaction/);
@@ -73,14 +72,11 @@ describe('delayed Attacks', () => {
     expect(actionError(after, { type: 'endReaction', player: 'p2' })).toMatch(/Reaction/);
   });
 
-  it('carry leftover Movement Points from the Reaction Phase into the Action Phase', () => {
+  it('cannot be answered by walking: Moving is not allowed in the Reaction Phase', () => {
     let g = cast(duel({ q: 0, r: 2 }, { q: 0, r: -1 }), 'firebolt', { q: 0, r: -1 });
     g = endTurn(g);
-    g = move(g, { q: 1, r: -1 });
-    expect(g.mages.p2.mp).toBe(2);
-    g = endReaction(g);
-    expect(g.mages.p2.mp).toBe(2);
-    expect(g.mages.p2.ap).toBe(1);
+    expect(actionError(g, { type: 'move', player: 'p2', to: { q: 1, r: -1 } })).toMatch(/Reaction/);
+    expect(reachable(g, 'p2').size).toBe(0);
   });
 });
 
@@ -93,18 +89,20 @@ describe('dodging, by shape', () => {
     ['plague', { q: 0, r: 3 }, { q: 0, r: 0 }, { q: 0, r: 0 }, { q: 0, r: -2 }, { q: 1, r: -1 }], // Burst r1
   ];
 
+  const dodge = (g: GameState, to: Hex) => cast(g, 'blink', to, 'p2');
+
   for (const [ability, p1, p2, aim, safe, inside] of cases) {
     const launched = () => endTurn(cast(duel(p1, p2), ability, aim));
     const struck = (g: GameState) => g.mages.p2.hp < g.mages.p2.maxHp || g.mages.p2.statuses.length > 0;
 
-    it(`${ability}: moving out of the Threat Area avoids the hit`, () => {
-      expect(struck(endReaction(move(launched(), safe)))).toBe(false);
+    it(`${ability}: dodging out of the Threat Area avoids the hit`, () => {
+      expect(struck(endReaction(dodge(launched(), safe)))).toBe(false);
     });
 
-    it(`${ability}: staying in it, or moving within it, gets hit`, () => {
+    it(`${ability}: staying in it, or dodging within it, gets hit`, () => {
       expect(struck(endReaction(launched()))).toBe(true);
       const g = launched();
-      const within = inside.q === p2.q && inside.r === p2.r ? g : move(g, inside);
+      const within = inside.q === p2.q && inside.r === p2.r ? g : dodge(g, inside);
       expect(struck(endReaction(within))).toBe(true);
     });
   }

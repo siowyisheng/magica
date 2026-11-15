@@ -24,6 +24,16 @@ const technique = (a: Common & { shape: Shape; hit: Hit }): AbilityDef => ({
   effect: { type: 'attack', shape: a.shape, hit: a.hit },
 });
 
+/** A Reaction Technique that walks the mage a few hexes: a dodge that costs AP but no Mana. */
+const reactionStep = (a: Common & { range: number }): AbilityDef => ({
+  ...a,
+  kind: 'technique',
+  mana: 0,
+  timing: 'reaction',
+  targeting: 'tile',
+  effect: { type: 'step' },
+});
+
 const attack = (a: Common & { mana: number; shape: Shape; hit: Hit }): AbilityDef => ({
   ...a,
   kind: 'spell',
@@ -51,6 +61,16 @@ const LIST: AbilityDef[] = [
     id: 'shield-bash', name: 'Shield Bash', icon: '🥊', school: 'steel', points: 2,
     description: 'Slam the enemy back a hex. Into rock, it hurts more.',
     shape: { kind: 'meleeArc' }, hit: { damage: 2, knockback: 1 },
+  }),
+
+  // --- Reaction Techniques: dodges, AP only -----------------------------------
+  reactionStep({
+    id: 'sidestep', name: 'Sidestep', icon: '🦶', school: 'steel', points: 2, range: 1,
+    description: 'Reaction: step to a neighbouring hex before the Attacks land.',
+  }),
+  reactionStep({
+    id: 'dodge-roll', name: 'Dodge Roll', icon: '🤸', school: 'steel', points: 4, range: 2,
+    description: 'Reaction: roll up to 2 hexes clear of the Attacks. Rock and your foe block the way.',
   }),
 
   // --- Offensive Spells -------------------------------------------------------
@@ -154,8 +174,8 @@ const LIST: AbilityDef[] = [
 
   // --- Reaction Spells (defensive: less Mana-efficient than offence) ---------
   spell({
-    id: 'ward', name: 'Ward', icon: '🛡️', school: 'arcane', points: 2, mana: 6, timing: 'both',
-    description: 'A 4-point shield over every attack in your next resolution. React with it, or cast it ahead for 1 AP.',
+    id: 'ward', name: 'Ward', icon: '🛡️', school: 'arcane', points: 2, mana: 6, timing: 'reaction',
+    description: 'Reaction: a 4-point shield over every Attack in this resolution.',
     targeting: 'self', effect: { type: 'shield', amount: 4 },
   }),
   spell({
@@ -170,7 +190,7 @@ const LIST: AbilityDef[] = [
   }),
   spell({
     id: 'blink', name: 'Blink', icon: '✨', school: 'arcane', points: 2, mana: 4, timing: 'both',
-    description: 'Teleport up to 3 hexes. As a reaction, it dodges without spending AP.',
+    description: 'Teleport up to 3 hexes. Works as a Reaction too, to dodge incoming Attacks.',
     targeting: 'tile', range: 3, effect: { type: 'blink' },
   }),
 ];

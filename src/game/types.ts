@@ -60,10 +60,12 @@ export type AbilityEffect =
   | { type: 'shield'; amount: number }
   /** Teleport to an empty hex within `range`. */
   | { type: 'blink' }
+  /** Walk to an empty hex within `range` hexes, going round Rock and the other mage. */
+  | { type: 'step' }
   /** Extra Movement Points this turn. */
   | { type: 'haste'; move: number };
 
-/** For non-Attack Spells. self: cast on yourself. tile: an empty hex within range. */
+/** For non-Attack Abilities. self: cast on yourself. tile: an empty hex within range. */
 export type Targeting = 'self' | 'tile';
 
 export type School = 'fire' | 'frost' | 'steel' | 'arcane' | 'nature' | 'tide' | 'death' | 'earth' | 'time';
@@ -77,18 +79,18 @@ export interface AbilityDef {
   points: number;
   /** Mana per cast. Spells always cost some; Techniques never do. */
   mana: number;
-  /** Fast Spells cost no AP. Everything else costs exactly 1 AP (0 when cast as a reaction). */
+  /** Fast Spells cost no AP. Everything else costs exactly 1 AP, in the Reaction Phase too. */
   fast?: boolean;
   /**
-   * When it can be cast. 'reaction' = Reaction Spell (Reaction Phase only, 0 AP).
-   * 'both' = defensive Spell that also works proactively in the Action Phase (for AP). Default 'action'.
+   * When it can be used. 'reaction' = Reaction ability (Reaction Phase only).
+   * 'both' = also works proactively in the Action Phase. Default 'action'.
    */
   timing?: 'action' | 'reaction' | 'both';
   name: string;
   icon: string;
   school: School;
   description: string;
-  /** Non-Attack Spells only (Attacks aim with their Shape). */
+  /** Non-Attack Abilities only (Attacks aim with their Shape). */
   targeting?: Targeting;
   range?: number;
   effect: AbilityEffect;

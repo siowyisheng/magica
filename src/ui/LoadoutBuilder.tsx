@@ -13,6 +13,7 @@ import {
   statValue,
   validateLoadout,
 } from '../game/loadout';
+import { timing } from '../game/engine';
 import { newId } from '../game/storage';
 import { SHAPE_NAME } from '../game/threat';
 import type { AbilityDef, Circle, Loadout, School, StatKey } from '../game/types';
@@ -118,6 +119,41 @@ function Editor({
     update({ passiveIds: has ? loadout.passiveIds.filter((x) => x !== id) : [...loadout.passiveIds, id] });
   };
 
+  const equipped = loadout.abilityIds.filter((id) => ABILITIES[id]);
+  const renderCard = (a: AbilityDef) => {
+    const on = loadout.abilityIds.includes(a.id);
+    return (
+      <button
+        key={a.id}
+        className={`pick-card school-${a.school} ${on ? 'is-selected' : ''}`}
+        disabled={!on && (full || a.points > left)}
+        onClick={() => toggleAbility(a.id)}
+      >
+        <span className="pick-head">
+          <span className="pick-icon">{a.icon}</span>
+          <span className="price">{a.points} pts</span>
+        </span>
+        <strong>{a.name}</strong>
+        <span className="muted">{a.description}</span>
+        <span className="stats">{abilitySummary(a)}</span>
+      </button>
+    );
+  };
+  const SlotButton = ({ id, onClick }: { id: string; onClick: () => void }) => {
+    const a = ABILITIES[id];
+    return (
+      <button
+        className={`slot school-${a.school}`}
+        disabled={id === STAFF_STRIKE}
+        onClick={onClick}
+        title={id === STAFF_STRIKE ? 'Every mage has Staff Strike' : 'Click to remove'}
+      >
+        <span>{a.icon}</span>
+        <span className="slot-name">{a.name}</span>
+      </button>
+    );
+  };
+
   const shown = Object.values(ABILITIES).filter((a) => a.id !== STAFF_STRIKE && (filter === 'all' || a.school === filter));
   const schools = (Object.keys(SCHOOLS) as School[]).filter((sc) => Object.values(ABILITIES).some((a) => a.school === sc));
 
@@ -181,29 +217,29 @@ function Editor({
         <h3>
           Abilities <span className="muted">{loadout.abilityIds.length}/{MAX_ABILITIES}</span>
         </h3>
-        <div className="slots">
-          {Array.from({ length: MAX_ABILITIES }, (_, i) => {
-            const id = loadout.abilityIds[i];
-            const a = id ? ABILITIES[id] : null;
-            return (
-              <button
-                key={i}
-                className={`slot ${a ? `school-${a.school}` : 'empty'}`}
-                disabled={!a || id === STAFF_STRIKE}
-                onClick={() => id && toggleAbility(id)}
-                title={a ? (id === STAFF_STRIKE ? 'Every mage has Staff Strike' : 'Click to remove') : 'Empty slot'}
-              >
-                {a ? (
-                  <>
-                    <span>{a.icon}</span>
-                    <span className="slot-name">{a.name}</span>
-                  </>
-                ) : (
-                  <span className="muted">{i + 1}</span>
-                )}
-              </button>
-            );
-          })}
+        <div className="slot-groups">
+          <div className="slot-group">
+            <h4>Action</h4>
+            <div className="slots">
+              {equipped.filter((id) => !canReact(ABILITIES[id])).map((id) => (
+                <SlotButton key={id} id={id} onClick={() => toggleAbility(id)} />
+              ))}
+              {Array.from({ length: Math.max(0, MAX_ABILITIES - loadout.abilityIds.length) }, (_, i) => (
+                <button key={`empty-${i}`} className="slot empty" disabled title="Empty slot">
+                  <span className="muted">·</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="slot-group reaction">
+            <h4>Reaction</h4>
+            <div className="slots">
+              {equipped.filter((id) => canReact(ABILITIES[id])).map((id) => (
+                <SlotButton key={id} id={id} onClick={() => toggleAbility(id)} />
+              ))}
+              {!equipped.some((id) => canReact(ABILITIES[id])) && <span className="muted">None yet</span>}
+            </div>
+          </div>
         </div>
         <div className="filters">
           <button className={filter === 'all' ? 'is-selected' : ''} onClick={() => setFilter('all')}>
@@ -215,27 +251,14 @@ function Editor({
             </button>
           ))}
         </div>
-        <div className="cards small">
-          {shown.map((a) => {
-            const on = loadout.abilityIds.includes(a.id);
-            return (
-              <button
-                key={a.id}
-                className={`pick-card school-${a.school} ${on ? 'is-selected' : ''}`}
-                disabled={!on && (full || a.points > left)}
-                onClick={() => toggleAbility(a.id)}
-              >
-                <span className="pick-head">
-                  <span className="pick-icon">{a.icon}</span>
-                  <span className="price">{a.points} pts</span>
-                </span>
-                <strong>{a.name}</strong>
-                <span className="muted">{a.description}</span>
-                <span className="stats">{abilitySummary(a)}</span>
-              </button>
-            );
-          })}
-        </div>
+        <div className="cards small">{shown.filter((a) => !canReact(a)).map(renderCard)}</div>
+        {shown.some(canReact) && (
+          <>
+            <h4 className="category-head reaction">Reaction Abilities</h4>
+            <p className="muted">Used in the Reaction Phase, in answer to incoming Attacks. Each costs 1 AP.</p>
+            <div className="cards small reaction">{shown.filter(canReact).map(renderCard)}</div>
+          </>
+        )}
       </section>
 
       {Object.keys(PASSIVES).length > 0 && (
@@ -275,6 +298,9 @@ function Editor({
   );
 }
 
+/** Abilities usable in the Reaction Phase, shown in their own category. */
+const canReact = (a: AbilityDef) => timing(a) !== 'action';
+
 export function abilitySummary(a: AbilityDef): string {
   const parts = [a.kind === 'technique' ? 'Technique' : `${a.mana} Mana`, a.fast ? 'Fast' : '1 AP'];
   if (a.timing === 'reaction') parts.push('Reaction');
@@ -285,6 +311,6 @@ export function abilitySummary(a: AbilityDef): string {
     if ('range' in s && s.range) parts.push(`rng ${s.range}`);
     if ('radius' in s) parts.push(`r${s.radius}`);
     if (a.effect.hit.damage) parts.push(`${a.effect.hit.damage} dmg`);
-  } else if (a.targeting === 'tile') parts.push(`rng ${a.range}`);
+  } else if (a.targeting === 'tile') parts.push(a.effect.type === 'step' ? `walk ${a.range}` : `rng ${a.range}`);
   return parts.join(' · ');
 }

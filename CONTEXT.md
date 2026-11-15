@@ -25,7 +25,7 @@ Anything a mage actively uses that was bought with Loadout Points: either a Spel
 _Avoid_: Move (that means walking), skill, action
 
 **Technique**:
-A physical Ability, such as a weapon attack. It costs AP but no Mana.
+A physical Ability, such as a weapon attack or a dodge. It costs AP but no Mana.
 _Avoid_: Physical move, weapon skill
 
 **Staff Strike**:
@@ -45,10 +45,10 @@ _Avoid_: Cycle
 One mage's Reaction Phase followed by their Action Phase. The defender's pending Attacks resolve between the two phases.
 
 **Reaction Phase**:
-The first phase of a turn, where a mage responds to incoming attacks. It happens only when an attack is pending against them; otherwise it is skipped.
+The first phase of a turn, where a mage responds to incoming attacks with Reactions. It happens only when an attack is pending against them; otherwise it is skipped. A mage can't Move in it.
 
 **Action Phase**:
-The main phase of a turn, where a mage moves, casts spells, attacks and absorbs mana.
+The main phase of a turn, where a mage moves, casts spells, attacks and absorbs mana. Reaction-only Abilities can't be used in it.
 
 **Attack**:
 An offensive Spell or Technique. It doesn't land immediately: it becomes pending, and resolves after the defender's next Reaction Phase. Pending attacks resolve in the order they were launched.
@@ -58,8 +58,8 @@ _Avoid_: Hit, strike (as the general term)
 The hexes a pending Attack will hit, fixed when the Attack is launched. At resolution it hits every mage standing in it, the caster included. It is shown to both players until it resolves.
 
 **Move**:
-Walking from hex to hex by spending Movement Points.
-_Avoid_: Using "move" for an Ability
+Walking from hex to hex by spending Movement Points. Only in the Action Phase.
+_Avoid_: Using "move" for an Ability, or for dodging in the Reaction Phase (that is a Step)
 
 ## Threat Area shapes
 
@@ -102,10 +102,10 @@ _Avoid_: Wall (a Wall is a Threat Area shape), obstacle
 ## Resources
 
 **Action Point (AP)**:
-The per-turn budget for doing things. Each mage has 2 per turn. AP is spent on movement, casting non-Fast spells, attacking and absorbing mana.
+The per-turn budget for doing things. Each mage has 2 per turn, shared by the Reaction Phase and the Action Phase. AP is spent on movement, casting non-Fast spells, attacking, absorbing mana and Reactions.
 
 **Movement Points**:
-The hexes a mage can still walk this turn. Spending 1 AP grants Movement Points equal to Movespeed, and unspent points carry from the Reaction Phase into the Action Phase.
+The hexes a mage can still walk this turn. Spending 1 AP grants Movement Points equal to Movespeed. Unspent points are lost at the end of the turn.
 
 **Mana**:
 The resource every Spell costs. A mage starts the duel with Mana equal to their Magic, regains that much each turn, and can hold at most 10 × Magic.
@@ -143,10 +143,17 @@ _Avoid_: Power, Mana (Mana is the resource, Magic is the stat)
 An Ability that costs Mana.
 
 **Reaction**:
-Anything a defender does in their Reaction Phase: Moving out of a Threat Area or casting a Reaction Spell. A targeted Reaction Spell can't target an Attack that was itself produced by a reaction (such as a Deflected Line). The defender can still Move out of such an Attack or Ward against it.
+An Ability a defender uses in their Reaction Phase: a Reaction Spell, a Reaction Technique, or Blink. Like any Ability it costs 1 AP, so reacting leaves less AP for the Action Phase. A targeted Reaction Spell can't target an Attack that was itself produced by a reaction (such as a Deflected Line). The defender can still Step or Blink out of such an Attack, or Ward against it.
 
 **Fast Spell**:
 A spell that costs no AP to cast. It still costs Mana.
 
 **Reaction Spell**:
-A defensive Spell cast during the Reaction Phase to mitigate, counter, deflect or block incoming Attacks. It costs no AP. Some target one specific pending Attack; others cover every Attack in that resolution. Counterspell cancels Spells only, not Techniques. Deflect works on Lines only.
+A defensive Spell cast during the Reaction Phase to mitigate, counter, deflect or block incoming Attacks. It costs 1 AP and Mana. Ward, Counterspell and Deflect are reaction-only; Blink also works in the Action Phase. Some target one specific pending Attack; others cover every Attack in that resolution. Counterspell cancels Spells only, not Techniques. Deflect works on Lines only.
+
+**Reaction Technique**:
+A Technique usable only in the Reaction Phase. It costs 1 AP and no Mana. Sidestep and Dodge Roll are Reaction Techniques that Step the mage out of a Threat Area.
+
+**Step**:
+Walking up to a few hexes as a Reaction Technique, going round Rock and the other mage. It spends AP, not Movement Points. Sidestep Steps 1 hex and Dodge Roll up to 2. Blink is a teleport, not a Step.
+_Avoid_: Move (a Move spends Movement Points and happens only in the Action Phase)

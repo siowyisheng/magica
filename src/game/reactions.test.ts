@@ -48,13 +48,13 @@ const react = (g: GameState, abilityId: string, attackId?: number) =>
 const resolve = (g: GameState) => act(g, { type: 'endReaction', player: 'p2' });
 
 describe('Reaction Spells', () => {
-  it('can only be cast in the Reaction Phase, for Mana but no AP', () => {
+  it('can only be cast in the Reaction Phase, for Mana and 1 AP', () => {
     const calm = duel();
     expect(castError(calm, 'p1', 'counterspell')).toMatch(/Reaction Phase/);
     const g = underFire('firebolt');
     const mana = g.mages.p2.mana;
     const after = react(g, 'counterspell', g.pending[0].id);
-    expect(after.mages.p2.ap).toBe(2);
+    expect(after.mages.p2.ap).toBe(1);
     expect(after.mages.p2.mana).toBeLessThan(mana);
   });
 
@@ -91,12 +91,66 @@ describe('Reaction Spells', () => {
     expect(castError(g, 'p1', 'counterspell', g.mages.p1.pos, g.pending[0].id)).toMatch(/reaction/i);
   });
 
-  it('Ward can also be cast proactively in the Action Phase for 1 AP', () => {
-    let g = act(duel(), { type: 'cast', player: 'p1', abilityId: 'ward', target: { q: 0, r: 2 } });
-    expect(g.mages.p1.ap).toBe(1);
-    expect(g.mages.p1.shield).toBeGreaterThan(0);
+  it('Ward works only as a Reaction, not as an action', () => {
+    expect(castError(duel(), 'p1', 'ward')).toMatch(/Reaction Phase/);
+    expect(actionError(duel(), { type: 'cast', player: 'p1', abilityId: 'ward', target: { q: 0, r: 2 } })).not.toBeNull();
+  });
+
+  it('a Reaction costs 1 AP, so two Reactions leave nothing for the Action Phase', () => {
+    let g = underFire('firebolt', 'frost-lance');
+    g = react(g, 'ward');
+    g = react(g, 'counterspell', g.pending[0].id);
+    expect(g.mages.p2.ap).toBe(0);
+    expect(castError(g, 'p2', 'deflect', g.mages.p2.pos, g.pending[0].id)).toMatch(/AP/);
+  });
+});
+
+describe('Reaction Techniques', () => {
+  const kit = (...abilities: string[]) => {
+    let g = duel();
+    g.mages.p2.abilities = ['staff-strike', ...abilities].map((id) => ({ id }));
     g = act(g, { type: 'cast', player: 'p1', abilityId: 'firebolt', target: p2pos(g) });
-    expect(g.mages.p1.shield).toBeGreaterThan(0); // still up for our next resolution
+    return act(g, { type: 'endTurn', player: 'p1' });
+  };
+  const stepTo = (g: GameState, abilityId: string, to: Hex) => act(g, { type: 'cast', player: 'p2', abilityId, target: to });
+
+  it('cost 1 AP and no Mana, and only work in the Reaction Phase', () => {
+    const calm = duel();
+    calm.mages.p1.abilities.push({ id: 'sidestep' });
+    expect(castError(calm, 'p1', 'sidestep')).toMatch(/Reaction Phase/);
+    const g = kit('sidestep');
+    const after = stepTo(g, 'sidestep', { q: 1, r: -1 });
+    expect(after.mages.p2.ap).toBe(1);
+    expect(after.mages.p2.mana).toBe(g.mages.p2.mana);
+    expect(after.mages.p2.pos).toEqual({ q: 1, r: -1 });
+  });
+
+  it('Sidestep moves 1 hex and Dodge Roll up to 2', () => {
+    const g = kit('sidestep', 'dodge-roll');
+    expect(castError(g, 'p2', 'sidestep', { q: 2, r: -1 })).toMatch(/range/i);
+    expect(castError(g, 'p2', 'sidestep', { q: 1, r: -1 })).toBeNull();
+    expect(castError(g, 'p2', 'dodge-roll', { q: 2, r: -1 })).toBeNull();
+    expect(castError(g, 'p2', 'dodge-roll', { q: 3, r: -1 })).toMatch(/range/i);
+  });
+
+  it('a step dodges an Attack', () => {
+    let g = kit('sidestep');
+    g = stepTo(g, 'sidestep', { q: 1, r: -1 });
+    g = resolve(g);
+    expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp);
+  });
+
+  it('a step walks round Rock, so it cannot cross it', () => {
+    const g = kit('dodge-roll');
+    // Wall off every way to the far side of (0,-1)'s neighbour (0,-2) except through rock-free hexes.
+    for (const k of ['0,-2', '1,-2', '-1,-1']) g.tiles[k].terrain = 'rock';
+    expect(castError(g, 'p2', 'dodge-roll', { q: 0, r: -3 })).not.toBeNull();
+    expect(castError(g, 'p2', 'dodge-roll', { q: 1, r: -1 })).toBeNull();
+  });
+
+  it('cannot Move in the Reaction Phase', () => {
+    const g = kit('sidestep');
+    expect(actionError(g, { type: 'move', player: 'p2', to: { q: 1, r: -1 } })).toMatch(/Reaction/);
   });
 });
 

@@ -31,8 +31,8 @@ export function chooseAction(state: GameState, player: PlayerId): Action {
 const areaOf = (attacks: GameState['pending']) => new Set(attacks.flatMap((a) => a.area));
 
 /**
- * Reaction Phase: dodge out of every incoming Threat Area if possible; otherwise
- * cast the Reaction Spell that prevents the most damage per Mana; otherwise brace.
+ * Reaction Phase: use the Reaction that prevents the most damage (the cheapest in Mana on a tie),
+ * which includes dodging out of every incoming Threat Area; otherwise brace.
  */
 function chooseReaction(state: GameState, player: PlayerId): Action {
   const me = state.mages[player];
@@ -41,10 +41,6 @@ function chooseReaction(state: GameState, player: PlayerId): Action {
   if (!danger.has(key(me.pos))) return { type: 'endReaction', player };
 
   const own = areaOf(state.pending.filter((a) => a.caster === player));
-  const escape = [...reachable(state, player)]
-    .filter(([k]) => !danger.has(k) && !own.has(k))
-    .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))[0];
-  if (escape) return { type: 'move', player, to: fromKey(escape[0]) };
 
   const hitting = threats.filter((a) => a.area.includes(key(me.pos)));
   const damage = (a: PendingAttack) => (a.hit.damage > 0 ? hitDamage(me, a.hit.damage) : 0);
@@ -70,7 +66,7 @@ function chooseReaction(state: GameState, player: PlayerId): Action {
           });
     } else if (fx.type === 'shield' && unshielded > 0) {
       consider(Math.min(fx.amount, unshielded), def.mana, { type: 'cast', player, abilityId: slot.id, target: me.pos });
-    } else if (fx.type === 'blink') {
+    } else if (fx.type === 'blink' || fx.type === 'step') {
       const out = validTargets(state, player, slot.id).find((h) => !danger.has(key(h)) && !own.has(key(h)));
       if (out) consider(total, def.mana, { type: 'cast', player, abilityId: slot.id, target: out });
     }
@@ -247,6 +243,7 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, _targe
     case 'deflect':
     case 'haste':
     case 'blink':
+    case 'step':
       return 0; // positional tricks are left to humans (and a smarter future bot)
   }
 }
