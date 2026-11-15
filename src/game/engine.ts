@@ -165,7 +165,8 @@ export function castError(
   const tile = state.tiles[key(target)];
   if (!tile) return 'Off the board.';
   if (def.effect.type === 'attack') {
-    return threatArea(state.tiles, mage.pos, def.effect.shape, target) ? null : "Can't aim there.";
+    // An aim that threatens nothing (e.g. a Line straight into adjacent Rock) is not a valid aim.
+    return threatArea(state.tiles, mage.pos, def.effect.shape, target)?.length ? null : "Can't aim there.";
   }
   const enemy = state.mages[other(player)];
   if (def.targeting !== 'tile') return equals(target, mage.pos) ? null : 'Targets yourself.';
@@ -381,6 +382,10 @@ function react(state: GameState, me: Mage, def: AbilityDef, attackId: number, lo
   const attacker = state.mages[atk.caster];
   const shape = (ABILITIES[atk.abilityId].effect as { shape: Shape }).shape;
   const area = threatArea(state.tiles, me.pos, shape, attacker.pos) ?? [];
+  if (!area.length) {
+    log({ kind: 'cast', text: `${me.name} deflects ${name}, but it shatters against the rock.` });
+    return;
+  }
   state.pending.push({ ...atk, id: state.nextAttackId++, caster: me.owner, origin: me.pos, area: area.map(key), reflected: true });
   log({ kind: 'cast', text: `${me.name} deflects ${name} back at ${attacker.name}!` });
 }

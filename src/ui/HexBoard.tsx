@@ -108,7 +108,7 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
         );
       })}
 
-      {state.pending.map((a) => (
+      {state.pending.filter((a) => a.area.length > 0).map((a) => (
         <g key={a.id} className={`threat threat-${a.caster}`}>
           {a.area.map((k) => {
             const { x, y } = toPixel(fromKey(k), SIZE);

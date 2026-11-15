@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionError, applyAction, createGame } from './engine';
+import { actionError, applyAction, createGame, validTargets } from './engine';
 import type { Hex } from './hex';
 import type { Action, GameState, Loadout, PlayerId } from './types';
 
@@ -127,5 +127,29 @@ describe('resolution', () => {
     g = endReaction(endTurn(g));
     expect(g.mages.p1.hp).toBeLessThan(g.mages.p1.maxHp);
     expect(g.mages.p2.hp).toBeLessThan(g.mages.p2.maxHp);
+  });
+});
+
+describe('Attacks with nothing to threaten', () => {
+  it('cannot be aimed so that the Threat Area is empty (e.g. a Line straight into adjacent Rock)', () => {
+    const g = duel({ q: 0, r: 2 }, { q: 0, r: -2 });
+    g.tiles['0,1'].terrain = 'rock';
+    expect(actionError(g, { type: 'cast', player: 'p1', abilityId: 'firebolt', target: { q: 0, r: 1 } })).toMatch(/aim/);
+    expect(validTargets(g, 'p1', 'firebolt').some((h) => h.q === 0 && h.r === 1)).toBe(false);
+  });
+
+  it('a Deflect whose return path is blocked just cancels the Attack', () => {
+    const l: Loadout = { ...loadout(['firebolt', 'deflect']) };
+    let g = createGame({ seed: 3, radius: 6, turnSeconds: 20, maxTurns: 60, loadouts: { p1: l, p2: l }, names: { p1: 'A', p2: 'B' } });
+    for (const t of Object.values(g.tiles)) t.terrain = 'plain';
+    g.crystals = [];
+    g.mages.p1.pos = { q: 2, r: 0 };
+    g.mages.p2.pos = { q: 0, r: 0 };
+    g.mages.p1.mana = g.mages.p2.mana = 30;
+    g = act(g, { type: 'cast', player: 'p1', abilityId: 'firebolt', target: { q: 0, r: 0 } });
+    g = act(g, { type: 'endTurn', player: 'p1' });
+    g.tiles['1,0'].terrain = 'rock'; // something now stands between them on the way back
+    g = act(g, { type: 'cast', player: 'p2', abilityId: 'deflect', target: g.mages.p2.pos, attackId: g.pending[0].id });
+    expect(g.pending.every((a) => a.area.length > 0)).toBe(true);
   });
 });
