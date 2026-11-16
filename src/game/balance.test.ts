@@ -123,8 +123,8 @@ describe('Soul Drain', () => {
 });
 
 describe('Channel Mana', () => {
-  it('is a 1-pt Technique: 1 AP, no Mana, gain 2 Mana, once per turn', () => {
-    expect(ABILITIES['channel-mana']).toMatchObject({ kind: 'technique', points: 1, mana: 0, cooldown: 1 });
+  it('is a 1-pt Technique: 1 AP, no Mana, gain 2 Mana, not on consecutive turns', () => {
+    expect(ABILITIES['channel-mana']).toMatchObject({ kind: 'technique', points: 1, mana: 0, cooldown: 2 });
     const g0 = duel(['channel-mana']);
     g0.mages.p1.mana = 5;
     const g = cast(g0, 'channel-mana', g0.mages.p1.pos);

@@ -111,7 +111,7 @@ const LIST: AbilityDef[] = [
     shape: { kind: 'line', range: 7 }, hit: { damage: 4 },
   }),
   utilityTechnique({
-    id: 'channel-mana', name: 'Channel Mana', icon: '🔮', school: 'arcane', points: 1, cooldown: 1,
+    id: 'channel-mana', name: 'Channel Mana', icon: '🔮', school: 'arcane', points: 1, cooldown: 2,
     description: 'Gain 2 Mana.',
     targeting: 'self', effect: { type: 'mana', amount: 2 },
   }),
