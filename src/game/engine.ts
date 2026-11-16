@@ -225,6 +225,7 @@ export function castError(
   if (!slot || !def) return 'Ability not equipped.';
   const limit = usesPerTurn(def);
   if (limit && slot.uses >= limit) return limit === 1 ? 'Only once per turn.' : `Only ${limit} times per turn.`;
+  if (slot.cooldown) return `On cooldown: ready in ${slot.cooldown} turn${slot.cooldown === 1 ? '' : 's'}.`;
   if (def.weapon && isDisarmed(mage)) return `Disarmed: no ${WEAPONS[def.weapon].name} techniques.`;
   if (def.kind === 'spell' && WEAPONS[mage.weapon].spellsNeedWeapon && isDisarmed(mage)) return 'Disarmed: a wand mage cannot cast Spells.';
   const reacting = state.phase === 'reaction';
@@ -397,7 +398,9 @@ export function applyAction(prev: GameState, action: Action): GameState {
       const def = ABILITIES[action.abilityId];
       me.ap -= apCost(def);
       me.mana -= def.mana;
-      me.abilities.find((a) => a.id === def.id)!.uses += 1;
+      const slot = me.abilities.find((a) => a.id === def.id)!;
+      slot.uses += 1;
+      if (def.cooldown) slot.cooldown = def.cooldown;
       if (def.effect.type === 'contest') {
         const target = other(me.owner);
         state.bidding = { id: state.nextAttackId++, abilityId: def.id, caster: me.owner, target, stage: 'commit', commits: {}, reveals: {} };
@@ -502,7 +505,10 @@ function startTurn(state: GameState, player: PlayerId, log: Log) {
   if (state.turn > 2) mage.mana = Math.min(maxMana(mage), mage.mana + effectiveManaRegen(mage));
   mage.mp = 0;
   mage.empower = 0;
-  for (const a of mage.abilities) a.uses = 0;
+  for (const a of mage.abilities) {
+    a.uses = 0;
+    if (a.cooldown) a.cooldown -= 1;
+  }
   if (mage.regen > 0) heal(mage, mage.regen, log);
   for (const s of mage.statuses) if (s.kind === 'burn' || s.kind === 'poison') dealDamage(mage, s.power, log);
   mage.ap = AP_PER_TURN;

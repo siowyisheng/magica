@@ -74,9 +74,12 @@ describe('Stasis', () => {
     expect(g.bidding).toMatchObject({ abilityId: 'stasis', caster: 'p1', target: 'p2', stage: 'commit' });
   });
 
-  it('can only be cast once per turn', () => {
+  it('can only be cast once per turn, and not on consecutive turns', () => {
     let g = contest(stasis(duel()), 0, 0);
     expect(castError(g, 'p1', 'stasis', g.mages.p2.pos)).toMatch(/once per turn/i);
+    g = act(g, { type: 'endTurn', player: 'p1' });
+    g = act(g, { type: 'endTurn', player: 'p2' });
+    expect(castError(g, 'p1', 'stasis', g.mages.p2.pos)).toMatch(/cooldown/i); // not on consecutive turns
     g = act(g, { type: 'endTurn', player: 'p1' });
     g = act(g, { type: 'endTurn', player: 'p2' });
     expect(castError(g, 'p1', 'stasis', g.mages.p2.pos)).toBeNull();

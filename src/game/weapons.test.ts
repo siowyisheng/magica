@@ -143,6 +143,28 @@ describe('weapon techniques', () => {
   });
 });
 
+describe('Cooldown', () => {
+  it('Stasis costs 2 pts and can only be used every other turn', () => {
+    expect(ABILITIES.stasis).toMatchObject({ points: 2, cooldown: 2 });
+    let g = duel('unarmed', ['stasis']);
+    g.mages.p1.mana = 30;
+    g.mages.p2.pos = { q: 0, r: 0 };
+    g.mages.p1.pos = { q: 0, r: 3 };
+    g = act(g, { type: 'cast', player: 'p1', abilityId: 'stasis', target: g.mages.p2.pos });
+    expect(g.bidding).toBeTruthy();
+    expect(g.mages.p1.abilities.find((a) => a.id === 'stasis')!.cooldown).toBe(2);
+    g.bidding = null;
+    expect(castError(g, 'p1', 'stasis', g.mages.p2.pos)).toMatch(/once per turn/i);
+    // Through real turns: blocked on the next own turn, ready the one after.
+    g = act(g, { type: 'endTurn', player: 'p1' });
+    g = act(g, { type: 'endTurn', player: 'p2' });
+    expect(castError(g, 'p1', 'stasis', g.mages.p2.pos)).toMatch(/ready in 1 turn\b/);
+    g = act(g, { type: 'endTurn', player: 'p1' });
+    g = act(g, { type: 'endTurn', player: 'p2' });
+    expect(castError(g, 'p1', 'stasis', g.mages.p2.pos)).toBeNull();
+  });
+});
+
 describe('Fast Abilities', () => {
   it('can be used once a turn unless they are Multi', () => {
     expect(usesPerTurn(ABILITIES.spark)).toBe(1);

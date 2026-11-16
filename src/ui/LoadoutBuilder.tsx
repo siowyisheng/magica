@@ -360,5 +360,6 @@ export function abilitySummary(a: AbilityDef): string {
   if (a.effect.type === 'contest') parts.push('secret bid');
   // A Fast Ability is once per turn unless it is Multi, so only the other cases are worth saying.
   if (a.perTurn === 1 && !a.fast) parts.push('once per turn');
+  if (a.cooldown) parts.push(`cooldown ${a.cooldown}`);
   return parts.join(' · ');
 }

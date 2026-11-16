@@ -39,6 +39,9 @@ _Avoid_: Weapon skill
 **Disarmed**:
 A status that takes a mage's Weapon out of use: Weapon Techniques can't be used, and the Weapon's bonuses (such as Staff and Wand Mana Regen) are lost. A disarmed Wand mage can't cast Spells at all. Unarmed mages can't be Disarmed.
 
+**Cooldown**:
+An Ability with a Cooldown of N can't be used again until N of its mage's turns after the turn it was used, so a Cooldown of 2 means not on consecutive turns.
+
 **Multi**:
 Marks a Fast Ability that can be used any number of times in a turn. Every other Fast Ability can be used once per turn, so that is left unsaid.
 

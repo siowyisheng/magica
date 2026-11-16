@@ -120,6 +120,8 @@ export interface AbilityDef {
   range?: number;
   /** At most this many uses per turn. Unset: once for a Fast Ability (unless `multi`), otherwise unlimited. */
   perTurn?: number;
+  /** After a use, can't be used again until this many of the caster's turns later: 2 means every other turn. */
+  cooldown?: number;
   effect: AbilityEffect;
 }
 
@@ -187,6 +189,8 @@ export interface AbilityState {
   id: string;
   /** Uses so far this turn, for Abilities with `perTurn`. Reset at the start of each own turn. */
   uses: number;
+  /** Own turns left before this Ability is ready again (see `AbilityDef.cooldown`). Unset or 0: ready. */
+  cooldown?: number;
 }
 
 export interface Mage {

@@ -44,7 +44,7 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
 export const WEAPON_IDS = Object.keys(WEAPONS) as WeaponId[];
 
 type Common = Pick<AbilityDef, 'id' | 'name' | 'icon' | 'school' | 'description' | 'points'> &
-  Partial<Pick<AbilityDef, 'fast' | 'multi' | 'timing' | 'perTurn' | 'weapon'>>;
+  Partial<Pick<AbilityDef, 'fast' | 'cooldown' | 'multi' | 'timing' | 'perTurn' | 'weapon'>>;
 
 const technique = (a: Common & { shape: Shape; hit: Hit }): AbilityDef => ({
   ...a,
@@ -185,9 +185,9 @@ const LIST: AbilityDef[] = [
     shape: { kind: 'single', range: 6 }, hit: { damage: 0, status: { kind: 'vulnerable', turns: 2, power: 2 } },
   }),
   spell({
-    id: 'stasis', name: 'Stasis', icon: '🕰️', school: 'time', points: 3, mana: 2, fast: true,
+    id: 'stasis', name: 'Stasis', icon: '🕰️', school: 'time', points: 2, mana: 2, fast: true, cooldown: 2,
     description:
-      'Fast, once per turn. Freeze the enemy (8 range, line of sight): you both secretly bid Mana. If your bid is at least theirs, they can’t Move on their next turn. Both bids are spent.',
+      'Fast, cooldown 2 (not on consecutive turns). Freeze the enemy (8 range, line of sight): you both secretly bid Mana. If your bid is at least theirs, they can’t Move on their next turn. Both bids are spent.',
     targeting: 'enemy', range: 8, effect: { type: 'contest', severity: 6, status: { kind: 'root', turns: 1, power: 0 } },
   }),
   attack({
