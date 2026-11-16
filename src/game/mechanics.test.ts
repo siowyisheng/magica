@@ -41,13 +41,9 @@ describe('catalogue', () => {
   const all = Object.values(ABILITIES);
   const spells = all.filter((a) => a.kind === 'spell');
 
-  it('has 6 Techniques (3 of them Reaction Techniques), 4 Reaction Spells and about 14 other Spells', () => {
-    expect(all.filter((a) => a.kind === 'technique')).toHaveLength(6);
-    expect(all.filter((a) => a.kind === 'technique' && a.timing === 'reaction').map((a) => [a.id, a.points, a.range])).toEqual([
-      ['sidestep', 2, 1],
-      ['dodge-roll', 4, 2],
-      ['block', 3, undefined],
-    ]);
+  it('has 4 Techniques (Block the only Reaction Technique), 4 Reaction Spells and about 14 other Spells', () => {
+    expect(all.filter((a) => a.kind === 'technique')).toHaveLength(4);
+    expect(all.filter((a) => a.kind === 'technique' && a.timing === 'reaction').map((a) => [a.id, a.points])).toEqual([['block', 3]]);
     expect(spells.filter((a) => a.timing === 'reaction' || a.timing === 'both')).toHaveLength(4);
     expect(spells.filter((a) => !a.timing || a.timing === 'action').length).toBeGreaterThanOrEqual(14);
   });

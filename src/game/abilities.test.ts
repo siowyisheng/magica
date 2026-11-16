@@ -76,8 +76,8 @@ describe('Fireball', () => {
     g.mages.p1.pos = { q: 0, r: -4 }; // stand in the far burst: it still lands there
     expect(g.pending[0].area).toContain('0,-4');
     g = act(g, { type: 'endTurn', player: 'p1' });
-    g.mages.p2.abilities.push({ id: 'dodge-roll' });
-    g = act(g, { type: 'cast', player: 'p2', abilityId: 'dodge-roll', target: { q: -2, r: 0 } });
+    g.mages.p2.movespeed = 5; // 2 hexes for 1 AP while reacting
+    g = act(g, { type: 'move', player: 'p2', to: { q: -2, r: 0 } });
     g = act(g, { type: 'endReaction', player: 'p2' });
     expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp);
     expect(g.mages.p1.hp).toBeLessThan(g.mages.p1.maxHp);

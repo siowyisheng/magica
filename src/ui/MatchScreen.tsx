@@ -9,6 +9,7 @@ import {
   impactArea,
   incoming,
   isTargetedReaction,
+  apForMove,
   reachable,
   round,
   validTargets,
@@ -136,10 +137,13 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       return { targets, impact };
     }
     const all = reachable(state, controlling);
-    const mp = state.mages[controlling].mp;
+    const mage = state.mages[controlling];
+    const reacting = state.phase === 'reaction';
+    const apNeeded = (cost: number) => apForMove(mage, cost, reacting);
     return {
       reachable: new Set(all.keys()),
-      free: new Set([...all].filter(([, cost]) => cost <= mp).map(([k]) => k)),
+      free: new Set([...all].filter(([, cost]) => apNeeded(cost) === 0).map(([k]) => k)),
+      twoAp: new Set([...all].filter(([, cost]) => apNeeded(cost) >= 2).map(([k]) => k)),
     };
   }, [state, controlling, selected, hover, reactTargets, wallShape, wallPath]);
 

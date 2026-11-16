@@ -66,7 +66,6 @@ export type AbilityEffect =
   /** Teleport to an empty hex within `range`. */
   | { type: 'blink' }
   /** Walk to an empty hex within `range` hexes, going round Rock and the other mage. */
-  | { type: 'step' }
   /** Reaction: reduce the damage of the first incoming Attack. */
   | { type: 'block'; amount: number }
   /** Your Techniques deal `bonus` more damage for the rest of this turn. */

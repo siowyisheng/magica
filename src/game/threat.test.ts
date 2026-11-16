@@ -187,7 +187,7 @@ describe('AI with every shape', () => {
     const { createGame, applyAction } = await import('./engine');
     const { chooseAction } = await import('./ai');
     for (const id of ['fireball', 'dragons-breath', 'ice-shards', 'nova', 'wall-of-fire', 'meteor']) {
-      const l = { id, name: id, circle: 1 as const, stats: { hp: 3, magic: 0, movespeed: 0 }, abilityIds: ['staff-strike', id, 'dodge-roll', 'blink'], passiveIds: [] };
+      const l = { id, name: id, circle: 1 as const, stats: { hp: 3, magic: 0, movespeed: 3 }, abilityIds: ['staff-strike', id, 'blink'], passiveIds: [] };
       let g = createGame({ seed: 9, radius: 6, turnSeconds: 20, maxTurns: 60, loadouts: { p1: l, p2: l }, names: { p1: 'A', p2: 'B' } });
       for (const t of Object.values(g.tiles)) t.terrain = 'plain';
       g.crystals = [];

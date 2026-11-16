@@ -72,20 +72,26 @@ export const timing = (def: AbilityDef) => def.timing ?? 'action';
 /** Reaction Spells that must be aimed at one specific incoming Attack. */
 export const isTargetedReaction = (def: AbilityDef) => def.effect.type === 'counter' || def.effect.type === 'deflect';
 
-/** Movement Points one AP buys right now: Movespeed, less any slow; none while rooted. */
-export function mpPerAp(m: Mage): number {
+/** Movespeed a mage gives up for every AP of movement in the Reaction Phase. */
+export const REACTION_MOVE_PENALTY = 3;
+
+/**
+ * Movement Points one AP buys right now: Movespeed, less any slow; none while rooted.
+ * In the Reaction Phase (`reacting`) it is lower still by REACTION_MOVE_PENALTY.
+ */
+export function mpPerAp(m: Mage, reacting = false): number {
   if (m.statuses.some((s) => s.kind === 'root')) return 0;
   const slow = m.statuses.find((s) => s.kind === 'slow')?.power ?? 0;
-  return Math.max(0, m.movespeed - slow);
+  return Math.max(0, m.movespeed - slow - (reacting ? REACTION_MOVE_PENALTY : 0));
 }
 
 /** Total hexes the mage could still walk this turn, spending all remaining AP on movement. */
-export const moveBudget = (m: Mage): number => m.mp + m.ap * mpPerAp(m);
+export const moveBudget = (m: Mage, reacting = false): number => m.mp + m.ap * mpPerAp(m, reacting);
 
 /** AP a Move of `cost` hexes would spend (0 if leftover Movement Points cover it). */
-export function apForMove(m: Mage, cost: number): number {
+export function apForMove(m: Mage, cost: number, reacting = false): number {
   if (cost <= m.mp) return 0;
-  const per = mpPerAp(m);
+  const per = mpPerAp(m, reacting);
   return per > 0 ? Math.ceil((cost - m.mp) / per) : Infinity;
 }
 
@@ -134,11 +140,10 @@ export function walkPath(state: GameState, from: Hex, to: Hex, blocked: string, 
   return [];
 }
 
-/** Hexes the player's mage can Move to this turn, with their movement cost. Nobody Moves in the Reaction Phase. */
+/** Hexes the player's mage can Move to right now, with their movement cost. Movement is slower in the Reaction Phase. */
 export function reachable(state: GameState, player: PlayerId): Map<string, number> {
-  if (state.phase === 'reaction') return new Map();
   const mage = state.mages[player];
-  return walk(state, mage.pos, moveBudget(mage), key(state.mages[other(player)].pos));
+  return walk(state, mage.pos, moveBudget(mage, state.phase === 'reaction'), key(state.mages[other(player)].pos));
 }
 
 /** Rocks block line of sight. Mages don't. */
@@ -208,8 +213,6 @@ export function castError(
     if (crystalAt(state, target)) return 'A Mana Crystal is there.';
     if (!hasLOS(state, mage.pos, target)) return 'No line of sight.';
   }
-  // A step is walked, so Rock and the other mage can block the way.
-  if (def.effect.type === 'step' && !walk(state, mage.pos, abilityRange(def), key(enemy.pos)).has(key(target))) return 'No way through.';
   return null;
 }
 
@@ -256,7 +259,6 @@ export function actionError(state: GameState, action: Action): string | null {
   if (action.player !== state.active) return 'Not your turn.';
   switch (action.type) {
     case 'move':
-      if (state.phase === 'reaction') return 'No Moving in the Reaction Phase. Use a Reaction.';
       return reachable(state, action.player).has(key(action.to)) ? null : "Can't move there.";
     case 'cast':
       return castError(state, action.player, action.abilityId, action.target, action.attackId, action.path);
@@ -284,11 +286,12 @@ export function applyAction(prev: GameState, action: Action): GameState {
     case 'move': {
       const from = me.pos;
       const cost = reachable(prev, action.player).get(key(action.to))!;
-      const spend = apForMove(me, cost);
+      const reacting = prev.phase === 'reaction';
+      const spend = apForMove(me, cost, reacting);
       me.ap -= spend;
-      me.mp += spend * mpPerAp(me) - cost;
+      me.mp += spend * mpPerAp(me, reacting) - cost;
       me.pos = action.to;
-      const path = walkPath(prev, from, action.to, key(prev.mages[other(action.player)].pos), moveBudget(prev.mages[action.player]));
+      const path = walkPath(prev, from, action.to, key(prev.mages[other(action.player)].pos), moveBudget(prev.mages[action.player], reacting));
       log({ kind: 'move', text: `${me.name} moves.`, at: action.to, player: action.player, path, cue: { kind: 'move', hexes: distance(from, action.to) } });
       break;
     }
@@ -464,12 +467,6 @@ function resolveUtility(state: GameState, caster: Mage, def: AbilityDef, target:
     case 'blink':
       caster.pos = target;
       break;
-    case 'step': {
-      const path = walkPath(state, caster.pos, target, key(state.mages[other(caster.owner)].pos), abilityRange(def));
-      caster.pos = target;
-      log({ kind: 'move', text: `${caster.name} steps aside.`, at: target, player: caster.owner, path });
-      break;
-    }
     case 'block': {
       const first = incoming(state, caster.owner)[0];
       if (!first) break;

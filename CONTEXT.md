@@ -45,7 +45,7 @@ _Avoid_: Cycle
 One mage's Reaction Phase followed by their Action Phase. The defender's pending Attacks resolve between the two phases.
 
 **Reaction Phase**:
-The first phase of a turn, where a mage responds to incoming attacks with Reactions. It happens only when an attack is pending against them; otherwise it is skipped. A mage can't Move in it.
+The first phase of a turn, where a mage responds to incoming attacks with Reactions. It happens only when an attack is pending against them; otherwise it is skipped. A mage can Move in it, but more slowly (see Movespeed).
 
 **Action Phase**:
 The main phase of a turn, where a mage moves, casts spells, attacks and absorbs mana. Reaction-only Abilities can't be used in it.
@@ -70,8 +70,8 @@ A mage standing in an Attack's Threat Area at Resolution, whether or not the Att
 _Avoid_: Attack (a Hit is what an Attack does to a mage)
 
 **Move**:
-Walking from hex to hex by spending Movement Points. Only in the Action Phase.
-_Avoid_: Using "move" for an Ability, or for dodging in the Reaction Phase (that is a Step)
+Walking from hex to hex by spending Movement Points, in either phase. Walking in the Reaction Phase is a dodge, but it is still a Move.
+_Avoid_: Using "move" for an Ability
 
 ## Threat Area shapes
 
@@ -140,10 +140,10 @@ An action costing 1 AP that takes Mana from the Mana Crystal the mage is standin
 ## Stats
 
 **HP**:
-A mage's health. The base is 10, and the mage loses when it reaches 0.
+A mage's health. The base is 10, and the mage loses when it reaches 0. A Loadout buys HP 1 point at a time: +3 HP for each of the first 2 points, +2 for the next 3, then +1.
 
 **Movespeed**:
-The Movement Points a mage gets per AP spent on movement. The base is 3.
+The Movement Points a mage gets per AP spent on movement. The base is 3. In the Reaction Phase it is 3 lower, so a mage with Movespeed 3 can't Move there and one with 4 walks 1 hex per AP.
 
 **Magic**:
 The stat that sets a mage's Mana economy: starting Mana, Mana regained per turn, and the Mana cap. The base is 3.
@@ -155,7 +155,7 @@ _Avoid_: Power, Mana (Mana is the resource, Magic is the stat)
 An Ability that costs Mana.
 
 **Reaction**:
-An Ability a defender uses in their Reaction Phase: a Reaction Spell, a Reaction Technique, or Blink. Like any Ability it costs 1 AP unless it is Fast, so reacting usually leaves less AP for the Action Phase. A targeted Reaction Spell can't target an Attack that was itself produced by a reaction (such as a Deflected Line). The defender can still Step or Blink out of such an Attack, or Ward against it.
+An Ability a defender uses in their Reaction Phase: a Reaction Spell, a Reaction Technique, or Blink. Like any Ability it costs 1 AP unless it is Fast, so reacting usually leaves less AP for the Action Phase. A targeted Reaction Spell can't target an Attack that was itself produced by a reaction (such as a Deflected Line). The defender can still Move or Blink out of such an Attack, or Ward against it.
 
 **Fast Spell**:
 A spell that costs no AP to cast. It still costs Mana.
@@ -164,11 +164,7 @@ A spell that costs no AP to cast. It still costs Mana.
 A defensive Spell cast during the Reaction Phase to mitigate, counter, deflect or block incoming Attacks. It costs Mana and 1 AP, except Ward, which is Fast and costs no AP. Ward, Counterspell and Deflect are reaction-only; Blink also works in the Action Phase. Some target one specific pending Attack; others cover every Attack in that resolution. Counterspell cancels Spells only, not Techniques. Deflect works on Lines only.
 
 **Reaction Technique**:
-A Technique usable only in the Reaction Phase. It costs 1 AP and no Mana. Sidestep and Dodge Roll are Reaction Techniques that Step the mage out of a Threat Area.
-
-**Step**:
-Walking up to a few hexes as a Reaction Technique, going round Rock and the other mage. It spends AP, not Movement Points. Sidestep Steps 1 hex and Dodge Roll up to 2. Blink is a teleport, not a Step.
-_Avoid_: Move (a Move spends Movement Points and happens only in the Action Phase)
+A Technique usable only in the Reaction Phase. It costs 1 AP and no Mana. Block is one.
 
 **Range**:
 How far an Ability reaches, in hexes. Some Lines and the Fireball have unlimited range: only the board edge, Rock or the enemy stops them, and no range is shown for them.

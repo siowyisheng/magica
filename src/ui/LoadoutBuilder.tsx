@@ -6,7 +6,7 @@ import {
   MAX_ABILITIES,
   STAT_KEYS,
   STAT_NAME,
-  STAT_STEP_GAIN,
+  statStepGain,
   loadoutCost,
   pointsLeft,
   statStepCost,
@@ -211,7 +211,7 @@ function Editor({
                 </button>
                 <strong className="stat-value">{statValue(k, steps)}</strong>
                 <button disabled={next > left} onClick={() => setSteps(k, steps + 1)}>
-                  +{STAT_STEP_GAIN[k]} <span className="muted">({next} pts)</span>
+                  +{statStepGain(k, steps + 1)} <span className="muted">({next} pts)</span>
                 </button>
               </div>
             );
@@ -319,6 +319,6 @@ export function abilitySummary(a: AbilityDef): string {
     parts.push(SHAPE_NAME[s.kind]);
     if ('range' in s && s.range && s.range < UNLIMITED) parts.push(`rng ${s.range}`);
     if (a.effect.hit.damage) parts.push(`${a.effect.hit.damage} dmg`);
-  } else if (a.targeting === 'tile') parts.push(a.effect.type === 'step' ? `walk ${a.range}` : `rng ${a.range}`);
+  } else if (a.targeting === 'tile') parts.push(`rng ${a.range}`);
   return parts.join(' · ');
 }

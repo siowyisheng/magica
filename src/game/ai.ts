@@ -70,11 +70,17 @@ function chooseReaction(state: GameState, player: PlayerId): Action {
       const first = threats[0];
       if (first?.area.includes(key(me.pos)) && first.hit.damage > 0)
         consider(Math.min(fx.amount, hitDamage(me, first.hit.damage)), def.mana, { type: 'cast', player, abilityId: slot.id, target: me.pos });
-    } else if (fx.type === 'blink' || fx.type === 'step') {
+    } else if (fx.type === 'blink') {
       const out = validTargets(state, player, slot.id).find((h) => !danger.has(key(h)) && !own.has(key(h)));
       if (out) consider(total, def.mana, { type: 'cast', player, abilityId: slot.id, target: out });
     }
   }
+  // Or just walk out: Movement is slower in the Reaction Phase, but costs no Mana.
+  const out = [...reachable(state, player)]
+    .sort((a, b) => a[1] - b[1])
+    .map(([k]) => fromKey(k))
+    .find((h) => !danger.has(key(h)) && !own.has(key(h)));
+  if (out) consider(total, 0, { type: 'move', player, to: out });
   return best ? (best as { action: Action }).action : { type: 'endReaction', player };
 }
 
@@ -248,7 +254,6 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, _targe
     case 'deflect':
     case 'haste':
     case 'blink':
-    case 'step':
     case 'block':
     case 'empower':
     case 'pillar':

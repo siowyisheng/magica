@@ -13,7 +13,7 @@ const loadout = (abilities: string[]): Loadout => ({
 });
 
 /** Open board; P1 (attacker) at `a`, P2 at `b`. Both have plenty of Mana. */
-function duel(a: Hex, b: Hex, abilities = ['firebolt', 'icicle', 'plague', 'doom', 'dodge-roll', 'blink']): GameState {
+function duel(a: Hex, b: Hex, abilities = ['firebolt', 'icicle', 'plague', 'doom', 'blink']): GameState {
   const g = createGame({
     seed: 3,
     radius: 6,
@@ -72,11 +72,42 @@ describe('delayed Attacks', () => {
     expect(actionError(after, { type: 'endReaction', player: 'p2' })).toMatch(/Reaction/);
   });
 
-  it('cannot be answered by walking: Moving is not allowed in the Reaction Phase', () => {
-    let g = cast(duel({ q: 0, r: 2 }, { q: 0, r: -1 }), 'firebolt', { q: 0, r: -1 });
-    g = endTurn(g);
-    expect(actionError(g, { type: 'move', player: 'p2', to: { q: 1, r: -1 } })).toMatch(/Reaction/);
-    expect(reachable(g, 'p2').size).toBe(0);
+  describe('walking in the Reaction Phase', () => {
+    const reacting = (movespeed: number) => {
+      const g = duel({ q: 0, r: 2 }, { q: 0, r: -1 });
+      g.mages.p2.movespeed = movespeed;
+      return endTurn(cast(g, 'firebolt', { q: 0, r: -1 }));
+    };
+
+    it('is 3 slower per AP than in the Action Phase, so Movespeed 3 cannot walk at all', () => {
+      const g = reacting(3);
+      expect(g.phase).toBe('reaction');
+      expect(reachable(g, 'p2').size).toBe(0);
+      expect(actionError(g, { type: 'move', player: 'p2', to: { q: 1, r: -1 } })).toMatch(/move/i);
+    });
+
+    it('lets Movespeed 4 walk 1 hex for 1 AP or 2 hexes for 2 AP', () => {
+      const g = reacting(4);
+      expect(Math.max(...[...reachable(g, 'p2').values()])).toBe(2);
+      const one = applyAction(g, { type: 'move', player: 'p2', to: { q: 1, r: -1 } });
+      expect(one.mages.p2.ap).toBe(1);
+      expect(one.mages.p2.mp).toBe(0);
+      const two = applyAction(g, { type: 'move', player: 'p2', to: { q: 2, r: -1 } });
+      expect(two.mages.p2.ap).toBe(0);
+    });
+
+    it('walking out of the Threat Area avoids the hit', () => {
+      let g = reacting(4);
+      g = applyAction(g, { type: 'move', player: 'p2', to: { q: 1, r: -1 } });
+      g = endReaction(g);
+      expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp);
+    });
+
+    it('keeps leftover Movement Points for the Action Phase', () => {
+      let g = reacting(6); // 3 per AP while reacting
+      g = applyAction(g, { type: 'move', player: 'p2', to: { q: 1, r: -1 } });
+      expect(g.mages.p2.mp).toBe(2);
+    });
   });
 });
 

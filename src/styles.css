@@ -252,6 +252,8 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .bar-row { grid-template-columns: 40px 1fr auto; }
 .pips .mp-note { width: auto; white-space: nowrap; margin-left: 0.3rem; font-size: 0.75rem; }
 .is-reachable.costs-ap polygon { fill: #1b302e; stroke-dasharray: 4 3; }
+/* Needs both AP: warmer and dotted, so it reads as the costlier walk. */
+.is-reachable.costs-2ap polygon { fill: #3a2c1a; stroke: #f0a35a; stroke-dasharray: 1 4; stroke-linecap: round; }
 
 /* ---------- Mana Crystals ---------- */
 .crystal polygon { stroke-width: 2; transition: opacity 0.3s; }

@@ -237,13 +237,6 @@ function castAbility(e: Env, def: AbilityDef) {
       tone(e, { f: 1100, to: 180, dur: 0.12, peak: 0.3, at: 0.09 });
       hiss(e, { filter: 'highpass', f: 5000, dur: 0.04, peak: 0.12, at: 0.09 });
       break;
-    case 'step':
-      hiss(e, { filter: 'lowpass', f: 1400, dur: 0.05, peak: 0.25 });
-      if (def.id === 'dodge-roll') {
-        hiss(e, { filter: 'lowpass', f: 1400, dur: 0.05, peak: 0.22, at: 0.09, offset: 0.2 });
-        hiss(e, { f: 600, to: 1500, dur: 0.18, peak: 0.12, at: 0.04 });
-      }
-      break;
     case 'block':
       tone(e, { f: 90, to: 50, dur: 0.15, peak: 0.35 });
       ring(e, 700, 0.3, 0.15, 0.01);

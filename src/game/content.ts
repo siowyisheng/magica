@@ -32,10 +32,6 @@ const reactionTechnique = (a: Common & { effect: AbilityEffect; targeting: Targe
   timing: 'reaction',
 });
 
-/** A Reaction Technique that walks the mage a few hexes: a dodge. */
-const reactionStep = (a: Common & { range: number }): AbilityDef =>
-  reactionTechnique({ ...a, targeting: 'tile', effect: { type: 'step' } });
-
 const attack = (a: Common & { mana: number; shape: Shape; hit: Hit }): AbilityDef => ({
   ...a,
   kind: 'spell',
@@ -65,15 +61,7 @@ const LIST: AbilityDef[] = [
     shape: { kind: 'meleeArc' }, hit: { damage: 2, knockback: 1 },
   }),
 
-  // --- Reaction Techniques: dodges, AP only -----------------------------------
-  reactionStep({
-    id: 'sidestep', name: 'Sidestep', icon: '🦶', school: 'steel', points: 2, range: 1,
-    description: 'Reaction: step to a neighbouring hex before the Attacks land.',
-  }),
-  reactionStep({
-    id: 'dodge-roll', name: 'Dodge Roll', icon: '🤸', school: 'steel', points: 4, range: 2,
-    description: 'Reaction: roll up to 2 hexes clear of the Attacks. Rock and your foe block the way.',
-  }),
+  // --- Reaction Techniques: AP only -----------------------------------
   reactionTechnique({
     id: 'block', name: 'Block', icon: '✋', school: 'steel', points: 3,
     description: 'Reaction: reduce the damage of the first incoming Attack by 4.',

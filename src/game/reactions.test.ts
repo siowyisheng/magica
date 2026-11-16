@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chooseAction } from './ai';
-import { actionError, applyAction, castError, createGame } from './engine';
+import { actionError, applyAction, castError, createGame, reachable } from './engine';
 import type { Hex } from './hex';
 import type { Action, GameState, Loadout } from './types';
 
@@ -113,63 +113,49 @@ describe('Reaction Spells', () => {
 });
 
 describe('Reaction Techniques', () => {
-  const kit = (...abilities: string[]) => {
-    let g = duel();
-    g.mages.p2.abilities = ['staff-strike', ...abilities].map((id) => ({ id }));
-    g = act(g, { type: 'cast', player: 'p1', abilityId: 'firebolt', target: p2pos(g) });
-    return act(g, { type: 'endTurn', player: 'p1' });
-  };
-  const stepTo = (g: GameState, abilityId: string, to: Hex) => act(g, { type: 'cast', player: 'p2', abilityId, target: to });
-
-  it('cost 1 AP and no Mana, and only work in the Reaction Phase', () => {
+  it('Block is a Reaction Technique: 1 AP, no Mana, only in the Reaction Phase', () => {
     const calm = duel();
-    calm.mages.p1.abilities.push({ id: 'sidestep' });
-    expect(castError(calm, 'p1', 'sidestep')).toMatch(/Reaction Phase/);
-    const g = kit('sidestep');
-    const after = stepTo(g, 'sidestep', { q: 1, r: -1 });
+    calm.mages.p1.abilities.push({ id: 'block' });
+    expect(castError(calm, 'p1', 'block')).toMatch(/Reaction Phase/);
+    const g = underFire('firebolt');
+    g.mages.p2.abilities.push({ id: 'block' });
+    const after = react(g, 'block');
     expect(after.mages.p2.ap).toBe(1);
     expect(after.mages.p2.mana).toBe(g.mages.p2.mana);
-    expect(after.mages.p2.pos).toEqual({ q: 1, r: -1 });
   });
+});
 
-  it('Sidestep moves 1 hex and Dodge Roll up to 2', () => {
-    const g = kit('sidestep', 'dodge-roll');
-    expect(castError(g, 'p2', 'sidestep', { q: 2, r: -1 })).toMatch(/range/i);
-    expect(castError(g, 'p2', 'sidestep', { q: 1, r: -1 })).toBeNull();
-    expect(castError(g, 'p2', 'dodge-roll', { q: 2, r: -1 })).toBeNull();
-    expect(castError(g, 'p2', 'dodge-roll', { q: 3, r: -1 })).toMatch(/range/i);
-  });
+describe('walking as a Reaction', () => {
+  const reacting = (movespeed: number) => {
+    const g = underFire('firebolt');
+    g.mages.p2.movespeed = movespeed;
+    return g;
+  };
 
-  it('a step dodges an Attack', () => {
-    let g = kit('sidestep');
-    g = stepTo(g, 'sidestep', { q: 1, r: -1 });
-    g = resolve(g);
-    expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp);
-  });
-
-  it('a step walks round Rock, so it cannot cross it', () => {
-    const g = kit('dodge-roll');
-    // Wall off every way to the far side of (0,-1)'s neighbour (0,-2) except through rock-free hexes.
-    for (const k of ['0,-2', '1,-2', '-1,-1']) g.tiles[k].terrain = 'rock';
-    expect(castError(g, 'p2', 'dodge-roll', { q: 0, r: -3 })).not.toBeNull();
-    expect(castError(g, 'p2', 'dodge-roll', { q: 1, r: -1 })).toBeNull();
-  });
-
-  it('a step records the hexes it walked, for the board to animate', () => {
-    const g = kit('dodge-roll');
+  it('records the hexes walked, for the board to animate', () => {
+    const g = reacting(5); // 2 hexes for 1 AP
     const from = g.mages.p2.pos;
-    const after = stepTo(g, 'dodge-roll', { q: 2, r: -1 });
+    const after = act(g, { type: 'move', player: 'p2', to: { q: 2, r: -1 } });
     const ev = after.events.find((e) => e.kind === 'move' && e.path)!;
     expect(ev.player).toBe('p2');
     expect(ev.path![0]).toEqual(from);
     expect(ev.path!.at(-1)).toEqual({ q: 2, r: -1 });
-    expect(ev.path!.length).toBeGreaterThanOrEqual(2);
     for (const h of ev.path!) expect(after.tiles[`${h.q},${h.r}`].terrain).not.toBe('rock');
   });
 
-  it('cannot Move in the Reaction Phase', () => {
-    const g = kit('sidestep');
-    expect(actionError(g, { type: 'move', player: 'p2', to: { q: 1, r: -1 } })).toMatch(/Reaction/);
+  it('goes round Rock, so it cannot cross it', () => {
+    const g = reacting(5);
+    for (const k of ['0,-2', '1,-2', '-1,-1']) g.tiles[k].terrain = 'rock';
+    expect(actionError(g, { type: 'move', player: 'p2', to: { q: 0, r: -3 } })).not.toBeNull();
+    expect(actionError(g, { type: 'move', player: 'p2', to: { q: 1, r: -1 } })).toBeNull();
+  });
+
+  it('is slowed and rooted like any other walking', () => {
+    const g = reacting(5);
+    g.mages.p2.statuses = [{ kind: 'slow', turns: 1, power: 1 }];
+    expect(Math.max(...[...reachable(g, 'p2').values()])).toBe(2); // 1 per AP, 2 AP
+    g.mages.p2.statuses = [{ kind: 'root', turns: 1, power: 0 }];
+    expect(reachable(g, 'p2').size).toBe(0);
   });
 });
 

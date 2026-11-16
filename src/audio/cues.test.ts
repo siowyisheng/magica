@@ -9,7 +9,7 @@ const loadout: Loadout = {
   name: 'X',
   circle: 1,
   stats: { hp: 3, magic: 0, movespeed: 0 },
-  abilityIds: ['staff-strike', 'firebolt', 'icicle', 'ward', 'counterspell', 'block', 'mend', 'dodge-roll', 'spark'],
+  abilityIds: ['staff-strike', 'firebolt', 'icicle', 'ward', 'counterspell', 'block', 'mend', 'blink', 'spark'],
   passiveIds: [],
 };
 

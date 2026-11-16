@@ -6,18 +6,22 @@ export const CIRCLE_POINTS: Record<Circle, number> = { 1: 30, 2: 20, 3: 10 };
 export const CIRCLE_NAME: Record<Circle, string> = { 1: 'First Circle', 2: 'Second Circle', 3: 'Third Circle' };
 
 export const BASE_STATS: Record<StatKey, number> = { hp: 10, magic: 3, movespeed: 3 };
-/** How much one step raises each stat. */
-export const STAT_STEP_GAIN: Record<StatKey, number> = { hp: 3, magic: 1, movespeed: 1 };
 export const STAT_NAME: Record<StatKey, string> = { hp: 'HP', magic: 'Magic', movespeed: 'Movespeed' };
 export const STAT_KEYS = Object.keys(BASE_STATS) as StatKey[];
 
 export const MAX_ABILITIES = 8;
 
-/** Loadout Points for the k-th step (1-based) of a stat. Each step costs more than the last. */
+/** How much the k-th step (1-based) of a stat raises it. HP pays less and less: +3, +3, +2, +2, +2, then +1. */
+export function statStepGain(stat: StatKey, k: number): number {
+  if (stat !== 'hp') return 1;
+  return k <= 2 ? 3 : k <= 5 ? 2 : 1;
+}
+
+/** Loadout Points for the k-th step (1-based) of a stat. Magic and Movespeed cost more each step; HP is always 1. */
 export function statStepCost(stat: StatKey, k: number): number {
   switch (stat) {
     case 'hp':
-      return k;
+      return 1;
     case 'magic':
       return k + 1;
     case 'movespeed':
@@ -31,7 +35,11 @@ export function statCost(stat: StatKey, steps: number): number {
   return total;
 }
 
-export const statValue = (stat: StatKey, steps: number) => BASE_STATS[stat] + STAT_STEP_GAIN[stat] * steps;
+export function statValue(stat: StatKey, steps: number): number {
+  let value = BASE_STATS[stat];
+  for (let k = 1; k <= steps; k++) value += statStepGain(stat, k);
+  return value;
+}
 
 export function loadoutCost(l: Loadout): number {
   const stats = STAT_KEYS.reduce((n, k) => n + statCost(k, l.stats[k] ?? 0), 0);

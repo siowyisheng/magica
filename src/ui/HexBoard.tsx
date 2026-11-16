@@ -14,6 +14,8 @@ export interface BoardHighlights {
   reachable?: Set<string>;
   /** Reachable with leftover Movement Points, without spending AP. */
   free?: Set<string>;
+  /** Reachable only by spending 2 AP on movement. */
+  twoAp?: Set<string>;
   targets?: Set<string>;
   impact?: Set<string>;
   path?: Set<string>;
@@ -123,7 +125,8 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
           'tile',
           `terrain-${t.terrain}`,
           highlights.reachable?.has(k) && 'is-reachable',
-          highlights.reachable?.has(k) && !highlights.free?.has(k) && 'costs-ap',
+          highlights.reachable?.has(k) && !highlights.free?.has(k) && !highlights.twoAp?.has(k) && 'costs-ap',
+          highlights.twoAp?.has(k) && !highlights.free?.has(k) && 'costs-2ap',
           highlights.targets?.has(k) && 'is-target',
           highlights.impact?.has(k) && 'is-impact',
         ]
