@@ -5,6 +5,7 @@ import type { Action, MatchRecord } from '../game/types';
 import { BroadcastChannelTransport, type LiveMatchInfo } from '../net/spectate';
 import { HexBoard } from './HexBoard';
 import { barScale, EventLog, MageCard } from './Panels';
+import { useSfx } from './useSfx';
 
 /** Lobby: live matches (from other windows) + saved replays. */
 export function SpectateLobby({
@@ -157,6 +158,7 @@ function Viewer({
 }) {
   const actions: Action[] = record.actions;
   const state = useMemo(() => replay(record.config, actions, upTo), [record.config, actions, upTo]);
+  useSfx(state, null); // a spectator has no side
   return (
     <div className="match spectating">
       <header className="match-top">

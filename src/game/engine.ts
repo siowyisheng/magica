@@ -1,13 +1,14 @@
 import { generateBoard, moveCost, spawnFor } from './board';
 import { ABILITIES } from './content';
 import { advanceCrystals, crystalAt, crystalYield, initialCrystals, respawnCrystal } from './crystals';
-import { distance, equals, key, line, neighbors, toPixel, type Hex } from './hex';
+import { distance, equals, fromKey, key, line, neighbors, toPixel, type Hex } from './hex';
 import { buildMage } from './loadout';
 import { aimableHexes, isDrawn, shapeReach, threatArea } from './threat';
 import {
   other,
   type AbilityDef,
   type Action,
+  type Cue,
   type GameEvent,
   type GameState,
   type Hit,
@@ -262,12 +263,13 @@ export function applyAction(prev: GameState, action: Action): GameState {
 
   switch (action.type) {
     case 'move': {
+      const from = me.pos;
       const cost = reachable(prev, action.player).get(key(action.to))!;
       const spend = apForMove(me, cost);
       me.ap -= spend;
       me.mp += spend * mpPerAp(me) - cost;
       me.pos = action.to;
-      log({ kind: 'move', text: `${me.name} moves.`, at: action.to });
+      log({ kind: 'move', text: `${me.name} moves.`, at: action.to, cue: { kind: 'move', hexes: distance(from, action.to) } });
       break;
     }
     case 'cast': {
@@ -285,11 +287,11 @@ export function applyAction(prev: GameState, action: Action): GameState {
           area: area.map(key),
           hit: boosted(me, def),
         });
-        log({ kind: 'cast', text: `${me.name} launches ${def.icon} ${def.name}.`, at: action.target });
+        log({ kind: 'cast', text: `${me.name} launches ${def.icon} ${def.name}.`, at: me.pos, cue: { kind: 'launch', abilityId: def.id } });
       } else if (isTargetedReaction(def)) {
         react(state, me, def, action.attackId!, log);
       } else {
-        log({ kind: 'cast', text: `${me.name} casts ${def.icon} ${def.name}.`, at: action.target });
+        log({ kind: 'cast', text: `${me.name} casts ${def.icon} ${def.name}.`, at: me.pos, cue: { kind: 'cast', abilityId: def.id } });
         resolveUtility(state, me, def, action.target, log);
       }
       checkWinner(state, log);
@@ -300,7 +302,7 @@ export function applyAction(prev: GameState, action: Action): GameState {
       const gained = Math.min(maxMana(me) - me.mana, Math.floor(crystalYield(c, round(state)) * (1 + me.absorbBonus)));
       me.ap -= 1;
       me.mana += gained;
-      log({ kind: 'heal', text: `${me.name} absorbs ${gained} Mana from the ${c.size} crystal.`, at: me.pos });
+      log({ kind: 'heal', text: `${me.name} absorbs ${gained} Mana from the ${c.size} crystal.`, at: me.pos, cue: { kind: 'crystalAbsorb', size: c.size } });
       respawnCrystal(state, c);
       break;
     }
@@ -322,11 +324,15 @@ export function applyAction(prev: GameState, action: Action): GameState {
           kind: 'victory',
           text:
             state.winner === 'draw' ? 'Time! The duel ends in a draw.' : `Time! ${state.mages[state.winner].name} wins on health.`,
+          cue: { kind: 'result', winner: state.winner },
         });
         break;
       }
       state.active = other(action.player);
-      if (state.active === 'p1') advanceCrystals(state); // a new round begins
+      if (state.active === 'p1')
+        advanceCrystals(state, (c) =>
+          log({ kind: 'status', text: `The ${c.size} crystal is ready.`, at: c.pos, cue: { kind: 'crystalReady', size: c.size } }),
+        ); // a new round begins
       startTurn(state, state.active, log);
       break;
     }
@@ -348,7 +354,11 @@ function startTurn(state: GameState, player: PlayerId, log: Log) {
   if (state.winner) return;
   if (incoming(state, player).length) {
     state.phase = 'reaction';
-    log({ kind: 'turn', text: `${mage.name} must react to ${incoming(state, player).length} incoming attack(s).` });
+    log({
+      kind: 'turn',
+      text: `${mage.name} must react to ${incoming(state, player).length} incoming attack(s).`,
+      cue: { kind: 'reactionStart', player },
+    });
   } else resolveIncoming(state, log);
 }
 
@@ -362,6 +372,7 @@ function resolveIncoming(state: GameState, log: Log) {
   state.pending = state.pending.filter((a) => a.caster === defender);
   state.mages[defender].shield = 0;
   state.phase = 'action';
+  if (!state.winner) log({ kind: 'turn', text: '', cue: { kind: 'actionStart', player: defender } });
 }
 
 function resolveAttack(state: GameState, attack: PendingAttack, log: Log) {
@@ -369,11 +380,13 @@ function resolveAttack(state: GameState, attack: PendingAttack, log: Log) {
   const caster = state.mages[attack.caster];
   const area = new Set(attack.area);
   const victims = Object.values(state.mages).filter((m) => area.has(key(m.pos)));
+  const at = fromKey(attack.area[Math.floor(attack.area.length / 2)]);
+  const cue: Cue = { kind: 'resolve', abilityId: def.id };
   if (!victims.length) {
-    log({ kind: 'cast', text: `${def.icon} ${def.name} misses.` });
+    log({ kind: 'cast', text: `${def.icon} ${def.name} misses.`, at, cue });
     return;
   }
-  log({ kind: 'cast', text: `${def.icon} ${def.name} hits ${victims.map((v) => v.name).join(' and ')}.` });
+  log({ kind: 'cast', text: `${def.icon} ${def.name} hits ${victims.map((v) => v.name).join(' and ')}.`, at, cue });
   let stolen = 0;
   for (const v of victims) applyHit(state, attack, attack.hit, v, (n) => v.owner !== caster.owner && (stolen += n), log);
   if (attack.hit.lifesteal && stolen > 0 && caster.hp > 0) heal(caster, Math.floor(stolen * attack.hit.lifesteal), log);
@@ -381,7 +394,8 @@ function resolveAttack(state: GameState, attack: PendingAttack, log: Log) {
 }
 
 function applyHit(state: GameState, attack: PendingAttack, hit: Hit, v: Mage, onDealt: (n: number) => unknown, log: Log) {
-  if (hit.damage > 0) onDealt(dealDamage(v, hitDamage(v, hit.damage), log));
+  if (hit.damage > 0) onDealt(dealDamage(v, hitDamage(v, hit.damage), log, true));
+  else if (attack.blocked) log({ kind: 'status', text: `${v.name} is unharmed: the damage was blocked.`, at: v.pos, cue: { kind: 'absorbed' } });
   if (hit.status && v.hp > 0) addStatus(v, hit.status, log);
   if (hit.knockback && v.owner !== attack.caster && v.hp > 0) knockback(state, attack.origin, v, hit.knockback, log);
 }
@@ -392,18 +406,18 @@ function react(state: GameState, me: Mage, def: AbilityDef, attackId: number, lo
   const name = `${ABILITIES[atk.abilityId].icon} ${ABILITIES[atk.abilityId].name}`;
   state.pending = state.pending.filter((a) => a !== atk);
   if (def.effect.type === 'counter') {
-    log({ kind: 'cast', text: `${me.name} counters ${name}!` });
+    log({ kind: 'cast', text: `${me.name} counters ${name}!`, at: me.pos, cue: { kind: 'cast', abilityId: def.id } });
     return;
   }
   const attacker = state.mages[atk.caster];
   const shape = (ABILITIES[atk.abilityId].effect as { shape: Shape }).shape;
   const area = threatArea(state.tiles, me.pos, shape, attacker.pos, attacker.pos) ?? [];
   if (!area.length) {
-    log({ kind: 'cast', text: `${me.name} deflects ${name}, but it shatters against the rock.` });
+    log({ kind: 'cast', text: `${me.name} deflects ${name}, but it shatters against the rock.`, at: me.pos, cue: { kind: 'cast', abilityId: def.id } });
     return;
   }
   state.pending.push({ ...atk, id: state.nextAttackId++, caster: me.owner, origin: me.pos, area: area.map(key), reflected: true });
-  log({ kind: 'cast', text: `${me.name} deflects ${name} back at ${attacker.name}!` });
+  log({ kind: 'cast', text: `${me.name} deflects ${name} back at ${attacker.name}!`, at: me.pos, cue: { kind: 'cast', abilityId: def.id } });
 }
 
 /** The Hit an Attack launched now will carry: Techniques get the caster's Empower bonus. */
@@ -439,6 +453,7 @@ function resolveUtility(state: GameState, caster: Mage, def: AbilityDef, target:
       if (!first) break;
       const was = first.hit.damage;
       first.hit = { ...first.hit, damage: Math.max(0, was - fx.amount) };
+      first.blocked = (first.blocked ?? 0) + (was - first.hit.damage);
       const a = ABILITIES[first.abilityId];
       log({ kind: 'status', text: `${caster.name} blocks ${was - first.hit.damage} damage of ${a.icon} ${a.name}.`, at: caster.pos });
       break;
@@ -521,8 +536,8 @@ export function hitDamage(victim: Mage, amount: number): number {
   return Math.max(1, amount + vuln - victim.armor);
 }
 
-/** Applies shields. Returns HP actually lost. */
-function dealDamage(victim: Mage, total: number, log: Log): number {
+/** Applies shields. Returns HP actually lost. `fromHit`: damage from an Attack's Hit, which makes a sound. */
+function dealDamage(victim: Mage, total: number, log: Log, fromHit = false): number {
   const absorbed = Math.min(victim.shield, total);
   victim.shield -= absorbed;
   const dealt = Math.min(victim.hp, total - absorbed);
@@ -532,6 +547,7 @@ function dealDamage(victim: Mage, total: number, log: Log): number {
     text: `${victim.name} takes ${dealt}${absorbed ? ` (${absorbed} blocked)` : ''}.`,
     at: victim.pos,
     amount: dealt,
+    cue: !fromHit ? undefined : dealt > 0 ? { kind: 'damage', amount: dealt } : absorbed > 0 ? { kind: 'absorbed' } : undefined,
   });
   return dealt;
 }
@@ -562,6 +578,7 @@ function checkWinner(state: GameState, log: Log) {
   log({
     kind: 'victory',
     text: state.winner === 'draw' ? 'Both mages fall. Draw!' : `${state.mages[state.winner].name} is victorious!`,
+    cue: { kind: 'result', winner: state.winner },
   });
 }
 

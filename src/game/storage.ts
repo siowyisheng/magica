@@ -52,9 +52,12 @@ export interface Settings {
   /** Music volume, 0–100. */
   musicVolume: number;
   musicMuted: boolean;
+  /** Sound effects volume, 0–100. */
+  sfxVolume: number;
+  sfxMuted: boolean;
 }
 
 const SETTINGS = 'magica.settings.v1';
-export const DEFAULT_SETTINGS: Settings = { musicVolume: 55, musicMuted: false };
+export const DEFAULT_SETTINGS: Settings = { musicVolume: 55, musicMuted: false, sfxVolume: 70, sfxMuted: false };
 export const loadSettings = (): Settings => ({ ...DEFAULT_SETTINGS, ...read<Partial<Settings>>(SETTINGS, {}) });
 export const saveSettings = (s: Settings) => write(SETTINGS, s);

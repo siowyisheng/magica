@@ -21,6 +21,8 @@ import { isDrawn } from '../game/threat';
 import { HexBoard, type BoardHighlights } from './HexBoard';
 import { AbilityBar, barAbilityIds, barScale, EventLog, MageCard, PhaseBanner, TurnResources, TurnTimer } from './Panels';
 import { useCountdown } from './useCountdown';
+import { useSfx } from './useSfx';
+import { sfx } from '../audio/sfx';
 
 export type MatchMode = 'ai' | 'hotseat';
 
@@ -47,6 +49,8 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
   const [hover, setHover] = useState<Hex | null>(null);
 
   const isLocal = useCallback((p: PlayerId) => mode === 'hotseat' || p === 'p1', [mode]);
+  // Against the AI you play P1; in hotseat both sides are yours.
+  useSfx(state, mode === 'hotseat' ? 'both' : 'p1');
   const controlling = !state.winner && isLocal(state.active) ? state.active : null;
 
   // --- Spectate host -------------------------------------------------------
@@ -206,7 +210,10 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       const n = Number(e.key);
       if (n >= 1 && n <= 9) {
         const id = barAbilityIds(stateRef.current, controlling)[n - 1];
-        if (id) select(selected === id ? null : id);
+        if (id) {
+          sfx.play({ id: 'select' });
+          select(selected === id ? null : id);
+        }
       } else if (e.key === 'Escape') setSelected(null);
       else if (e.key.toLowerCase() === 'a') absorb();
       else if (e.key === ' ' || e.key.toLowerCase() === 'e') {

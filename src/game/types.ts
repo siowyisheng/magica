@@ -177,10 +177,35 @@ export interface Mage {
 
 export type GameEventKind = 'move' | 'cast' | 'damage' | 'heal' | 'status' | 'turn' | 'victory';
 
+/**
+ * What a sound effect needs to know about an event. The engine records these and stays silent itself;
+ * the UI decides how each one sounds.
+ */
+export type Cue =
+  /** An instant Spell or Reaction was used. */
+  | { kind: 'cast'; abilityId: string }
+  /** An Attack was launched. */
+  | { kind: 'launch'; abilityId: string }
+  /** An Attack landed at Resolution, whether or not it found anyone. */
+  | { kind: 'resolve'; abilityId: string }
+  /** A mage lost `amount` HP to an Attack's Hit. */
+  | { kind: 'damage'; amount: number }
+  /** A Hit took no HP because a shield or Block absorbed it. */
+  | { kind: 'absorbed' }
+  /** A mage walked `hexes` hexes. */
+  | { kind: 'move'; hexes: number }
+  | { kind: 'crystalAbsorb'; size: CrystalSize }
+  | { kind: 'crystalReady'; size: CrystalSize }
+  | { kind: 'actionStart'; player: PlayerId }
+  | { kind: 'reactionStart'; player: PlayerId }
+  | { kind: 'result'; winner: PlayerId | 'draw' };
+
 export interface GameEvent {
   turn: number;
   kind: GameEventKind;
+  /** Shown in the event log. Empty for events that only carry a cue. */
   text: string;
+  cue?: Cue;
   /** Hex the event happened at, for floating combat text. */
   at?: Hex;
   amount?: number;
@@ -207,6 +232,8 @@ export interface PendingAttack {
   hit: Hit;
   /** Sent back by a Deflect. Reactions can't target it (one layer of response only). */
   reflected?: boolean;
+  /** Damage taken off this Attack by Block. */
+  blocked?: number;
 }
 
 /** Reaction Phase happens only when Attacks are pending against the active mage. */

@@ -20,8 +20,13 @@ export const CRYSTAL_STATE_NAME: Record<CrystalState, string> = {
 /** Mana a crystal gives when absorbed in `round` (before Passives and the Mana cap). */
 export const crystalYield = (c: Crystal, round: number) => round * (c.size === 'large' ? 2 : 1);
 
-export function advanceCrystals(state: GameState) {
-  for (const c of state.crystals) c.state = NEXT[c.state];
+/** A new round: every crystal moves one step along. `onReady` is told about any that just became Ready. */
+export function advanceCrystals(state: GameState, onReady?: (c: Crystal) => void) {
+  for (const c of state.crystals) {
+    const was = c.state;
+    c.state = NEXT[c.state];
+    if (was !== 'ready' && c.state === 'ready') onReady?.(c);
+  }
 }
 
 export function initialCrystals(state: GameState): Crystal[] {

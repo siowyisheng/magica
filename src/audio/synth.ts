@@ -45,6 +45,21 @@ export class MusicPlayer {
     if (this.wanted && this.playing?.track.id !== this.wanted) this.start(this.wanted);
   }
 
+  /** The shared audio context, once a user gesture has unlocked it. Sound effects play through it too. */
+  context(): AudioContext | null {
+    return this.ctx;
+  }
+
+  /** Dips the music to `level` (0–1 of its normal volume) for `holdS` seconds, then eases it back. */
+  duck(level: number, holdS: number) {
+    if (!this.ctx || !this.master || this.muted) return;
+    const now = this.ctx.currentTime;
+    const g = this.master.gain;
+    g.cancelScheduledValues(now);
+    g.setTargetAtTime(this.volume * level, now, 0.08);
+    g.setTargetAtTime(this.volume, now + holdS, 0.6);
+  }
+
   /** Switch to a track (crossfading). Before unlock, remembers the request for later. */
   play(id: TrackId) {
     this.wanted = id;

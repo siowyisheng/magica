@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { sfx } from './audio/sfx';
+import { music } from './audio/synth';
 import { randomSeed } from './game/rng';
 import { loadLoadouts, saveLoadouts } from './game/storage';
 import type { Loadout, MatchConfig, MatchRecord } from './game/types';
@@ -22,6 +24,19 @@ const COMBAT_SCREENS = new Set(['match', 'live', 'replay']);
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'menu' });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  useEffect(() => {
+    // A soft click on every enabled button; the Ability bar ticks and primary actions confirm. Buttons
+    // inside [data-silent] (the Sound test) make only the sound they are for.
+    const onClick = (e: MouseEvent) => {
+      const btn = (e.target as Element | null)?.closest?.('button');
+      if (!btn || btn.disabled || btn.closest('[data-silent]')) return;
+      music.unlock();
+      const c = btn.classList;
+      sfx.play({ id: c.contains('ability') ? 'select' : c.contains('primary') || c.contains('end-turn') ? 'confirm' : 'click' });
+    };
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, []);
   return (
     <>
       <Screens screen={screen} setScreen={setScreen} openSettings={() => setSettingsOpen(true)} />

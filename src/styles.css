@@ -326,3 +326,10 @@ button.absorb:not(:disabled) { border-color: #7aa2ff; box-shadow: 0 0 12px #5b8c
 .turn-resources { display: grid; gap: 0.35rem; align-content: center; padding: 0 0.4rem; }
 .turn-resources .pips .muted { width: 40px; }
 .mp-left { color: var(--reach); font-variant-numeric: tabular-nums; }
+
+.sound-test summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
+.sound-test-list { max-height: 36vh; overflow-y: auto; margin-top: 0.6rem; display: grid; gap: 0.35rem; }
+.sound-test-list h3 { margin: 0.6rem 0 0.2rem; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
+.sound-test-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.sound-test-row button { padding: 0.2rem 0.55rem; font-size: 0.8rem; }
+.sound-test-name { min-width: 9.5rem; font-size: 0.85rem; }
