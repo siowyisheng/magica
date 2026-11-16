@@ -212,7 +212,9 @@ function castCandidates(state: GameState, player: PlayerId, abilityId: string): 
     const keys = new Set(area.map(key));
     if (keys.has(enemy)) out.push([aim, keys]);
   }
-  return out;
+  // Equal scores keep the first candidate, so try aiming straight at the enemy first. Otherwise the bot
+  // can pick a slightly off-angle Line that clips them but misses the hex behind, and they step out of it.
+  return out.sort((x, y) => Number(key(y[0]) === enemy) - Number(key(x[0]) === enemy));
 }
 
 /** Straight Walls of `length` passing through `h`, along each of the three hex axes, at every offset. */

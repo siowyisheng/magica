@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ABILITIES, DEFAULT_LOADOUTS, WEAPON_IDS, WEAPONS } from './content';
 import { actionError, applyAction, castError, createGame, effectiveManaRegen, isDisarmed, usesPerTurn } from './engine';
+import { chooseAction } from './ai';
 import { abilityIdsFor, buildMage, loadoutCost, validateLoadout } from './loadout';
 import type { Action, GameState, Loadout, WeaponId } from './types';
 
@@ -120,6 +121,16 @@ describe('weapon techniques', () => {
     g = act(g, { type: 'endTurn', player: 'p1' });
     g = act(g, { type: 'endReaction', player: 'p2' });
     expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp - 4);
+  });
+
+  it('the AI aims Shoot straight at the enemy, so stepping directly back stays in the Line', () => {
+    const g = duel('bow');
+    g.mages.p1.pos = { q: 0, r: 0 };
+    g.mages.p2.pos = { q: 0, r: -1 };
+    const a = chooseAction(g, 'p1');
+    expect(a).toMatchObject({ type: 'cast', abilityId: 'shoot', target: { q: 0, r: -1 } });
+    const next = act(g, a);
+    expect(next.pending[0].area).toContain('0,-2');
   });
 
   it('Slash hits for 5', () => {
