@@ -54,8 +54,20 @@ The main phase of a turn, where a mage moves, casts spells, attacks and absorbs 
 An offensive Spell or Technique. It doesn't land immediately: it becomes pending, and resolves after the defender's next Reaction Phase. Pending attacks resolve in the order they were launched.
 _Avoid_: Hit, strike (as the general term)
 
+**Launch**:
+Committing an Attack in the Action Phase. It fixes the Attack's Threat Area and makes it pending. Casting an instant (non-Attack) Spell takes effect at once and is not a Launch.
+_Avoid_: Fire, cast (for an Attack)
+
+**Resolution**:
+The moment after a defender's Reaction Phase when their pending Attacks land, in the order they were launched. The Attacks that land together are one Resolution.
+_Avoid_: Impact, landing
+
 **Threat Area**:
 The hexes a pending Attack will hit, fixed when the Attack is launched. At resolution it hits every mage standing in it, the caster included. It is shown to both players until it resolves.
+
+**Hit**:
+A mage standing in an Attack's Threat Area at Resolution, whether or not the Attack takes any HP off them (a status-only Attack still hits). A Hit that takes HP off a mage is a damaging Hit.
+_Avoid_: Attack (a Hit is what an Attack does to a mage)
 
 **Move**:
 Walking from hex to hex by spending Movement Points. Only in the Action Phase.
