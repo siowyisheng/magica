@@ -27,6 +27,8 @@ export interface Status {
 
 /** A range so long that it never limits an aim: the board edge, Rock or line of sight do. Hidden in the UI. */
 export const UNLIMITED = 99;
+/** A status with this many turns never wears off. */
+export const PERMANENT = 999;
 
 /** The geometry of an Attack's Threat Area. */
 export type Shape =
@@ -57,7 +59,15 @@ export interface Hit {
 
 export type AbilityEffect =
   /** Offensive: becomes a pending Attack that resolves after the defender's Reaction Phase. */
-  | { type: 'attack'; shape: Shape; hit: Hit }
+  | {
+      type: 'attack';
+      shape: Shape;
+      hit: Hit;
+      /** Lands the moment it is cast: no Reaction Phase, so it can't be dodged. */
+      instant?: boolean;
+      /** Aimed at the enemy mage, not a hex: it lands on them wherever they have moved to. */
+      homing?: boolean;
+    }
   /** Reaction, targeted: cancel one incoming Spell (not Techniques). */
   | { type: 'counter' }
   /** Reaction, targeted: cancel one incoming Line and send it back at the attacker. */
@@ -78,10 +88,12 @@ export type AbilityEffect =
   | { type: 'haste'; move: number }
   /**
    * Contested: casting opens a secret bid of Mana between caster and target. The status lands if the
-   * caster's bid is at least the target's; both bids are spent either way. `severity` is roughly how
-   * much Mana the effect is worth resisting, and caps what the AI will bid.
+   * caster's bid is at least the target's; both bids are spent either way. A bid can't be more than
+   * `maxBid`.
    */
-  | { type: 'contest'; severity: number; status: Status };
+  | { type: 'contest'; maxBid: number; status: Status }
+  /** Gain Mana (up to Max Mana). */
+  | { type: 'mana'; amount: number };
 
 /**
  * For non-Attack Abilities. self: cast on yourself. tile: an empty hex within range.
@@ -122,6 +134,8 @@ export interface AbilityDef {
   perTurn?: number;
   /** After a use, can't be used again until this many of the caster's turns later: 2 means every other turn. */
   cooldown?: number;
+  /** Targeting the enemy doesn't need line of sight. */
+  noLos?: boolean;
   effect: AbilityEffect;
 }
 
@@ -283,6 +297,8 @@ export interface PendingAttack {
   /** Threat Area as hex keys, fixed at launch. */
   area: string[];
   hit: Hit;
+  /** Hits the enemy mage wherever they are when it lands, ignoring `area`. */
+  homing?: boolean;
   /** Sent back by a Deflect. Reactions can't target it (one layer of response only). */
   reflected?: boolean;
   /** Damage taken off this Attack by Block. */

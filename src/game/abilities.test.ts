@@ -93,12 +93,12 @@ describe('Fireball', () => {
 });
 
 describe('Icicle', () => {
-  it('can only target hexes in line of sight', () => {
+  it('needs no line of sight, only range', () => {
     const g = duel({ q: 0, r: 4 }, { q: 3, r: -3 });
     g.tiles['0,2'].terrain = 'rock';
-    expect(castError(g, 'p1', 'icicle', { q: 0, r: -1 })).toMatch(/aim/);
-    expect(validTargets(g, 'p1', 'icicle').some((h) => h.q === 0 && h.r === -1)).toBe(false);
-    expect(castError(g, 'p1', 'icicle', { q: 3, r: 1 })).toBeNull();
+    expect(castError(g, 'p1', 'icicle', { q: 0, r: -1 })).toBeNull(); // behind the rock
+    expect(validTargets(g, 'p1', 'icicle').some((h) => h.q === 0 && h.r === -1)).toBe(true);
+    expect(castError(g, 'p1', 'icicle', { q: 0, r: -4 })).toMatch(/aim/); // 8 away: out of range
   });
 });
 
@@ -211,13 +211,13 @@ describe('Stone Pillar', () => {
 });
 
 describe('balance', () => {
-  it('prices Spear Thrust 4, Spark 2 (2 Mana), Dragon’s Breath and Fireball cheaper, Block 3, Empower and Stone Pillar 2', () => {
+  it('prices Spark 1 (1 Mana), Dragon’s Breath and Fireball 2 pts, Block 3, Empower and Stone Pillar 2', () => {
     expect(ABILITIES.ward.fast).toBe(true);
     expect(ABILITIES['stone-pillar']).toMatchObject({ fast: true, range: 5 });
     expect(ABILITIES.thrust.points).toBe(0); // comes free with the Spear
-    expect([ABILITIES.spark.points, ABILITIES.spark.mana]).toEqual([2, 2]);
+    expect([ABILITIES.spark.points, ABILITIES.spark.mana]).toEqual([1, 1]);
     expect(ABILITIES['dragons-breath']).toMatchObject({ points: 2, mana: 3 });
-    expect(ABILITIES.fireball).toMatchObject({ points: 3, mana: 5 });
+    expect(ABILITIES.fireball).toMatchObject({ points: 2, mana: 5 });
     expect(ABILITIES.block).toMatchObject({ points: 3, mana: 0, kind: 'technique', timing: 'reaction' });
     expect(ABILITIES.empower).toMatchObject({ points: 2, mana: 3, fast: true });
     expect(ABILITIES['stone-pillar']).toMatchObject({ points: 2, mana: 3 });

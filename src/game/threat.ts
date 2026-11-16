@@ -130,8 +130,14 @@ export function threatArea(tiles: Tiles, caster: Hex, shape: Shape, aimOrPath: H
     case 'cone': {
       if (d === 0) return null;
       const dir = angleTo(caster, aim);
+      // Rock stops it: nothing behind a rock (or the rock itself) is in the cone.
       return spiral(caster, shape.range).filter(
-        (h) => tiles[key(h)] && distance(caster, h) >= 1 && angleDiff(angleTo(caster, h), dir) <= Math.PI / 6 + EPS,
+        (h) =>
+          tiles[key(h)] &&
+          tiles[key(h)].terrain !== 'rock' &&
+          distance(caster, h) >= 1 &&
+          angleDiff(angleTo(caster, h), dir) <= Math.PI / 6 + EPS &&
+          clearBetween(tiles, caster, h),
       );
     }
     case 'fan': {

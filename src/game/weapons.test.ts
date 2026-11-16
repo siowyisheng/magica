@@ -187,13 +187,13 @@ describe('Fast Abilities', () => {
 
 describe('disarming', () => {
   it('loses weapon techniques, default ones included, but not other Techniques', () => {
-    const g = duel('sword', ['shield-bash']);
+    const g = duel('sword', ['channel-mana']);
     g.mages.p1.pos = { q: 0, r: 1 };
     expect(castError(g, 'p1', 'slash', { q: 0, r: 0 })).toBeNull();
     disarm(g);
     expect(isDisarmed(g.mages.p1)).toBe(true);
     expect(castError(g, 'p1', 'slash', { q: 0, r: 0 })).toMatch(/Disarmed/);
-    expect(castError(g, 'p1', 'shield-bash', { q: 0, r: 0 })).toBeNull();
+    expect(castError(g, 'p1', 'channel-mana', g.mages.p1.pos)).toBeNull();
   });
 
   it('loses the weapon Mana Regen bonus until it wears off', () => {

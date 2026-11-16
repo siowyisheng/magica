@@ -208,10 +208,6 @@ function technique(e: Env, def: AbilityDef, pitch: number, power: number) {
     hiss(e, { f: 2600, to: 1200, dur: 0.09, peak: 0.2 });
     ring(e, 900, 0.25, 0.1, 0.08);
     tone(e, { f: 140, to: 90, dur: 0.1, peak: 0.2, at: 0.08 });
-  } else if (def.id === 'shield-bash') {
-    tone(e, { f: 85, to: 40, dur: 0.3, peak: 0.5, at: 0.02 });
-    ring(e, 420, 0.45, 0.18, 0.02);
-    hiss(e, { filter: 'lowpass', f: 700, dur: 0.1, peak: 0.3 });
   } else {
     hiss(e, { f: 1800, to: 700, dur: 0.08, peak: 0.18 });
     tone(e, { type: 'triangle', f: 210 * pitch, to: 110, dur: 0.12 + 0.05 * power, peak: 0.35, at: 0.06 });

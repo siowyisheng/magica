@@ -59,11 +59,11 @@ describe('Reaction Spells', () => {
   });
 
   it('Counterspell cancels only the chosen Spell; other Attacks still land', () => {
-    let g = underFire('doom', 'firebolt');
+    let g = underFire('frost-lance', 'firebolt');
     const firebolt = g.pending.find((a) => a.abilityId === 'firebolt')!;
     g = resolve(react(g, 'counterspell', firebolt.id));
-    expect(g.mages.p2.statuses.some((s) => s.kind === 'vulnerable')).toBe(true); // Doom landed
-    expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp); // Firebolt didn't
+    expect(g.mages.p2.statuses.some((s) => s.kind === 'slow')).toBe(true); // Frost Lance landed
+    expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp - 4); // only Frost Lance's 4 damage, not Firebolt's
   });
 
   it('Counterspell cannot stop a Technique', () => {

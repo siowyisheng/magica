@@ -73,6 +73,9 @@ export const isDisarmed = (m: Mage): boolean => WEAPONS[m.weapon].disarmable && 
 export const effectiveManaRegen = (m: Mage): number => m.manaRegen - (isDisarmed(m) ? (WEAPONS[m.weapon].manaRegen ?? 0) : 0);
 
 /** How many times an Ability can be used in a turn: a Fast one once, unless it is Multi. Undefined = unlimited. */
+/** The most Mana a duellist may bid on a Contested Spell. */
+export const bidCap = (def: AbilityDef): number => (def.effect.type === 'contest' ? def.effect.maxBid : 0);
+
 export const usesPerTurn = (def: AbilityDef): number | undefined => def.perTurn ?? (def.fast && !def.multi ? 1 : undefined);
 
 /** AP an Ability costs: 1, or 0 if Fast. The same in the Reaction Phase as in the Action Phase. */
@@ -252,6 +255,11 @@ export function castError(
 
   const tile = state.tiles[key(target)];
   if (!tile) return 'Off the board.';
+  if (def.effect.type === 'attack' && def.effect.homing) {
+    const foe = state.mages[other(player)];
+    if (!equals(target, foe.pos)) return 'Target the enemy mage.';
+    return distance(mage.pos, target) > abilityRange(def) ? 'Out of range.' : null;
+  }
   if (def.effect.type === 'attack') {
     // An aim that threatens nothing (e.g. a Line straight into adjacent Rock) is not a valid aim.
     return threatArea(state.tiles, mage.pos, def.effect.shape, target, enemyPos(state, player))?.length ? null : "Can't aim there.";
@@ -260,7 +268,7 @@ export function castError(
   if (def.targeting === 'enemy') {
     if (!equals(target, enemy.pos)) return 'Target the enemy mage.';
     if (distance(mage.pos, target) > abilityRange(def)) return 'Out of range.';
-    return hasLOS(state, mage.pos, target) ? null : 'No line of sight.';
+    return def.noLos || hasLOS(state, mage.pos, target) ? null : 'No line of sight.';
   }
   if (def.targeting !== 'tile') return equals(target, mage.pos) ? null : 'Targets yourself.';
   const dist = distance(mage.pos, target);
@@ -364,10 +372,14 @@ export function applyAction(prev: GameState, action: Action): GameState {
     }
     case 'revealBid': {
       const b = state.bidding!;
-      if (action.amount > me.mana) {
+      const cap = bidCap(ABILITIES[b.abilityId]);
+      if (action.amount > me.mana || action.amount > cap) {
         b.reveals[action.player] = 0;
         me.mana = 0;
-        log({ kind: 'status', text: `${me.name} bid more Mana than they had, and forfeits all of it.` });
+        log({
+          kind: 'status',
+          text: `${me.name} bid more Mana than ${action.amount > cap ? `the ${cap} allowed` : 'they had'}, and forfeits all of it.`,
+        });
       } else b.reveals[action.player] = action.amount;
       settleBidding(state, log);
       break;
@@ -413,15 +425,18 @@ export function applyAction(prev: GameState, action: Action): GameState {
       } else if (def.effect.type === 'attack') {
         const aim = isDrawn(def.effect.shape) ? action.path! : action.target;
         const area = threatArea(state.tiles, me.pos, def.effect.shape, aim, enemyPos(state, me.owner))!;
-        state.pending.push({
+        const attack: PendingAttack = {
           id: state.nextAttackId++,
           caster: me.owner,
           abilityId: def.id,
           origin: me.pos,
           area: area.map(key),
           hit: boosted(me, def),
-        });
+          ...(def.effect.homing ? { homing: true } : {}),
+        };
         log({ kind: 'cast', text: `${me.name} launches ${def.icon} ${def.name}.`, at: me.pos, cue: { kind: 'launch', abilityId: def.id } });
+        if (def.effect.instant) resolveAttack(state, attack, log);
+        else state.pending.push(attack);
       } else if (isTargetedReaction(def)) {
         react(state, me, def, action.attackId!, log);
       } else {
@@ -542,7 +557,7 @@ function resolveAttack(state: GameState, attack: PendingAttack, log: Log) {
   const def = ABILITIES[attack.abilityId];
   const caster = state.mages[attack.caster];
   const area = new Set(attack.area);
-  let victims = Object.values(state.mages).filter((m) => area.has(key(m.pos)));
+  let victims = attack.homing ? [state.mages[other(attack.caster)]] : Object.values(state.mages).filter((m) => area.has(key(m.pos)));
   // A Line stops at the first mage it reaches, unless it pierces.
   if (def.effect.type === 'attack' && def.effect.shape.kind === 'line' && !def.effect.shape.pierce && victims.length > 1)
     victims = [victims.reduce((a, b) => (distance(attack.origin, a.pos) <= distance(attack.origin, b.pos) ? a : b))];
@@ -604,6 +619,12 @@ function resolveUtility(state: GameState, caster: Mage, def: AbilityDef, target:
     case 'heal':
       heal(caster, fx.amount, log);
       break;
+    case 'mana': {
+      const gained = Math.max(0, Math.min(maxMana(caster) - caster.mana, fx.amount));
+      caster.mana += gained;
+      log({ kind: 'heal', text: `${caster.name} channels ${gained} Mana.`, at: caster.pos, cue: { kind: 'crystalAbsorb', size: 'small' } });
+      break;
+    }
     case 'shield':
       caster.shield += fx.amount;
       log({ kind: 'status', text: `${caster.name} gains ${fx.amount} shield.`, at: caster.pos, amount: fx.amount });

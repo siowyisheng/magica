@@ -1,4 +1,4 @@
-import { UNLIMITED, type WeaponDef, type WeaponId, type AbilityDef, type AbilityEffect, type Hit, type Loadout, type PassiveDef, type School, type Shape, type Targeting } from './types';
+import { PERMANENT, UNLIMITED, type WeaponDef, type WeaponId, type AbilityDef, type AbilityEffect, type Hit, type Loadout, type PassiveDef, type School, type Shape, type Targeting } from './types';
 
 // ---------------------------------------------------------------------------
 // Content tables. Add Abilities and Passives here; the builder, engine and AI
@@ -44,7 +44,7 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
 export const WEAPON_IDS = Object.keys(WEAPONS) as WeaponId[];
 
 type Common = Pick<AbilityDef, 'id' | 'name' | 'icon' | 'school' | 'description' | 'points'> &
-  Partial<Pick<AbilityDef, 'fast' | 'cooldown' | 'multi' | 'timing' | 'perTurn' | 'weapon'>>;
+  Partial<Pick<AbilityDef, 'fast' | 'cooldown' | 'multi' | 'timing' | 'perTurn' | 'weapon' | 'noLos'>>;
 
 const technique = (a: Common & { shape: Shape; hit: Hit }): AbilityDef => ({
   ...a,
@@ -61,10 +61,20 @@ const reactionTechnique = (a: Common & { effect: AbilityEffect; targeting: Targe
   timing: 'reaction',
 });
 
-const attack = (a: Common & { mana: number; shape: Shape; hit: Hit }): AbilityDef => ({
+const attack = (a: Common & { mana: number; shape: Shape; hit: Hit; instant?: boolean; homing?: boolean }): AbilityDef => {
+  const { shape, hit, instant, homing, ...rest } = a;
+  return {
+    ...rest,
+    kind: 'spell',
+    effect: { type: 'attack', shape, hit, ...(instant ? { instant } : {}), ...(homing ? { homing } : {}) },
+  };
+};
+
+/** A Technique that isn't an Attack: costs AP but no Mana. */
+const utilityTechnique = (a: Common & { effect: AbilityEffect; targeting: Targeting }): AbilityDef => ({
   ...a,
-  kind: 'spell',
-  effect: { type: 'attack', shape: a.shape, hit: a.hit },
+  kind: 'technique',
+  mana: 0,
 });
 
 const spell = (a: Common & Pick<AbilityDef, 'mana' | 'effect' | 'targeting' | 'range'>): AbilityDef => ({
@@ -100,10 +110,10 @@ const LIST: AbilityDef[] = [
     description: 'An arrow down a long line.',
     shape: { kind: 'line', range: 7 }, hit: { damage: 4 },
   }),
-  technique({
-    id: 'shield-bash', name: 'Shield Bash', icon: '🥊', school: 'steel', points: 2,
-    description: 'Slam the enemy back a hex. Into rock, it hurts more.',
-    shape: { kind: 'meleeArc' }, hit: { damage: 2, knockback: 1 },
+  utilityTechnique({
+    id: 'channel-mana', name: 'Channel Mana', icon: '🔮', school: 'arcane', points: 1, cooldown: 1,
+    description: 'Gain 2 Mana.',
+    targeting: 'self', effect: { type: 'mana', amount: 2 },
   }),
 
   // --- Reaction Techniques: AP only -----------------------------------
@@ -115,34 +125,39 @@ const LIST: AbilityDef[] = [
 
   // --- Offensive Spells -------------------------------------------------------
   attack({
-    id: 'spark', name: 'Spark', icon: '⚡', school: 'arcane', points: 2, mana: 2, fast: true,
+    id: 'spark', name: 'Spark', icon: '⚡', school: 'arcane', points: 1, mana: 1, fast: true,
     description: 'Fast: a cheap zap that costs no AP.',
-    shape: { kind: 'line', range: 4 }, hit: { damage: 1 },
+    shape: { kind: 'line', range: 8 }, hit: { damage: 1 },
   }),
   attack({
-    id: 'firebolt', name: 'Firebolt', icon: '🔥', school: 'fire', points: 2, mana: 3,
+    id: 'magic-missile', name: 'Magic Missile', icon: '🎯', school: 'arcane', points: 2, mana: 7,
+    description: 'Never misses: seeks the enemy within 8, no line of sight needed, and lands in the resolution wherever they have moved.',
+    shape: { kind: 'single', range: 8 }, hit: { damage: 6 }, homing: true,
+  }),
+  attack({
+    id: 'firebolt', name: 'Firebolt', icon: '🔥', school: 'fire', points: 2, mana: 2,
     description: 'A bolt of flame down a Line, to any distance. Sets the target burning.',
     shape: { kind: 'line', range: UNLIMITED }, hit: { damage: 4, status: { kind: 'burn', turns: 2, power: 1 } },
   }),
   attack({
-    id: 'frost-lance', name: 'Frost Lance', icon: '❄️', school: 'frost', points: 2, mana: 3,
+    id: 'frost-lance', name: 'Frost Lance', icon: '❄️', school: 'frost', points: 2, mana: 2,
     description: 'An icy Line, to any distance, that slows.',
     shape: { kind: 'line', range: UNLIMITED }, hit: { damage: 4, status: { kind: 'slow', turns: 1, power: 1 } },
   }),
   attack({
-    id: 'icicle', name: 'Icicle', icon: '🧊', school: 'frost', points: 2, mana: 3,
-    description: 'Drops on one hex in your line of sight.',
-    shape: { kind: 'single', range: 7, los: true }, hit: { damage: 5 },
+    id: 'icicle', name: 'Icicle', icon: '🧊', school: 'frost', points: 2, mana: 2,
+    description: 'Drops on any one hex within 7, over rock and all.',
+    shape: { kind: 'single', range: 7 }, hit: { damage: 5 },
   }),
   attack({
-    id: 'fireball', name: 'Fireball', icon: '💥', school: 'fire', points: 3, mana: 5,
+    id: 'fireball', name: 'Fireball', icon: '💥', school: 'fire', points: 2, mana: 5,
     description: 'Flies toward a hex and explodes there, or sooner on rock or your foe. Aim past your foe in case they dodge.',
     shape: { kind: 'explosiveLine', range: UNLIMITED, radius: 1 }, hit: { damage: 8 },
   }),
   attack({
     id: 'dragons-breath', name: "Dragon's Breath", icon: '🐉', school: 'fire', points: 2, mana: 3,
-    description: 'A 60° cone of fire that leaves everything burning.',
-    shape: { kind: 'cone', range: 4 }, hit: { damage: 4, status: { kind: 'burn', turns: 2, power: 1 } },
+    description: 'A 60° cone of fire that rock blocks, and leaves everything burning.',
+    shape: { kind: 'cone', range: 4 }, hit: { damage: 5, status: { kind: 'burn', turns: 2, power: 1 } },
   }),
   attack({
     id: 'ice-shards', name: 'Ice Shards', icon: '💠', school: 'frost', points: 3, mana: 6,
@@ -150,7 +165,7 @@ const LIST: AbilityDef[] = [
     shape: { kind: 'fan', range: 4 }, hit: { damage: 2, status: { kind: 'slow', turns: 1, power: 1 } },
   }),
   attack({
-    id: 'nova', name: 'Arcane Nova', icon: '🌟', school: 'arcane', points: 3, mana: 7,
+    id: 'nova', name: 'Arcane Nova', icon: '🌟', school: 'arcane', points: 2, mana: 7, cooldown: 1,
     description: 'Detonates everything within 2 of you, but not your own hex.',
     shape: { kind: 'selfBurst', radius: 2 }, hit: { damage: 10 },
   }),
@@ -175,30 +190,26 @@ const LIST: AbilityDef[] = [
     shape: { kind: 'burst', range: 3, radius: 2 }, hit: { damage: 2, knockback: 2 },
   }),
   attack({
-    id: 'soul-drain', name: 'Soul Drain', icon: '👻', school: 'death', points: 3, mana: 6,
-    description: 'Siphon a soul from one hex. All damage dealt heals you.',
-    shape: { kind: 'single', range: 3 }, hit: { damage: 2, lifesteal: 1 },
+    id: 'soul-drain', name: 'Soul Drain', icon: '👻', school: 'death', points: 2, mana: 10, cooldown: 1,
+    description: 'Siphon a soul from one hex within 4, instantly. All damage dealt heals you.',
+    shape: { kind: 'single', range: 4 }, hit: { damage: 5, lifesteal: 1 }, instant: true,
   }),
-  attack({
-    id: 'doom', name: 'Doom', icon: '⚰️', school: 'death', points: 2, mana: 5,
-    description: 'A curse on one hex: whoever is there takes +2 from every hit for 2 turns.',
-    shape: { kind: 'single', range: 6 }, hit: { damage: 0, status: { kind: 'vulnerable', turns: 2, power: 2 } },
+  spell({
+    id: 'doom', name: 'Doom', icon: '⚰️', school: 'death', points: 2, mana: 5, noLos: true,
+    description:
+      'A permanent curse on the enemy within 8, no line of sight needed: you both secretly bid Mana (up to 5). If your bid is at least theirs, they take +4 from every hit for the rest of the match. Both bids are spent.',
+    targeting: 'enemy', range: 8, effect: { type: 'contest', maxBid: 5, status: { kind: 'vulnerable', turns: PERMANENT, power: 4 } },
   }),
   spell({
     id: 'stasis', name: 'Stasis', icon: '🕰️', school: 'time', points: 2, mana: 2, fast: true, cooldown: 2,
     description:
-      'Fast, cooldown 2 (not on consecutive turns). Freeze the enemy (8 range, line of sight): you both secretly bid Mana. If your bid is at least theirs, they can’t Move on their next turn. Both bids are spent.',
-    targeting: 'enemy', range: 8, effect: { type: 'contest', severity: 6, status: { kind: 'root', turns: 1, power: 0 } },
+      'Fast, cooldown 2 (not on consecutive turns). Freeze the enemy (8 range, line of sight): you both secretly bid Mana (up to 6). If your bid is at least theirs, they can’t Move on their next turn. Both bids are spent.',
+    targeting: 'enemy', range: 8, effect: { type: 'contest', maxBid: 6, status: { kind: 'root', turns: 1, power: 0 } },
   }),
   attack({
-    id: 'meteor', name: 'Meteor', icon: '☄️', school: 'fire', points: 5, mana: 18,
-    description: 'A meteor (radius 2) anywhere within 6. Hard to outrun.',
-    shape: { kind: 'burst', range: 6, radius: 2 }, hit: { damage: 7 },
-  }),
-  attack({
-    id: 'cataclysm', name: 'Cataclysm', icon: '🌋', school: 'earth', points: 10, mana: 50,
-    description: 'Game-ender: a radius-4 eruption (61 hexes). Needs Max Mana 50 to ever afford.',
-    shape: { kind: 'burst', range: 6, radius: 4 }, hit: { damage: 20 },
+    id: 'meteor', name: 'Meteor', icon: '☄️', school: 'fire', points: 2, mana: 10,
+    description: 'A meteor (radius 2) anywhere within 10. Hard to outrun.',
+    shape: { kind: 'burst', range: 10, radius: 2 }, hit: { damage: 12 },
   }),
 
   // --- Utility Spells ---------------------------------------------------------
@@ -285,13 +296,13 @@ export const DEFAULT_LOADOUTS: Loadout[] = [
   loadout({
     id: 'c1-archmage', name: 'Archmage', circle: 1, weapon: 'staff',
     stats: { hp: 0, maxMana: 4, manaRegen: 1, movespeed: 0 },
-    abilities: ['firebolt', 'fireball', 'ward', 'cataclysm'],
+    abilities: ['firebolt', 'fireball', 'ward', 'magic-missile'],
     passiveIds: ['wellspring'],
   }),
   loadout({
     id: 'c1-spellblade', name: 'Spellblade', circle: 1, weapon: 'sword',
     stats: { hp: 3, maxMana: 2, manaRegen: 0, movespeed: 1 },
-    abilities: ['shield-bash', 'firebolt', 'ice-shards', 'blink', 'ward'],
+    abilities: ['firebolt', 'ice-shards', 'blink', 'ward'],
     passiveIds: ['iron-skin', 'regeneration'],
   }),
   loadout({
@@ -315,7 +326,7 @@ export const DEFAULT_LOADOUTS: Loadout[] = [
   loadout({
     id: 'c3-brawler', name: 'Brawler', circle: 3, weapon: 'spear',
     stats: { hp: 1, maxMana: 1, manaRegen: 0, movespeed: 0 },
-    abilities: ['shield-bash', 'haste'],
+    abilities: ['haste', 'channel-mana'],
     passiveIds: [],
   }),
 ];

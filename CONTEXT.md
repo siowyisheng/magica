@@ -42,6 +42,12 @@ A status that takes a mage's Weapon out of use: Weapon Techniques can't be used,
 **Cooldown**:
 An Ability with a Cooldown of N can't be used again until N of its mage's turns after the turn it was used, so a Cooldown of 2 means not on consecutive turns.
 
+**Instant**:
+An Attack that lands the moment it is cast, with no Reaction Phase, so it can't be dodged or reacted to. Soul Drain is Instant.
+
+**Homing**:
+An Attack aimed at the enemy mage rather than a hex, which lands on them wherever they have moved to by the Resolution, so no movement avoids it. Reactions that stop damage still work. Magic Missile is Homing.
+
 **Multi**:
 Marks a Fast Ability that can be used any number of times in a turn. Every other Fast Ability can be used once per turn, so that is left unsaid.
 
@@ -173,8 +179,11 @@ _Avoid_: Magic, regen on its own (that is HP regeneration)
 An Ability that costs Mana.
 
 **Contested Spell**:
-A Spell settled by a secret Bid instead of a Threat Area. Casting it opens Bidding between the caster and the target, and its effect lands if the caster's Bid is at least the target's. Ties go to the caster, and both Bids are spent either way. Stasis is one.
+A Spell settled by a secret Bid instead of a Threat Area. Casting it opens Bidding between the caster and the target, and its effect lands if the caster's Bid is at least the target's. Ties go to the caster, and both Bids are spent either way. Stasis and Doom are Contested Spells.
 _Avoid_: Bid spell, opposed spell
+
+**Max Bid**:
+The most Mana a duellist may Bid on a particular Contested Spell (Stasis 6, Doom 5). Bidding more counts as 0 and forfeits all of that mage's Mana, like bidding more than they have.
 
 **Bidding**:
 The window of up to 7 seconds after a Contested Spell is cast, in which both duellists lock in their Bids without seeing each other's. It ends as soon as both have bid. Nothing else can happen during it, and the caster's turn timer stops. When the Bids are revealed, the timer resumes with 2 seconds added.

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ABILITIES } from '../game/content';
 import { fromKey, hexPoints, key, neighbors, toPixel, type Hex } from '../game/hex';
 import { CRYSTAL_STATE_NAME } from '../game/crystals';
-import { PLAYERS, type GameState, type PlayerId, type StatusKind } from '../game/types';
+import { other, PLAYERS, type GameState, type PlayerId, type StatusKind } from '../game/types';
 
 const SIZE = 30;
 /** Time a walking mage spends on each hex. */
@@ -222,14 +222,17 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
         </g>
       )}
 
-      {state.pending.filter((a) => a.area.length > 0).map((a) => (
+      {state.pending.filter((a) => a.area.length > 0).map((a) => {
+        // A homing Attack is aimed at the mage, so it is drawn wherever they stand now.
+        const area = a.homing ? [key(state.mages[other(a.caster)].pos)] : a.area;
+        return (
         <g key={a.id} className={`threat threat-${a.caster}`}>
-          {a.area.map((k) => {
+          {area.map((k) => {
             const { x, y } = toPixel(fromKey(k), SIZE);
             return <polygon key={k} points={poly} transform={`translate(${x} ${y})`} />;
           })}
           {(() => {
-            const mid = toPixel(fromKey(a.area[Math.floor(a.area.length / 2)]), SIZE);
+            const mid = toPixel(fromKey(area[Math.floor(area.length / 2)]), SIZE);
             return (
               <text className="threat-icon" x={mid.x} y={mid.y} textAnchor="middle" dominantBaseline="central">
                 {ABILITIES[a.abilityId]?.icon}
@@ -237,7 +240,8 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
             );
           })()}
         </g>
-      ))}
+        );
+      })}
 
       {state.crystals.map((c) => {
         const { x, y } = toPixel(c.pos, SIZE);

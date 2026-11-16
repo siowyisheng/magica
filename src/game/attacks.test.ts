@@ -13,7 +13,7 @@ const loadout = (abilities: string[]): Loadout => ({
 });
 
 /** Open board; P1 (attacker) at `a`, P2 at `b`. Both have plenty of Mana. */
-function duel(a: Hex, b: Hex, abilities = ['firebolt', 'icicle', 'plague', 'doom', 'blink', 'slash']): GameState {
+function duel(a: Hex, b: Hex, abilities = ['firebolt', 'icicle', 'plague', 'frost-lance', 'blink', 'slash']): GameState {
   const g = createGame({
     seed: 3,
     radius: 6,
@@ -142,11 +142,11 @@ describe('dodging, by shape', () => {
 describe('resolution', () => {
   it('resolves Attacks in the order they were launched', () => {
     let g = duel({ q: 0, r: 2 }, { q: 0, r: -1 });
-    g = cast(g, 'doom', { q: 0, r: -1 });
+    g = cast(g, 'frost-lance', { q: 0, r: -1 });
     g = cast(g, 'firebolt', { q: 0, r: -1 });
     g = endReaction(endTurn(g));
     const hits = g.events.filter((e) => e.kind === 'cast' && /hits|misses/.test(e.text)).map((e) => e.text);
-    expect(hits[0]).toMatch(/Doom/);
+    expect(hits[0]).toMatch(/Frost Lance/);
     expect(hits[1]).toMatch(/Firebolt/);
   });
 

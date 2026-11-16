@@ -2,7 +2,7 @@ import { useEffect, useRef, type CSSProperties } from 'react';
 import { ABILITIES, PASSIVES, WEAPONS } from '../game/content';
 import { CIRCLE_NAME } from '../game/loadout';
 import { AP_PER_TURN, apCost, castError, effectiveManaRegen, maxMana, timing } from '../game/engine';
-import type { GameEvent, GameState, PlayerId, Mage } from '../game/types';
+import { PERMANENT, type GameEvent, type GameState, type PlayerId, type Mage } from '../game/types';
 import { STATUS_ICON } from './HexBoard';
 import { abilitySummary } from './LoadoutBuilder';
 
@@ -62,7 +62,7 @@ export function MageCard({ mage, active, scale }: { mage: Mage; active: boolean;
         <div className="statuses">
           {mage.statuses.map((s) => (
             <span key={s.kind} className={`status status-${s.kind}`}>
-              {STATUS_ICON[s.kind]} {s.kind} · {s.turns}
+              {STATUS_ICON[s.kind]} {s.kind} · {s.turns >= PERMANENT ? 'permanent' : s.turns}
             </span>
           ))}
         </div>

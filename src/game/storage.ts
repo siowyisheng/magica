@@ -39,6 +39,11 @@ function migrateWeapon(l: Loadout): Loadout {
   return { ...l, weapon: spear ? 'spear' : 'unarmed', abilityIds: l.abilityIds.filter((id) => id !== 'staff-strike' && id !== 'spear-thrust') };
 }
 
+/** Abilities that no longer exist; saved loadouts drop them. */
+const REMOVED_ABILITIES = new Set(['shield-bash', 'cataclysm']);
+const dropRemoved = (l: Loadout): Loadout =>
+  l.abilityIds.some((id) => REMOVED_ABILITIES.has(id)) ? { ...l, abilityIds: l.abilityIds.filter((id) => !REMOVED_ABILITIES.has(id)) } : l;
+
 /** Loadouts saved before Magic split into Max Mana and Mana Regen: the old Magic steps become Mana Regen steps. */
 function migrateStats(l: Loadout): Loadout {
   const s = l.stats as Partial<Record<string, number>>;
@@ -47,7 +52,7 @@ function migrateStats(l: Loadout): Loadout {
 
 /** Saved loadouts, plus any built-in defaults this player hasn't seen yet (e.g. after a content update). */
 export function loadLoadouts(): Loadout[] {
-  const saved = read<Loadout[] | null>(LOADOUTS, null)?.map(migrateStats).map(migrateWeapon) ?? null;
+  const saved = read<Loadout[] | null>(LOADOUTS, null)?.map(migrateStats).map(migrateWeapon).map(dropRemoved) ?? null;
   const seen = new Set(read<string[]>(DEFAULTS_SEEN, saved ? saved.map((l) => l.id) : []));
   const fresh = DEFAULT_LOADOUTS.filter((d) => !seen.has(d.id));
   const merged = [...(saved ?? []), ...fresh];

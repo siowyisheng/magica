@@ -2,6 +2,7 @@ import { ABILITIES } from './content';
 import { crystalYield } from './crystals';
 import {
   abilityRange,
+  bidCap,
   bidCommitment,
   absorbError,
   apCost,
@@ -9,6 +10,7 @@ import {
   hasLOS,
   hitDamage,
   incoming,
+  maxMana,
   mpPerAp,
   reachable,
   validTargets,
@@ -32,15 +34,13 @@ export function chooseAction(state: GameState, player: PlayerId): Action {
 
 /**
  * The AI's secret bid for the open contest: a pseudo-random whole number from 0 up to the effect's
- * severity, never more than the Mana it has. Derived from the match's seeded state, so replays and
+ * max bid, never more than the Mana it has. Derived from the match's seeded state, so replays and
  * headless games stay deterministic, while a human opponent can't predict it in play.
  */
 export function aiBid(state: GameState, player: PlayerId): number {
   const b = state.bidding;
   if (!b) return 0;
-  const fx = ABILITIES[b.abilityId].effect;
-  const severity = fx.type === 'contest' ? fx.severity : 0;
-  const max = Math.max(0, Math.min(state.mages[player].mana, severity));
+  const max = Math.max(0, Math.min(state.mages[player].mana, bidCap(ABILITIES[b.abilityId])));
   const [r] = rngStep((state.rng ^ Math.imul(b.id, 0x9e3779b1) ^ (player === 'p1' ? 0x5bd1e995 : 0x1b873593)) >>> 0);
   return Math.floor(r * (max + 1));
 }
@@ -74,15 +74,17 @@ const areaOf = (attacks: GameState['pending']) => new Set(attacks.flatMap((a) =>
 function chooseReaction(state: GameState, player: PlayerId): Action {
   const me = state.mages[player];
   const threats = incoming(state, player);
-  const danger = areaOf(threats);
-  if (!danger.has(key(me.pos))) return { type: 'endReaction', player };
+  // Homing Attacks (Magic Missile) land wherever we stand, so only the rest can be dodged.
+  const danger = areaOf(threats.filter((a) => !a.homing));
+  const hitting = threats.filter((a) => a.homing || a.area.includes(key(me.pos)));
+  if (!hitting.length) return { type: 'endReaction', player };
 
   const own = areaOf(state.pending.filter((a) => a.caster === player));
 
-  const hitting = threats.filter((a) => a.area.includes(key(me.pos)));
   const damage = (a: PendingAttack) => (a.hit.damage > 0 ? hitDamage(me, a.hit.damage) : 0);
   const harm = (a: PendingAttack) => damage(a) + (a.hit.status ? 1.5 : 0);
-  const total = hitting.reduce((n, a) => n + harm(a), 0);
+  /** Harm that stepping out of the way would avoid. */
+  const dodgeable = hitting.filter((a) => !a.homing).reduce((n, a) => n + harm(a), 0);
   const unshielded = hitting.reduce((n, a) => n + damage(a), 0) - me.shield;
 
   // The Reaction Spell that prevents the most damage; the cheapest one on a tie.
@@ -109,7 +111,7 @@ function chooseReaction(state: GameState, player: PlayerId): Action {
         consider(Math.min(fx.amount, hitDamage(me, first.hit.damage)), def.mana, { type: 'cast', player, abilityId: slot.id, target: me.pos });
     } else if (fx.type === 'blink') {
       const out = validTargets(state, player, slot.id).find((h) => !danger.has(key(h)) && !own.has(key(h)));
-      if (out) consider(total, def.mana, { type: 'cast', player, abilityId: slot.id, target: out });
+      if (out) consider(dodgeable, def.mana, { type: 'cast', player, abilityId: slot.id, target: out });
     }
   }
   // Or just walk out: Movement is slower in the Reaction Phase, but costs no Mana.
@@ -117,7 +119,7 @@ function chooseReaction(state: GameState, player: PlayerId): Action {
     .sort((a, b) => a[1] - b[1])
     .map(([k]) => fromKey(k))
     .find((h) => !danger.has(key(h)) && !own.has(key(h)));
-  if (out) consider(total, 0, { type: 'move', player, to: out });
+  if (out) consider(dodgeable, 0, { type: 'move', player, to: out });
   return best ? (best as { action: Action }).action : { type: 'endReaction', player };
 }
 
@@ -253,7 +255,7 @@ function escapeCost(state: GameState, from: Hex, area: Set<string>): number {
 }
 
 /** Expected value of landing `hit` on the enemy, given they get a Reaction Phase to dodge. */
-function attackValue(state: GameState, player: PlayerId, area: Set<string>, hit: Hit): number {
+function attackValue(state: GameState, player: PlayerId, area: Set<string>, hit: Hit, undodgeable = false): number {
   const enemy = state.mages[other(player)];
   const dmg = hit.damage > 0 ? hitDamage(enemy, hit.damage) : 0;
   let full = dmg;
@@ -262,6 +264,7 @@ function attackValue(state: GameState, player: PlayerId, area: Set<string>, hit:
   if (hit.knockback) full += 0.3;
   if (dmg > 0 && enemy.hp + enemy.shield <= dmg) full += 100;
 
+  if (undodgeable) return full;
   const per = mpPerAp(enemy);
   const cost = escapeCost(state, enemy.pos, area);
   const apToDodge = per > 0 ? Math.ceil(cost / per) : Infinity;
@@ -279,7 +282,7 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, _targe
   const cost = Math.max(1, apCost(def) + def.mana / 5);
   switch (fx.type) {
     case 'attack': {
-      let score = attackValue(state, player, area, fx.hit);
+      let score = attackValue(state, player, area, fx.hit, fx.instant || fx.homing);
       // Standing in our own Threat Area is fine only if we can still walk out.
       if (area.has(key(me.pos))) score -= me.ap > apCost(def) || me.mp > 1 ? 0.5 : fx.hit.damage * 1.5;
       return score / cost;
@@ -290,11 +293,18 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, _targe
       // Shields hold until our next resolution: worth it when the enemy can reach us.
       return dist <= 6 && me.shield === 0 && me.ap === 1 ? 1 : 0;
     case 'contest': {
-      // Worth it as a combo: a rooted enemy can't step out of an Attack we already launched at them.
-      // Keep enough Mana back to bid with.
-      const covered = state.pending.some((a) => a.caster === player && a.area.includes(key(enemy.pos)));
-      return covered && me.mana >= def.mana + 2 ? 5 : 0;
+      // A root is worth it as a combo: a rooted enemy can't step out of an Attack we already launched at
+      // them. Other curses are worth it when the enemy doesn't carry them yet. Keep Mana back to bid with.
+      if (fx.status.kind === 'root') {
+        const covered = state.pending.some((a) => a.caster === player && a.area.includes(key(enemy.pos)));
+        return covered && me.mana >= def.mana + 2 ? 5 : 0;
+      }
+      const already = enemy.statuses.some((s) => s.kind === fx.status.kind);
+      return !already && me.mana >= def.mana + 3 ? 1.5 : 0;
     }
+    case 'mana':
+      // Only when running low: it spends the AP that could have gone into an attack.
+      return me.mana <= maxMana(me) / 3 ? Math.min(fx.amount, maxMana(me) - me.mana) / cost : 0;
     case 'counter':
     case 'deflect':
     case 'haste':

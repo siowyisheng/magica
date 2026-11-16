@@ -68,7 +68,7 @@ export function SpectateLobby({
             <button key={r.id} className="list-item" onClick={() => onWatchReplay(r)}>
               {r.config.names.p1} vs {r.config.names.p2}{' '}
               <span className="muted">
-                · {new Date(r.createdAt).toLocaleString()} · {r.actions.length} actions
+                · {new Date(r.createdAt).toLocaleString()}
               </span>
             </button>
           ))}
@@ -130,9 +130,6 @@ export function ReplayViewer({ record, onBack }: { record: MatchRecord; onBack: 
       <div className="replay-controls">
         <button onClick={() => setPlaying((p) => !p)}>{playing ? '❚❚' : '▶'}</button>
         <input type="range" min={0} max={total} value={index} onChange={(e) => setIndex(Number(e.target.value))} />
-        <span className="muted">
-          {index}/{total}
-        </span>
         <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))}>
           {[0.5, 1, 2, 4].map((s) => (
             <option key={s} value={s}>

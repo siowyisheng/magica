@@ -49,12 +49,10 @@ describe('catalogue', () => {
     expect(spells.filter((a) => !a.timing || a.timing === 'action').length).toBeGreaterThanOrEqual(14);
   });
 
-  it('spans Mana costs from 1–2 up to a 50+ game-ender that needs Magic 5', () => {
+  it('spans Mana costs from 1 up to the big spells', () => {
     const costs = spells.map((a) => a.mana);
-    expect(Math.min(...costs)).toBeLessThanOrEqual(2);
-    const ender = spells.find((a) => a.mana >= 50)!;
-    expect(ender.mana).toBeGreaterThan(10 * 4); // out of reach below Magic 5
-    expect(ender.points).toBeGreaterThanOrEqual(8);
+    expect(Math.min(...costs)).toBe(1);
+    expect(Math.max(...costs)).toBeGreaterThanOrEqual(10);
   });
 
   it('prices basics at 1–2 points and nothing above 12', () => {
@@ -75,14 +73,14 @@ describe('catalogue', () => {
 
 describe('Attack riders', () => {
   it('knockback shoves away from where the Attack was launched', () => {
-    const g = land(cast(arena(['shield-bash'], { q: 0, r: 1 }, { q: 0, r: 0 }), 'shield-bash', { q: 0, r: 0 }));
-    expect(g.mages.p2.pos).toEqual({ q: 0, r: -1 });
+    const g = land(cast(arena(['tidal-wave'], { q: 0, r: 3 }, { q: 0, r: 0 }), 'tidal-wave', { q: 0, r: 0 }));
+    expect(g.mages.p2.pos).toEqual({ q: 0, r: -2 });
   });
 
   it('knockback into Rock deals collision damage instead of moving', () => {
-    const g0 = arena(['shield-bash'], { q: 0, r: 1 }, { q: 0, r: 0 });
+    const g0 = arena(['tidal-wave'], { q: 0, r: 3 }, { q: 0, r: 0 });
     g0.tiles[key({ q: 0, r: -1 })].terrain = 'rock';
-    const g = land(cast(g0, 'shield-bash', { q: 0, r: 0 }));
+    const g = land(cast(g0, 'tidal-wave', { q: 0, r: 0 }));
     expect(g.mages.p2.pos).toEqual({ q: 0, r: 0 });
     expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(2 + 2);
   });
@@ -94,13 +92,13 @@ describe('Attack riders', () => {
 
   it('lifesteal heals the caster by the damage dealt', () => {
     const g0 = arena(['soul-drain'], { q: 0, r: 2 }, { q: 0, r: 0 });
-    g0.mages.p1.hp = 5;
-    expect(land(cast(g0, 'soul-drain', { q: 0, r: 0 })).mages.p1.hp).toBe(7);
+    g0.mages.p1.hp = 3;
+    expect(land(cast(g0, 'soul-drain', { q: 0, r: 0 })).mages.p1.hp).toBe(8); // 5 damage, 5 healed
   });
 
   it('vulnerable adds to every later hit; Iron Skin takes 1 off', () => {
-    let g = arena(['doom', 'firebolt'], { q: 0, r: 3 }, { q: 0, r: 0 }, ['iron-skin']);
-    g = cast(g, 'doom', { q: 0, r: 0 }); // resolves first: status only
+    let g = arena(['firebolt'], { q: 0, r: 3 }, { q: 0, r: 0 }, ['iron-skin']);
+    g.mages.p2.statuses.push({ kind: 'vulnerable', turns: 2, power: 2 });
     g = land(cast(g, 'firebolt', { q: 0, r: 0 }));
     expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(4 + 2 - 1);
   });

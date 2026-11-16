@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ABILITIES } from '../game/content';
+import { bidCap } from '../game/engine';
 import type { GameState, PlayerId, Status } from '../game/types';
 
 /** How a contested status reads, in the panel. */
@@ -88,7 +89,7 @@ export function BidPanel({ state, bidders, locked, onLock, remaining, total, rev
                   locked.has(p) ? (
                     <div className="bid-locked">Locked in ✓</div>
                   ) : (
-                    <BidInput max={state.mages[p].mana} label={`Bid ${role(p)}`} onLock={(n) => onLock(p, n)} />
+                    <BidInput max={Math.min(state.mages[p].mana, bidCap(def))} label={`Bid ${role(p)}`} onLock={(n) => onLock(p, n)} />
                   )
                 ) : (
                   <div className="bid-waiting">Deciding…</div>

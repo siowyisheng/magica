@@ -174,7 +174,7 @@ describe('bidding', () => {
 describe('AI bidding', () => {
   it('bids a whole number between 0 and the effect’s severity, never more than its Mana', async () => {
     const { aiBid } = await import('./ai');
-    const severity = (ABILITIES.stasis.effect as { severity: number }).severity;
+    const severity = (ABILITIES.stasis.effect as unknown as { maxBid: number }).maxBid;
     const seen = new Set<number>();
     for (let seed = 1; seed <= 40; seed++) {
       const g = stasis({ ...duel(), rng: seed * 7919 } as GameState);

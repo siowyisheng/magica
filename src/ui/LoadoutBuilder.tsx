@@ -356,8 +356,10 @@ export function abilitySummary(a: AbilityDef): string {
     if ('range' in s && s.range && s.range < UNLIMITED) parts.push(`rng ${s.range}`);
     if (a.effect.hit.damage) parts.push(`${a.effect.hit.damage} dmg`);
   } else if (a.targeting === 'tile') parts.push(`rng ${a.range}`);
-  else if (a.targeting === 'enemy') parts.push(`enemy · rng ${a.range} · line of sight`);
-  if (a.effect.type === 'contest') parts.push('secret bid');
+  else if (a.targeting === 'enemy') parts.push(`enemy · rng ${a.range}${a.noLos ? '' : ' · line of sight'}`);
+  if (a.effect.type === 'attack' && a.effect.homing) parts.push('never misses');
+  if (a.effect.type === 'attack' && a.effect.instant) parts.push('instant');
+  if (a.effect.type === 'contest') parts.push(`secret bid (max ${a.effect.maxBid})`);
   // A Fast Ability is once per turn unless it is Multi, so only the other cases are worth saying.
   if (a.perTurn === 1 && !a.fast) parts.push('once per turn');
   if (a.cooldown) parts.push(`cooldown ${a.cooldown}`);
