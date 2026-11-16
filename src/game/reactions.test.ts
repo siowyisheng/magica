@@ -155,6 +155,18 @@ describe('Reaction Techniques', () => {
     expect(castError(g, 'p2', 'dodge-roll', { q: 1, r: -1 })).toBeNull();
   });
 
+  it('a step records the hexes it walked, for the board to animate', () => {
+    const g = kit('dodge-roll');
+    const from = g.mages.p2.pos;
+    const after = stepTo(g, 'dodge-roll', { q: 2, r: -1 });
+    const ev = after.events.find((e) => e.kind === 'move' && e.path)!;
+    expect(ev.player).toBe('p2');
+    expect(ev.path![0]).toEqual(from);
+    expect(ev.path!.at(-1)).toEqual({ q: 2, r: -1 });
+    expect(ev.path!.length).toBeGreaterThanOrEqual(2);
+    for (const h of ev.path!) expect(after.tiles[`${h.q},${h.r}`].terrain).not.toBe('rock');
+  });
+
   it('cannot Move in the Reaction Phase', () => {
     const g = kit('sidestep');
     expect(actionError(g, { type: 'move', player: 'p2', to: { q: 1, r: -1 } })).toMatch(/Reaction/);

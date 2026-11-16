@@ -464,10 +464,12 @@ function resolveUtility(state: GameState, caster: Mage, def: AbilityDef, target:
     case 'blink':
       caster.pos = target;
       break;
-    case 'step':
+    case 'step': {
+      const path = walkPath(state, caster.pos, target, key(state.mages[other(caster.owner)].pos), abilityRange(def));
       caster.pos = target;
-      log({ kind: 'move', text: `${caster.name} steps aside.`, at: target });
+      log({ kind: 'move', text: `${caster.name} steps aside.`, at: target, player: caster.owner, path });
       break;
+    }
     case 'block': {
       const first = incoming(state, caster.owner)[0];
       if (!first) break;
