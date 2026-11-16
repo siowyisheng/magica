@@ -17,8 +17,10 @@ export const CRYSTAL_STATE_NAME: Record<CrystalState, string> = {
   ready: 'Ready',
 };
 
-/** Mana a crystal gives when absorbed in `round` (before Passives and the Mana cap). */
-export const crystalYield = (c: Crystal, round: number) => round * (c.size === 'large' ? 2 : 1);
+/** Mana a Large and a Small crystal give when absorbed (before Passives and the Mana cap). */
+export const CRYSTAL_YIELD: Record<Crystal['size'], number> = { large: 6, small: 4 };
+
+export const crystalYield = (c: Crystal) => CRYSTAL_YIELD[c.size];
 
 /** A new round: every crystal moves one step along. `onReady` is told about any that just became Ready. */
 export function advanceCrystals(state: GameState, onReady?: (c: Crystal) => void) {

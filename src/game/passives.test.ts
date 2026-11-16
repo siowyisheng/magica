@@ -47,7 +47,7 @@ describe('Passives', () => {
     const large = g.crystals.find((c) => c.size === 'large')!;
     g.mages.p1.pos = large.pos;
     g.mages.p1.mana = 0;
-    expect(applyAction(g, { type: 'absorb', player: 'p1' }).mages.p1.mana).toBe(12); // 8 × 1.5
+    expect(applyAction(g, { type: 'absorb', player: 'p1' }).mages.p1.mana).toBe(9); // a Large crystal's 6 × 1.5
   });
 
   it('Iron Skin: every hit taken is 1 lower, but at least 1', () => {

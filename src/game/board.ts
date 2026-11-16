@@ -1,4 +1,4 @@
-import { distance, key, neighbors, spiral, type Hex } from './hex';
+import { distance, fromKey, key, neighbors, spiral, type Hex } from './hex';
 import { mulberry32 } from './rng';
 import type { PlayerId, Terrain, Tile } from './types';
 
@@ -14,14 +14,17 @@ export const spawnFor = (player: PlayerId, radius: number): Hex =>
 export function generateBoard(seed: number, radius: number): Record<string, Tile> {
   for (let attempt = 0; attempt < 50; attempt++) {
     const tiles = tryGenerate(seed + attempt * 7919, radius);
-    if (connected(tiles, spawnFor('p1', radius), spawnFor('p2', radius))) return tiles;
+    if (unclumped(new Set(Object.values(tiles).filter((t) => t.terrain === 'rock').map(key))) && connected(tiles, spawnFor('p1', radius), spawnFor('p2', radius))) return tiles;
   }
   // Fallback: open field.
   return Object.fromEntries(spiral({ q: 0, r: 0 }, radius).map((h) => [key(h), { ...h, terrain: 'plain' as Terrain }]));
 }
 
 /** Rock coverage the generator aims for, as a fraction of the board: somewhere in this range. */
-export const ROCK_TARGET = { min: 0.28, max: 0.36 };
+export const ROCK_TARGET = { min: 0.2, max: 0.28 };
+
+/** No rock touches more than this many other rocks, so walls stay thin lines and never clump. */
+export const MAX_ROCK_NEIGHBOURS = 2;
 
 /** The three hex axes a wall can run along. */
 const AXES: readonly Hex[] = [
@@ -74,7 +77,7 @@ function tryGenerate(seed: number, radius: number): Record<string, Tile> {
       wall(trial, { q: start.q + side.q * gap, r: start.r + side.r * gap }, AXES[i], length);
     }
     // Keep a wall only if all open ground stays one connected area (no sealed-off rooms).
-    if (allConnected(trial, all, spawns[0])) for (const k of trial) rocks.add(k);
+    if (unclumped(trial) && allConnected(trial, all, spawns[0])) for (const k of trial) rocks.add(k);
   }
 
   // Safety net: seal off any open pocket cut away from the spawns (the loop above should leave none).
@@ -84,6 +87,16 @@ function tryGenerate(seed: number, radius: number): Record<string, Tile> {
   return Object.fromEntries(
     all.map((h) => [key(h), { ...h, terrain: (rocks.has(key(h)) ? 'rock' : 'plain') as Terrain }]),
   );
+}
+
+/** True if no rock touches more than MAX_ROCK_NEIGHBOURS others. */
+function unclumped(rocks: Set<string>): boolean {
+  for (const k of rocks) {
+    let touching = 0;
+    for (const n of neighbors(fromKey(k))) if (rocks.has(key(n))) touching++;
+    if (touching > MAX_ROCK_NEIGHBOURS) return false;
+  }
+  return true;
 }
 
 /** Open hexes reachable from `from` without crossing `rocks`. */

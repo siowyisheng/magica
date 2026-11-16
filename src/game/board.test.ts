@@ -10,11 +10,20 @@ describe('rock-only arena', () => {
       for (const t of Object.values(generateBoard(s, 6))) expect(['plain', 'rock']).toContain(t.terrain);
   });
 
-  it('averages roughly a third rock', () => {
+  it('averages roughly a quarter rock', () => {
     const tiles = seeds.flatMap((s) => Object.values(generateBoard(s, 6)));
     const rock = tiles.filter((t) => t.terrain === 'rock').length / tiles.length;
-    expect(rock).toBeGreaterThan(0.27);
-    expect(rock).toBeLessThan(0.4);
+    expect(rock).toBeGreaterThan(0.18);
+    expect(rock).toBeLessThan(0.3);
+  });
+
+  it('never has a rock touching more than 2 other rocks', () => {
+    for (const radius of [4, 5, 6, 7, 8])
+      for (const s of seeds) {
+        const b = generateBoard(s, radius);
+        for (const t of Object.values(b).filter((t) => t.terrain === 'rock'))
+          expect(neighbors(t).filter((n) => b[key(n)]?.terrain === 'rock').length, `seed ${s} radius ${radius} at ${key(t)}`).toBeLessThanOrEqual(2);
+      }
   });
 
   it('leaves all open ground as one connected area, with no sealed-off rooms', () => {

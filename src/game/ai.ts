@@ -11,7 +11,6 @@ import {
   incoming,
   mpPerAp,
   reachable,
-  round,
   validTargets,
   AP_PER_TURN,
 } from './engine';
@@ -150,7 +149,7 @@ function chooseMain(state: GameState, player: PlayerId): Action {
     const budget = me.mp + (me.ap - 1) * mpPerAp(me);
     const target = state.crystals
       .filter((c) => c.state === 'ready' && (options.get(key(c.pos)) ?? Infinity) <= budget && !ownDanger.has(key(c.pos)))
-      .sort((a, b) => crystalYield(b, round(state)) - crystalYield(a, round(state)))[0];
+      .sort((a, b) => crystalYield(b) - crystalYield(a))[0];
     if (target) return { type: 'move', player, to: target.pos };
   }
 

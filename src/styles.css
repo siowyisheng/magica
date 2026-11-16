@@ -264,12 +264,14 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 
 /* ---------- Mana Crystals ---------- */
 .crystal polygon { stroke-width: 2; transition: opacity 0.3s; }
-.crystal-large polygon { fill: #5b8cff; stroke: #cfe0ff; }
-.crystal-small polygon { fill: #8fd3ff; stroke: #e6f6ff; }
+.crystal-large polygon { fill: #ffc233; stroke: #fff1b8; }
+.crystal-small polygon { fill: #2fe6d2; stroke: #d2fff8; }
 .crystal-spawning polygon { opacity: 0.25; stroke-dasharray: 3 3; fill-opacity: 0.2; }
 .crystal-almostReady polygon { opacity: 0.6; fill-opacity: 0.55; }
-.crystal-ready polygon { filter: drop-shadow(0 0 6px #7aa2ff); animation: pulse 1.8s infinite; }
-.crystal-pip { font-size: 10px; fill: #cfe0ff; font-weight: 700; pointer-events: none; }
+.crystal-ready polygon { animation: pulse 1.8s infinite; }
+.crystal-large.crystal-ready polygon { filter: drop-shadow(0 0 7px #ffb300); }
+.crystal-small.crystal-ready polygon { filter: drop-shadow(0 0 6px #00d9c0); }
+.crystal-pip { font-size: 10px; fill: #fff1b8; paint-order: stroke; stroke: #14111f; stroke-width: 3px; font-weight: 700; pointer-events: none; }
 .crystal { cursor: pointer; }
 button.absorb { position: relative; padding: 0.9rem 1.1rem; }
 button.absorb:not(:disabled) { border-color: #7aa2ff; box-shadow: 0 0 12px #5b8cff66; }

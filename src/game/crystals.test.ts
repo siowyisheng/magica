@@ -71,9 +71,11 @@ describe('Absorb Mana', () => {
     expect(ok.mages.p1.ap).toBe(1);
   });
 
-  it('gives the round number from a Small crystal and double from a Large one', () => {
-    expect(applyAction(standingOn('small', 3), { type: 'absorb', player: 'p1' }).mages.p1.mana).toBe(3);
-    expect(applyAction(standingOn('large', 4), { type: 'absorb', player: 'p1' }).mages.p1.mana).toBe(8);
+  it('gives a fixed 4 Mana from a Small crystal and 6 from a Large one, whatever the round', () => {
+    for (const r of [3, 4, 9]) {
+      expect(applyAction(standingOn('small', r), { type: 'absorb', player: 'p1' }).mages.p1.mana).toBe(4);
+      expect(applyAction(standingOn('large', Math.max(r, 3)), { type: 'absorb', player: 'p1' }).mages.p1.mana).toBe(6);
+    }
   });
 
   it('respects the Mana cap', () => {

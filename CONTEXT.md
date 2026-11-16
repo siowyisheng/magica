@@ -135,7 +135,7 @@ The state between Spawning and Ready. The crystal can't be absorbed yet, and bec
 The state in which a crystal can be absorbed. Absorbing it removes it, and the same size of crystal reappears elsewhere as Spawning.
 
 **Absorb Mana**:
-An action costing 1 AP that takes Mana from the Mana Crystal the mage is standing on. A Small crystal gives Mana equal to the round number; a Large crystal gives double that.
+An action costing 1 AP that takes Mana from the Mana Crystal the mage is standing on. A Small crystal always gives 4 Mana and a Large crystal 6 (before Passives and the Max Mana cap).
 
 ## Stats
 

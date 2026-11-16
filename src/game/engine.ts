@@ -418,7 +418,7 @@ export function applyAction(prev: GameState, action: Action): GameState {
     }
     case 'absorb': {
       const c = crystalAt(state, me.pos)!;
-      const gained = Math.min(maxMana(me) - me.mana, Math.floor(crystalYield(c, round(state)) * (1 + me.absorbBonus)));
+      const gained = Math.min(maxMana(me) - me.mana, Math.floor(crystalYield(c) * (1 + me.absorbBonus)));
       me.ap -= 1;
       me.mana += gained;
       log({ kind: 'heal', text: `${me.name} absorbs ${gained} Mana from the ${c.size} crystal.`, at: me.pos, cue: { kind: 'crystalAbsorb', size: c.size } });
