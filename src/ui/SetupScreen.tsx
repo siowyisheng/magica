@@ -28,7 +28,7 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
         seed: randomSeed(),
         radius,
         turnSeconds,
-        maxTurns: 60, // 30 rounds
+        maxTurns: 24, // 12 rounds
         loadouts: { p1: l1, p2: l2 },
         names: { p1: `${l1.name} ${watch ? '(AI)' : '(You)'}`, p2: `${l2.name} (AI)` },
       },

@@ -58,7 +58,7 @@ _Avoid_: Perk, trait, relic
 ## Turn structure
 
 **Round**:
-One turn by each mage. The round number starts at 1 and drives the game's escalation.
+One turn by each mage. A match lasts 12 Rounds, shown as "12 Rounds Left" counting down to "Final Round". If both mages are still standing after the last one, the higher percentage of Max HP remaining wins, and the mage who goes second wins a tie.
 _Avoid_: Cycle
 
 **Turn**:

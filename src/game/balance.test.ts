@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ABILITIES } from './content';
-import { actionError, applyAction, bidCap, bidCommitment, castError, createGame } from './engine';
+import { actionError, applyAction, bidCap, bidCommitment, castError, createGame, roundsLeftLabel } from './engine';
 import { threatArea } from './threat';
 import { PERMANENT, type Action, type GameState, type Loadout, type PlayerId } from './types';
 
@@ -152,5 +152,43 @@ describe("Dragon's Breath", () => {
     expect(blocked).not.toContain('0,-1');
     expect(blocked).not.toContain('0,-2');
     expect(blocked).not.toContain('0,-3');
+  });
+});
+
+describe('round limit', () => {
+  const finish = (g: GameState) => endTurn(endTurn(g)); // P1's turn, then P2's: the last round ends
+  const short = () => {
+    const g = duel([]);
+    g.config.maxTurns = 2; // one round
+    return g;
+  };
+
+  it('counts down: 12 Rounds Left, then Final Round', () => {
+    const g = createGame({ seed: 1, radius: 7, turnSeconds: 20, maxTurns: 24, loadouts: { p1: loadout([]), p2: loadout([]) }, names: { p1: 'A', p2: 'B' } });
+    expect(roundsLeftLabel(g)).toBe('12 Rounds Left');
+    g.turn = 22; // round 11
+    expect(roundsLeftLabel(g)).toBe('2 Rounds Left');
+    g.turn = 23; // round 12
+    expect(roundsLeftLabel(g)).toBe('Final Round');
+  });
+
+  it('is won by the higher share of HP remaining', () => {
+    let g = short();
+    g.mages.p2.hp = g.mages.p2.maxHp - 1;
+    expect(finish(g).winner).toBe('p1');
+    g = short();
+    g.mages.p1.hp = g.mages.p1.maxHp - 1;
+    expect(finish(g).winner).toBe('p2');
+    g = short();
+    g.mages.p1.maxHp = 20;
+    g.mages.p1.hp = 15; // 75%, against P2's 90%
+    g.mages.p2.hp = g.mages.p2.maxHp * 0.9;
+    expect(finish(g).winner).toBe('p2');
+  });
+
+  it('goes to the mage who moves second on a tie', () => {
+    const g = finish(short());
+    expect(g.winner).toBe('p2');
+    expect(g.events.at(-1)?.text).toMatch(/goes second/);
   });
 });

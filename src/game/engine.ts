@@ -66,6 +66,13 @@ export const maxMana = (m: Mage) => m.maxMana;
 export const hpFraction = (m: Mage) => m.hp / m.maxHp;
 /** A round is one turn by each mage. */
 export const round = (state: GameState) => Math.ceil(state.turn / 2);
+/** Rounds left in the match, counting the current one. */
+export const roundsLeft = (state: GameState) => Math.max(1, Math.ceil(state.config.maxTurns / 2) - round(state) + 1);
+/** "12 Rounds Left", then "Final Round" when only the current one remains. */
+export const roundsLeftLabel = (state: GameState) => {
+  const n = roundsLeft(state);
+  return n === 1 ? 'Final Round' : `${n} Rounds Left`;
+};
 /** True while the mage's weapon is out of use. Unarmed mages can't be disarmed. */
 export const isDisarmed = (m: Mage): boolean => WEAPONS[m.weapon].disarmable && m.statuses.some((s) => s.kind === 'disarmed');
 
@@ -468,11 +475,14 @@ export function applyAction(prev: GameState, action: Action): GameState {
       state.turn += 1;
       if (state.turn > state.config.maxTurns) {
         const [a, b] = [hpFraction(state.mages.p1), hpFraction(state.mages.p2)];
-        state.winner = a === b ? 'draw' : a > b ? 'p1' : 'p2';
+        // The higher share of HP wins; the mage who goes second takes a tie.
+        state.winner = a > b ? 'p1' : 'p2';
         log({
           kind: 'victory',
           text:
-            state.winner === 'draw' ? 'Time! The duel ends in a draw.' : `Time! ${state.mages[state.winner].name} wins on health.`,
+            a === b
+              ? `Time! Level on health, so ${state.mages.p2.name}, who goes second, wins.`
+              : `Time! ${state.mages[state.winner].name} wins on health.`,
           cue: { kind: 'result', winner: state.winner },
         });
         break;

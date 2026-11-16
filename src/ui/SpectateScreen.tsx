@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { chooseAction } from '../game/ai';
-import { applyAction, createGame, replay } from '../game/engine';
+import { applyAction, createGame, replay, roundsLeftLabel } from '../game/engine';
 import { loadReplays, newId, saveReplay } from '../game/storage';
 import type { Action, GameState, MatchConfig, MatchRecord, PlayerId } from '../game/types';
 import { BroadcastChannelTransport, SpectateHost, type LiveMatchInfo } from '../net/spectate';
@@ -184,7 +184,7 @@ function Viewer({
           ← Back
         </button>
         <div className="round">
-          {record.config.names.p1} vs {record.config.names.p2} · Round {Math.ceil(state.turn / 2)}
+          {record.config.names.p1} vs {record.config.names.p2} · {roundsLeftLabel(state)}
         </div>
         <div className="live-pill">{badge}</div>
       </header>

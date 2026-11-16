@@ -11,7 +11,7 @@ import {
   isTargetedReaction,
   apForMove,
   reachable,
-  round,
+  roundsLeftLabel,
   validTargets,
 } from '../game/engine';
 import { equals, key, neighbors, type Hex } from '../game/hex';
@@ -264,7 +264,7 @@ export function MatchScreen({ config, onExit, onRematch, onWatchReplay }: Props)
           ← Leave
         </button>
         <div className="round">
-          Round {round(state)} <span className="muted">/ {Math.ceil(config.maxTurns / 2)}</span>
+          {roundsLeftLabel(state)}
         </div>
         <PhaseBanner state={state} />
         <div className="live-pill" title="Open a second window and choose Spectate to watch this match">
