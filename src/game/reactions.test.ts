@@ -115,10 +115,10 @@ describe('Reaction Spells', () => {
 describe('Reaction Techniques', () => {
   it('Block is a Reaction Technique: 1 AP, no Mana, only in the Reaction Phase', () => {
     const calm = duel();
-    calm.mages.p1.abilities.push({ id: 'block' });
+    calm.mages.p1.abilities.push({ id: 'block', uses: 0 });
     expect(castError(calm, 'p1', 'block')).toMatch(/Reaction Phase/);
     const g = underFire('firebolt');
-    g.mages.p2.abilities.push({ id: 'block' });
+    g.mages.p2.abilities.push({ id: 'block', uses: 0 });
     const after = react(g, 'block');
     expect(after.mages.p2.ap).toBe(1);
     expect(after.mages.p2.mana).toBe(g.mages.p2.mana);

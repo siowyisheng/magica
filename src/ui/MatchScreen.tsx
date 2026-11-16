@@ -21,7 +21,9 @@ import { BroadcastChannelTransport, SpectateHost } from '../net/spectate';
 import { isDrawn } from '../game/threat';
 import { HexBoard, type BoardHighlights } from './HexBoard';
 import { AbilityBar, barAbilityIds, barScale, EventLog, MageCard, PhaseBanner, TurnResources, TurnTimer } from './Panels';
+import { BidPanel } from './BidPanel';
 import { useCountdown } from './useCountdown';
+import { BID_WINDOW_S, REVEAL_S, useBidding } from './useBidding';
 import { useSfx } from './useSfx';
 import { sfx } from '../audio/sfx';
 
@@ -80,18 +82,30 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
     setState(next);
   }, []);
 
+  // --- Secret bids (contested Spells) -------------------------------------
+  const getState = useCallback(() => stateRef.current, []);
+  const bidding = useBidding(
+    state,
+    getState,
+    dispatch,
+    mode === 'hotseat' ? ['p1', 'p2'] : ['p1'],
+    mode === 'hotseat' ? [] : ['p2'],
+  );
+
   // --- AI ------------------------------------------------------------------
   useEffect(() => {
-    if (state.winner || isLocal(state.active)) return;
+    // The AI waits out bids and their reveal, so the result can be read.
+    if (state.winner || state.bidding || bidding.reveal || isLocal(state.active)) return;
     const t = setTimeout(() => dispatch(chooseAction(stateRef.current, stateRef.current.active)), AI_DELAY_MS);
     return () => clearTimeout(t);
-  }, [state, isLocal, dispatch]);
+  }, [state, isLocal, dispatch, bidding.reveal]);
 
   // --- Turn timer ----------------------------------------------------------
   // The Reaction Phase gets its own, shorter clock: half the turn timer, at least 8s.
   const reacting = state.phase === 'reaction';
   const phaseSeconds = reacting ? Math.max(8, config.turnSeconds / 2) : config.turnSeconds;
-  const remaining = useCountdown(`${state.turn}:${state.phase}`, phaseSeconds, !state.winner);
+  // Bidding stops the caster's clock; it resumes with the reveal's time added back.
+  const remaining = useCountdown(`${state.turn}:${state.phase}`, phaseSeconds, !state.winner, !!state.bidding, REVEAL_S);
   useEffect(() => {
     const s = stateRef.current;
     if (remaining > 0 || s.winner) return;
@@ -259,6 +273,15 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
       </aside>
 
       <main className="board-wrap">
+        <BidPanel
+          state={state}
+          bidders={bidding.bidders}
+          locked={bidding.locked}
+          onLock={bidding.lock}
+          remaining={bidding.remaining}
+          total={BID_WINDOW_S}
+          reveal={bidding.reveal}
+        />
         <HexBoard state={state} highlights={highlights} onHexClick={onHexClick} onHexHover={setHover} />
       </main>
 

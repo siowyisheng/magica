@@ -158,6 +158,21 @@ _Avoid_: Magic, regen on its own (that is HP regeneration)
 **Spell**:
 An Ability that costs Mana.
 
+**Contested Spell**:
+A Spell settled by a secret Bid instead of a Threat Area. Casting it opens Bidding between the caster and the target, and its effect lands if the caster's Bid is at least the target's. Ties go to the caster, and both Bids are spent either way. Stasis is one.
+_Avoid_: Bid spell, opposed spell
+
+**Bidding**:
+The fixed 7-second window after a Contested Spell is cast, in which both duellists lock in their Bids at the same time without seeing each other's. Nothing else can happen during it, and the caster's turn timer stops. When the Bids are revealed, the timer resumes with 2 seconds added.
+
+**Bid**:
+The Mana a duellist secretly commits during Bidding: the caster's to make a Contested Spell land, the target's to Resist it. Bids are shown only after Bidding closes. Not bidding counts as 0, and so does a Bid of more Mana than the duellist has, which also forfeits all of their Mana.
+_Avoid_: Stake, wager
+
+**Resist**:
+The outcome when the target's Bid is higher than the caster's, so a Contested Spell has no effect.
+_Avoid_: Save, dodge (dodging is Moving out of a Threat Area)
+
 **Reaction**:
 An Ability a defender uses in their Reaction Phase: a Reaction Spell, a Reaction Technique, or Blink. Like any Ability it costs 1 AP unless it is Fast, so reacting usually leaves less AP for the Action Phase. A targeted Reaction Spell can't target an Attack that was itself produced by a reaction (such as a Deflected Line). The defender can still Move or Blink out of such an Attack, or Ward against it.
 

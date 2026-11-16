@@ -343,3 +343,64 @@ button.absorb:not(:disabled) { border-color: #7aa2ff; box-shadow: 0 0 12px #5b8c
 .sound-test-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
 .sound-test-row button { padding: 0.2rem 0.55rem; font-size: 0.8rem; }
 .sound-test-name { min-width: 9.5rem; font-size: 0.85rem; }
+
+/* ---------- Secret bids (contested Spells) ---------- */
+.board-wrap { position: relative; }
+.bid-panel {
+  position: absolute; left: 50%; transform: translateX(-50%); z-index: 6;
+  width: min(560px, 96%); display: grid; gap: 0.7rem; padding: 1rem 1.2rem;
+  background: #16132af2; border: 1px solid #b98bff; border-radius: 14px;
+  box-shadow: 0 0 0 1px #b98bff44, 0 10px 40px #000a, 0 0 40px #b98bff33;
+  animation: bid-in 0.25s ease-out;
+}
+@keyframes bid-in { from { opacity: 0; transform: translate(-50%, -8px); } }
+.bid-panel.at-top { top: 0.6rem; }
+.bid-panel.at-bottom { bottom: 0.6rem; }
+.bid-panel.landed { border-color: #7ec8ff; box-shadow: 0 0 0 1px #7ec8ff55, 0 0 50px #7ec8ff55; }
+.bid-panel.resisted { border-color: var(--gold); box-shadow: 0 0 0 1px #e8c46a55, 0 0 50px #e8c46a44; }
+.bid-head { display: flex; gap: 0.7rem; align-items: center; }
+.bid-icon { font-size: 2rem; }
+.bid-title { font-family: Cinzel, serif; font-size: 1.25rem; font-weight: 700; color: #d9c4ff; }
+.bid-rule { margin: 0; font-size: 0.85rem; line-height: 1.4; color: var(--text); }
+.bid-rule em { color: var(--gold); font-style: normal; }
+.bid-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+.bid-side { background: #0006; border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem 0.7rem; display: grid; gap: 0.4rem; align-content: start; }
+.bid-side.side-p1 { border-color: #4fb3ff66; }
+.bid-side.side-p2 { border-color: #ff5d7366; }
+.bid-who { font-weight: 600; font-size: 0.9rem; }
+.bid-mana { font-variant-numeric: tabular-nums; color: #9db8ff; }
+.bid-input { display: grid; gap: 0.35rem; }
+.bid-input input[type='range'] { accent-color: #b98bff; padding: 0; }
+.bid-value { color: #fff; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.bid-steps { display: flex; gap: 0.35rem; }
+.bid-steps button { padding: 0.3rem 0.6rem; }
+.bid-steps .primary { flex: 1; }
+.bid-locked { color: var(--reach); font-weight: 600; }
+.bid-waiting { color: var(--muted); font-style: italic; animation: pulse 1.4s infinite; }
+.bid-amount.revealed { font-family: Cinzel, serif; font-size: 1.8rem; font-weight: 800; color: #fff; animation: bid-pop 0.35s ease-out; }
+@keyframes bid-pop { from { transform: scale(0.6); opacity: 0; } }
+.bid-outcome { text-align: center; font-family: Cinzel, serif; font-size: 1.3rem; font-weight: 800; letter-spacing: 0.06em; }
+.bid-panel.landed .bid-outcome { color: #a8dcff; }
+.bid-panel.resisted .bid-outcome { color: var(--gold); }
+.bid-clock { position: relative; height: 18px; border-radius: 99px; background: #0008; overflow: hidden; }
+.bid-clock > div { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #7b4dff, #b98bff); transition: width 0.1s linear; }
+.bid-clock > span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.72rem; font-weight: 700; text-shadow: 0 0 3px #000; }
+.bid-secret { text-align: center; color: var(--muted); font-size: 0.85rem; }
+
+.bid-tether line { stroke: #b98bff; stroke-width: 3; stroke-dasharray: 8 6; animation: tether 0.6s linear infinite; opacity: 0.85; }
+.bid-tether text { font-size: 18px; fill: #e9dcff; paint-order: stroke; stroke: #000; stroke-width: 3px; animation: pulse 1s infinite; }
+@keyframes tether { to { stroke-dashoffset: -14; } }
+
+.contest-flash .flash-ring { fill: none; stroke-width: 4; transform-origin: center; animation: flash-ring 1.2s ease-out forwards; }
+.contest-flash.landed .flash-ring { stroke: #8fd3ff; filter: drop-shadow(0 0 6px #8fd3ff); }
+.contest-flash.landed .flash-ring.second { animation-delay: 0.25s; opacity: 0; }
+.contest-flash.resisted .flash-ring { stroke: var(--gold); stroke-dasharray: 6 5; }
+@keyframes flash-ring { 0% { transform: scale(0.4); opacity: 1; } 100% { transform: scale(2.4); opacity: 0; } }
+.contest-flash .flash-icon { font-size: 30px; animation: flash-icon 1.6s ease-out forwards; }
+@keyframes flash-icon { 0% { transform: scale(0.3); opacity: 0; } 25% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
+.contest-flash .flash-shard { stroke: var(--gold); stroke-width: 3; stroke-linecap: round; animation: flash-shard 0.9s ease-out forwards; }
+@keyframes flash-shard { from { opacity: 1; } to { opacity: 0; transform: scale(1.8); } }
+.contest-flash .flash-label { font-family: Cinzel, serif; font-weight: 800; font-size: 15px; letter-spacing: 0.08em; paint-order: stroke; stroke: #000; stroke-width: 4px; animation: flash-label 1.8s ease-out forwards; }
+.contest-flash.landed .flash-label { fill: #a8dcff; }
+.contest-flash.resisted .flash-label { fill: var(--gold); }
+@keyframes flash-label { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }

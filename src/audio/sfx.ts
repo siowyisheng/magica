@@ -265,6 +265,13 @@ function castAbility(e: Env, def: AbilityDef) {
       [523, 659, 784].forEach((f, i) => tone(e, { type: 'triangle', f, dur: 0.09, peak: 0.16, at: i * 0.055 }));
       hiss(e, { filter: 'highpass', f: 6000, dur: 0.12, peak: 0.06 });
       break;
+    case 'contest':
+      // It took hold: time freezes. A glassy chord falling into a held ring, over a low thud.
+      [1568, 1175, 880].forEach((f, i) => tone(e, { type: 'triangle', f, to: f * 0.94, dur: 0.5, peak: 0.13, at: i * 0.07 }));
+      ring(e, 660, 0.9, 0.16, 0.18);
+      tone(e, { f: 90, to: 50, dur: 0.35, peak: 0.3, at: 0.05 });
+      hiss(e, { filter: 'highpass', f: 5000, dur: 0.5, peak: 0.07, at: 0.1 });
+      break;
     default:
       launchAttack(e, def);
   }
@@ -309,6 +316,18 @@ function gameSound(e: Env, s: Exclude<Sound, { abilityId: string }>) {
       break;
     case 'actionStart':
       tone(e, { f: 660, dur: 0.09, peak: 0.1 });
+      break;
+    case 'bidStart':
+      // Bids open: a clock ticking over a low, uneasy drone.
+      [0, 0.18, 0.36].forEach((at, i) => tone(e, { type: 'square', f: i % 2 ? 1500 : 1800, dur: 0.025, peak: 0.1, at }));
+      tone(e, { type: 'triangle', f: 147, to: 156, dur: 0.6, attack: 0.08, peak: 0.12 });
+      tone(e, { type: 'triangle', f: 220, to: 208, dur: 0.6, attack: 0.08, peak: 0.08 });
+      break;
+    case 'fizzle':
+      // Resisted: the spell sputters out.
+      tone(e, { type: 'sawtooth', f: 520, to: 110, dur: 0.28, peak: 0.12 });
+      hiss(e, { f: 2400, to: 400, q: 0.8, dur: 0.32, peak: 0.16 });
+      tone(e, { f: 196, to: 150, dur: 0.18, peak: 0.12, at: 0.18 });
       break;
     case 'reactionStart':
       tone(e, { type: 'triangle', f: 784, dur: 0.09, peak: 0.2 });

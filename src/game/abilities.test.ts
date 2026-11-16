@@ -142,7 +142,7 @@ describe('Block', () => {
 
   it('is used by the AI when it prevents damage', () => {
     const g = underFire('icicle');
-    g.mages.p2.abilities = [{ id: 'staff-strike' }, { id: 'block' }];
+    g.mages.p2.abilities = [{ id: 'staff-strike', uses: 0 }, { id: 'block', uses: 0 }];
     expect(chooseAction(g, 'p2')).toMatchObject({ type: 'cast', abilityId: 'block' });
   });
 });

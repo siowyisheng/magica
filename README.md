@@ -48,6 +48,8 @@ The vocabulary used here is defined in [`CONTEXT.md`](CONTEXT.md).
 2. **Resolution.** Pending Attacks land in the order they were cast, on anyone standing in their area, the caster included.
 3. **Action Phase.** Move, attack, absorb Mana and set up your defences.
 
+**Contested Spells and secret bids.** Some Spells, like Stasis, aren't dodged. Casting one opens a 7-second **Bidding** window, and the caster's turn timer pauses while it is open. Both mages secretly bid Mana: the caster to land the Spell, the target to Resist it. The Spell lands if the caster bids at least as much, and both bids are spent either way. The bids are revealed together, and the caster's timer resumes with 2s added. Bids are kept secret by commit-and-reveal (see `docs/adr/0003-secret-bids-by-commit-and-reveal.md`), so they stay hidden from spectators and, later, online opponents.
+
 Attacks never land right away. Every one gives the opponent a chance to react, so a hit is about where you can force them to be.
 
 **Threat Area shapes:**

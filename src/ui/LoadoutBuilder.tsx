@@ -320,5 +320,8 @@ export function abilitySummary(a: AbilityDef): string {
     if ('range' in s && s.range && s.range < UNLIMITED) parts.push(`rng ${s.range}`);
     if (a.effect.hit.damage) parts.push(`${a.effect.hit.damage} dmg`);
   } else if (a.targeting === 'tile') parts.push(`rng ${a.range}`);
+  else if (a.targeting === 'enemy') parts.push(`enemy · rng ${a.range} · line of sight`);
+  if (a.effect.type === 'contest') parts.push('secret bid');
+  if (a.perTurn === 1) parts.push('once per turn');
   return parts.join(' · ');
 }

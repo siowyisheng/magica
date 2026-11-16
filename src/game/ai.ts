@@ -2,6 +2,7 @@ import { ABILITIES } from './content';
 import { crystalYield } from './crystals';
 import {
   abilityRange,
+  bidCommitment,
   absorbError,
   apCost,
   castError,
@@ -15,6 +16,7 @@ import {
   AP_PER_TURN,
 } from './engine';
 import { distance, fromKey, key, neighbors, type Hex } from './hex';
+import { rngStep } from './rng';
 import { aimableHexes, isDrawn, threatArea } from './threat';
 import { other, type Action, type GameState, type Hit, type Mage, type PendingAttack, type PlayerId } from './types';
 
@@ -25,7 +27,43 @@ import { other, type Action, type GameState, type Hit, type Mage, type PendingAt
 // ---------------------------------------------------------------------------
 
 export function chooseAction(state: GameState, player: PlayerId): Action {
+  if (state.bidding) return chooseBidding(state);
   return state.phase === 'reaction' ? chooseReaction(state, player) : chooseMain(state, player);
+}
+
+/**
+ * The AI's secret bid for the open contest: a pseudo-random whole number from 0 up to the effect's
+ * severity, never more than the Mana it has. Derived from the match's seeded state, so replays and
+ * headless games stay deterministic, while a human opponent can't predict it in play.
+ */
+export function aiBid(state: GameState, player: PlayerId): number {
+  const b = state.bidding;
+  if (!b) return 0;
+  const fx = ABILITIES[b.abilityId].effect;
+  const severity = fx.type === 'contest' ? fx.severity : 0;
+  const max = Math.max(0, Math.min(state.mages[player].mana, severity));
+  const [r] = rngStep((state.rng ^ Math.imul(b.id, 0x9e3779b1) ^ (player === 'p1' ? 0x5bd1e995 : 0x1b873593)) >>> 0);
+  return Math.floor(r * (max + 1));
+}
+
+/** Salt the headless AI uses. The UI uses a fresh random salt for every bid instead. */
+export const HEADLESS_SALT = 'ai';
+
+/**
+ * Drive a whole bid when both sides are bots (AI vs AI, tests): commit for whoever hasn't,
+ * close the window, then reveal. The UI runs the real window and salts itself.
+ */
+function chooseBidding(state: GameState): Action {
+  const b = state.bidding!;
+  const duellists = [b.caster, b.target];
+  if (b.stage === 'commit') {
+    const p = duellists.find((d) => !b.commits[d]);
+    return p
+      ? { type: 'commitBid', player: p, hash: bidCommitment(b.id, p, aiBid(state, p), HEADLESS_SALT) }
+      : { type: 'closeBidding', player: state.active };
+  }
+  const p = duellists.find((d) => b.reveals[d] === undefined)!;
+  return { type: 'revealBid', player: p, amount: aiBid(state, p), salt: HEADLESS_SALT };
 }
 
 const areaOf = (attacks: GameState['pending']) => new Set(attacks.flatMap((a) => a.area));
@@ -250,6 +288,12 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, _targe
     case 'shield':
       // Shields hold until our next resolution: worth it when the enemy can reach us.
       return dist <= 6 && me.shield === 0 && me.ap === 1 ? 1 : 0;
+    case 'contest': {
+      // Worth it as a combo: a rooted enemy can't step out of an Attack we already launched at them.
+      // Keep enough Mana back to bid with.
+      const covered = state.pending.some((a) => a.caster === player && a.area.includes(key(enemy.pos)));
+      return covered && me.mana >= def.mana + 2 ? 5 : 0;
+    }
     case 'counter':
     case 'deflect':
     case 'haste':

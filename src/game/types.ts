@@ -73,10 +73,19 @@ export type AbilityEffect =
   /** Turn an empty hex into Rock. */
   | { type: 'pillar' }
   /** Extra Movement Points this turn. */
-  | { type: 'haste'; move: number };
+  | { type: 'haste'; move: number }
+  /**
+   * Contested: casting opens a secret bid of Mana between caster and target. The status lands if the
+   * caster's bid is at least the target's; both bids are spent either way. `severity` is roughly how
+   * much Mana the effect is worth resisting, and caps what the AI will bid.
+   */
+  | { type: 'contest'; severity: number; status: Status };
 
-/** For non-Attack Abilities. self: cast on yourself. tile: an empty hex within range. */
-export type Targeting = 'self' | 'tile';
+/**
+ * For non-Attack Abilities. self: cast on yourself. tile: an empty hex within range.
+ * enemy: the other mage, within range and in line of sight.
+ */
+export type Targeting = 'self' | 'tile' | 'enemy';
 
 export type School = 'fire' | 'frost' | 'steel' | 'arcane' | 'nature' | 'tide' | 'death' | 'earth' | 'time';
 
@@ -103,6 +112,8 @@ export interface AbilityDef {
   /** Non-Attack Abilities only (Attacks aim with their Shape). */
   targeting?: Targeting;
   range?: number;
+  /** At most this many uses per turn (e.g. 1 = once per turn). Unlimited when unset. */
+  perTurn?: number;
   effect: AbilityEffect;
 }
 
@@ -147,6 +158,8 @@ export interface PassiveDef {
 
 export interface AbilityState {
   id: string;
+  /** Uses so far this turn, for Abilities with `perTurn`. Reset at the start of each own turn. */
+  uses: number;
 }
 
 export interface Mage {
@@ -199,7 +212,11 @@ export type Cue =
   | { kind: 'crystalReady'; size: CrystalSize }
   | { kind: 'actionStart'; player: PlayerId }
   | { kind: 'reactionStart'; player: PlayerId }
-  | { kind: 'result'; winner: PlayerId | 'draw' };
+  | { kind: 'result'; winner: PlayerId | 'draw' }
+  /** A contested Spell was cast and the secret bidding opened. */
+  | { kind: 'bidStart'; abilityId: string }
+  /** Bids were revealed: the contested effect landed on `target`, or was Resisted. */
+  | { kind: 'contest'; abilityId: string; success: boolean; target: PlayerId; bids: Record<PlayerId, number> };
 
 export interface GameEvent {
   turn: number;
@@ -240,6 +257,23 @@ export interface PendingAttack {
   blocked?: number;
 }
 
+/**
+ * A secret Mana bid for a contested Spell, settled by commit-and-reveal: each duellist first sends only
+ * a hash of (bid, salt), and the amounts are revealed and checked once the window closes. Nothing here
+ * can reveal a bid before then.
+ */
+export interface Bidding {
+  id: number;
+  abilityId: string;
+  caster: PlayerId;
+  target: PlayerId;
+  /** 'commit': hashes are coming in. 'reveal': the window closed; amounts are being revealed. */
+  stage: 'commit' | 'reveal';
+  commits: Partial<Record<PlayerId, string>>;
+  /** Checked, valid bids (an overbid or no-show counts as 0). */
+  reveals: Partial<Record<PlayerId, number>>;
+}
+
 /** Reaction Phase happens only when Attacks are pending against the active mage. */
 export type Phase = 'reaction' | 'action';
 
@@ -255,6 +289,8 @@ export interface GameState {
   /** Launched Attacks waiting to resolve, in launch order. */
   pending: PendingAttack[];
   nextAttackId: number;
+  /** An open secret bid for a contested Spell. While set, only bid actions are allowed. */
+  bidding: Bidding | null;
   /** Seeded PRNG state for in-match randomness (crystal placement). */
   rng: number;
   events: GameEvent[];
@@ -268,7 +304,15 @@ export type Action =
   | { type: 'absorb'; player: PlayerId }
   /** Finish the Reaction Phase: pending Attacks resolve, then the Action Phase begins. */
   | { type: 'endReaction'; player: PlayerId; reason?: 'timeout' }
-  | { type: 'endTurn'; player: PlayerId; reason?: 'timeout' };
+  | { type: 'endTurn'; player: PlayerId; reason?: 'timeout' }
+  /** Send a commitment: SHA-256 of `${biddingId}|${player}|${amount}|${salt}` (see bidCommitment). */
+  | { type: 'commitBid'; player: PlayerId; hash: string }
+  /** The bidding window is over. Anyone who hasn't committed bids 0. */
+  | { type: 'closeBidding'; player: PlayerId }
+  /** Reveal a committed bid; it must match the commitment. */
+  | { type: 'revealBid'; player: PlayerId; amount: number; salt: string }
+  /** The reveal deadline passed. Anyone who hasn't revealed bids 0. */
+  | { type: 'revealTimeout'; player: PlayerId };
 
 export interface MatchConfig {
   seed: number;

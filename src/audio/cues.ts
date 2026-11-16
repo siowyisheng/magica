@@ -11,7 +11,7 @@ export type Sound =
   | { id: 'cast' | 'launch' | 'resolve'; abilityId: string }
   | { id: 'damage'; amount: number }
   | { id: 'crystalAbsorb'; size: CrystalSize }
-  | { id: 'absorbed' | 'step' | 'crystalReady' | 'actionStart' | 'reactionStart' }
+  | { id: 'absorbed' | 'step' | 'crystalReady' | 'actionStart' | 'reactionStart' | 'bidStart' | 'fizzle' }
   | { id: 'win' | 'lose' | 'fanfare' }
   | { id: 'click' | 'confirm' | 'select' };
 
@@ -117,6 +117,13 @@ export function planSounds(events: GameEvent[], viewer: Viewer, radius: number):
         break;
       case 'result':
         add(resultSound(c.winner, viewer), sequenced ? cursor + 0.25 : cursor);
+        break;
+      case 'bidStart':
+        add({ id: 'bidStart' }, cursor, e.at);
+        break;
+      case 'contest':
+        // The same for everyone, and only once the bids are revealed: nothing before then may hint at them.
+        add(c.success ? { id: 'cast', abilityId: c.abilityId } : { id: 'fizzle' }, cursor, e.at);
         break;
     }
   }

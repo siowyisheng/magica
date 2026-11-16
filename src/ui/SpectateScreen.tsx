@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { replay } from '../game/engine';
 import { loadReplays } from '../game/storage';
-import type { Action, MatchRecord } from '../game/types';
+import type { Action, GameState, MatchRecord, PlayerId } from '../game/types';
 import { BroadcastChannelTransport, type LiveMatchInfo } from '../net/spectate';
+import { BidPanel, type BidReveal } from './BidPanel';
 import { HexBoard } from './HexBoard';
 import { barScale, EventLog, MageCard } from './Panels';
 import { useSfx } from './useSfx';
@@ -143,6 +144,18 @@ export function ReplayViewer({ record, onBack }: { record: MatchRecord; onBack: 
   );
 }
 
+const NO_LOCKS = new Set<PlayerId>();
+
+/** Spectators see a bid's result until the next few things happen after it. */
+function recentReveal(state: GameState): BidReveal | null {
+  if (state.bidding) return null;
+  const tail = state.events.slice(-4);
+  const e = [...tail].reverse().find((x) => x.cue?.kind === 'contest');
+  if (!e || e.cue?.kind !== 'contest') return null;
+  const c = e.cue;
+  return { abilityId: c.abilityId, success: c.success, target: c.target, caster: c.target === 'p1' ? 'p2' : 'p1', bids: c.bids };
+}
+
 function Viewer({
   record,
   upTo,
@@ -174,6 +187,7 @@ function Viewer({
         <MageCard mage={state.mages.p1} active={state.active === 'p1'} scale={barScale(state)} />
       </aside>
       <main className="board-wrap">
+        <BidPanel state={state} bidders={[]} locked={NO_LOCKS} onLock={() => {}} remaining={0} total={1} reveal={recentReveal(state)} />
         <HexBoard state={state} />
       </main>
       <aside className="side right">

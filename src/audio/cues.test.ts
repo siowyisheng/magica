@@ -187,3 +187,19 @@ describe('new events', () => {
     expect(newEvents(Array.from({ length: 50 }, () => ev(2)), 0).fresh).toEqual([]);
   });
 });
+
+describe('contested Spells', () => {
+  const ev = (cue: GameEvent['cue']): GameEvent => ({ turn: 3, kind: 'status', text: '', cue, at: { q: 0, r: 0 } });
+
+  it('plays a cue when the secret bidding opens', () => {
+    expect(planSounds([ev({ kind: 'bidStart', abilityId: 'stasis' })], 'p1', 7).map((s) => s.sound)).toEqual([{ id: 'bidStart' }]);
+  });
+
+  it('plays the effect when it takes hold, and a fizzle when it is Resisted', () => {
+    const bids = { p1: 3, p2: 1 };
+    const landed = planSounds([ev({ kind: 'contest', abilityId: 'stasis', success: true, target: 'p2', bids })], 'p1', 7);
+    const resisted = planSounds([ev({ kind: 'contest', abilityId: 'stasis', success: false, target: 'p2', bids })], 'p1', 7);
+    expect(landed.map((s) => s.sound)).toEqual([{ id: 'cast', abilityId: 'stasis' }]);
+    expect(resisted.map((s) => s.sound)).toEqual([{ id: 'fizzle' }]);
+  });
+});

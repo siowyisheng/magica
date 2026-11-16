@@ -3,6 +3,7 @@ import { ABILITIES } from './content';
 import { advanceCrystals, crystalAt, crystalYield, initialCrystals, respawnCrystal } from './crystals';
 import { distance, equals, fromKey, key, line, neighbors, toPixel, type Hex } from './hex';
 import { buildMage } from './loadout';
+import { sha256Hex } from './sha256';
 import { aimableHexes, isDrawn, shapeReach, threatArea } from './threat';
 import {
   other,
@@ -50,6 +51,7 @@ export function createGame(config: MatchConfig): GameState {
     crystals: [],
     pending: [],
     nextAttackId: 1,
+    bidding: null,
     rng: (config.seed ^ 0x9e3779b9) >>> 0,
     events: [{ turn: 1, kind: 'turn', text: `${config.names.p1} takes the first turn.` }],
     winner: null,
@@ -154,9 +156,46 @@ export function hasLOS(state: GameState, a: Hex, b: Hex): boolean {
 }
 
 /** Reach of an Ability, for display and AI positioning. */
+/**
+ * The commitment a duellist sends for a secret bid: a hash binding the bid to this bidding, this
+ * player and a random salt, so it can't be guessed from the few possible amounts or reused.
+ */
+export const bidCommitment = (biddingId: number, player: PlayerId, amount: number, salt: string) =>
+  sha256Hex(`${biddingId}|${player}|${amount}|${salt}`);
+
+type BidAction = Extract<Action, { type: 'commitBid' | 'closeBidding' | 'revealBid' | 'revealTimeout' }>;
+const isBidAction = (a: Action): a is BidAction =>
+  a.type === 'commitBid' || a.type === 'closeBidding' || a.type === 'revealBid' || a.type === 'revealTimeout';
+
+function bidError(state: GameState, action: BidAction): string | null {
+  const b = state.bidding;
+  if (!b) return 'There is no bidding open.';
+  if (action.player !== b.caster && action.player !== b.target) return 'Only the duellists bid.';
+  switch (action.type) {
+    case 'commitBid':
+      if (b.stage !== 'commit') return 'Bidding has closed.';
+      if (b.commits[action.player]) return 'You have already bid.';
+      return /^[0-9a-f]{64}$/.test(action.hash) ? null : 'That is not a valid commitment.';
+    case 'closeBidding':
+      return b.stage === 'commit' ? null : 'Bidding has already closed.';
+    case 'revealBid': {
+      if (b.stage !== 'reveal') return 'Bidding is still open.';
+      if (b.reveals[action.player] !== undefined) return 'Already revealed.';
+      const committed = b.commits[action.player];
+      if (!committed) return 'Nothing to reveal.';
+      if (!Number.isInteger(action.amount) || action.amount < 0) return 'A bid is a whole number of Mana.';
+      return bidCommitment(b.id, action.player, action.amount, action.salt) === committed
+        ? null
+        : "That bid doesn't match its commitment.";
+    }
+    case 'revealTimeout':
+      return b.stage === 'reveal' ? null : 'Bidding is still open.';
+  }
+}
+
 export function abilityRange(def: AbilityDef): number {
   if (def.effect.type === 'attack') return shapeReach(def.effect.shape);
-  return def.targeting === 'tile' ? Math.max(1, def.range ?? 0) : 0;
+  return def.targeting === 'tile' || def.targeting === 'enemy' ? Math.max(1, def.range ?? 0) : 0;
 }
 
 /** Why the player can't cast this Ability (at this target), or null if they can. */
@@ -169,11 +208,13 @@ export function castError(
   path?: Hex[],
 ): string | null {
   if (state.winner) return 'The match is over.';
+  if (state.bidding) return 'Waiting for the bids.';
   if (state.active !== player) return 'Not your turn.';
   const mage = state.mages[player];
   const slot = mage.abilities.find((a) => a.id === abilityId);
   const def = ABILITIES[abilityId];
   if (!slot || !def) return 'Ability not equipped.';
+  if (def.perTurn && slot.uses >= def.perTurn) return def.perTurn === 1 ? 'Only once per turn.' : `Only ${def.perTurn} times per turn.`;
   const reacting = state.phase === 'reaction';
   if (reacting && timing(def) === 'action') return 'Only Reactions are allowed in the Reaction Phase.';
   if (!reacting && timing(def) === 'reaction') return 'Reactions can only be used in the Reaction Phase.';
@@ -203,6 +244,11 @@ export function castError(
     return threatArea(state.tiles, mage.pos, def.effect.shape, target, enemyPos(state, player))?.length ? null : "Can't aim there.";
   }
   const enemy = state.mages[other(player)];
+  if (def.targeting === 'enemy') {
+    if (!equals(target, enemy.pos)) return 'Target the enemy mage.';
+    if (distance(mage.pos, target) > abilityRange(def)) return 'Out of range.';
+    return hasLOS(state, mage.pos, target) ? null : 'No line of sight.';
+  }
   if (def.targeting !== 'tile') return equals(target, mage.pos) ? null : 'Targets yourself.';
   const dist = distance(mage.pos, target);
   if (dist === 0) return 'Pick another hex.';
@@ -256,6 +302,8 @@ export const incoming = (state: GameState, player: PlayerId) => state.pending.fi
 
 export function actionError(state: GameState, action: Action): string | null {
   if (state.winner) return 'The match is over.';
+  if (isBidAction(action)) return bidError(state, action);
+  if (state.bidding) return 'Waiting for the bids.';
   if (action.player !== state.active) return 'Not your turn.';
   switch (action.type) {
     case 'move':
@@ -283,6 +331,40 @@ export function applyAction(prev: GameState, action: Action): GameState {
   const me = state.mages[action.player];
 
   switch (action.type) {
+    case 'commitBid':
+      state.bidding!.commits[action.player] = action.hash; // silent: when someone locks in is not a tell
+      break;
+    case 'closeBidding': {
+      const b = state.bidding!;
+      b.stage = 'reveal';
+      for (const p of [b.caster, b.target])
+        if (!b.commits[p]) {
+          b.reveals[p] = 0;
+          log({ kind: 'status', text: `${state.mages[p].name} didn't bid.` });
+        }
+      settleBidding(state, log);
+      break;
+    }
+    case 'revealBid': {
+      const b = state.bidding!;
+      if (action.amount > me.mana) {
+        b.reveals[action.player] = 0;
+        me.mana = 0;
+        log({ kind: 'status', text: `${me.name} bid more Mana than they had, and forfeits all of it.` });
+      } else b.reveals[action.player] = action.amount;
+      settleBidding(state, log);
+      break;
+    }
+    case 'revealTimeout': {
+      const b = state.bidding!;
+      for (const p of [b.caster, b.target])
+        if (b.reveals[p] === undefined) {
+          b.reveals[p] = 0;
+          log({ kind: 'status', text: `${state.mages[p].name} didn't reveal their bid in time, so it counts as 0.` });
+        }
+      settleBidding(state, log);
+      break;
+    }
     case 'move': {
       const from = me.pos;
       const cost = reachable(prev, action.player).get(key(action.to))!;
@@ -299,7 +381,17 @@ export function applyAction(prev: GameState, action: Action): GameState {
       const def = ABILITIES[action.abilityId];
       me.ap -= apCost(def);
       me.mana -= def.mana;
-      if (def.effect.type === 'attack') {
+      me.abilities.find((a) => a.id === def.id)!.uses += 1;
+      if (def.effect.type === 'contest') {
+        const target = other(me.owner);
+        state.bidding = { id: state.nextAttackId++, abilityId: def.id, caster: me.owner, target, stage: 'commit', commits: {}, reveals: {} };
+        log({
+          kind: 'cast',
+          text: `${me.name} casts ${def.icon} ${def.name} on ${state.mages[target].name}. Both bid Mana in secret…`,
+          at: state.mages[target].pos,
+          cue: { kind: 'bidStart', abilityId: def.id },
+        });
+      } else if (def.effect.type === 'attack') {
         const aim = isDrawn(def.effect.shape) ? action.path! : action.target;
         const area = threatArea(state.tiles, me.pos, def.effect.shape, aim, enemyPos(state, me.owner))!;
         state.pending.push({
@@ -363,12 +455,38 @@ export function applyAction(prev: GameState, action: Action): GameState {
   return state;
 }
 
+/**
+ * Once both bids are known: both are spent, and the contested effect lands if the caster bid at least
+ * as much as the target (ties go to the caster).
+ */
+function settleBidding(state: GameState, log: Log) {
+  const b = state.bidding!;
+  const casterBid = b.reveals[b.caster];
+  const targetBid = b.reveals[b.target];
+  if (casterBid === undefined || targetBid === undefined) return;
+  const def = ABILITIES[b.abilityId];
+  const caster = state.mages[b.caster];
+  const target = state.mages[b.target];
+  caster.mana -= casterBid;
+  target.mana -= targetBid;
+  const success = casterBid >= targetBid;
+  log({
+    kind: 'status',
+    text: `Bids: ${caster.name} ${casterBid}, ${target.name} ${targetBid}. ${success ? `${def.icon} ${def.name} takes hold!` : `${target.name} resists!`}`,
+    at: target.pos,
+    cue: { kind: 'contest', abilityId: def.id, success, target: b.target, bids: { [b.caster]: casterBid, [b.target]: targetBid } as Record<PlayerId, number> },
+  });
+  if (success && def.effect.type === 'contest') addStatus(target, def.effect.status, log);
+  state.bidding = null;
+}
+
 function startTurn(state: GameState, player: PlayerId, log: Log) {
   const mage = state.mages[player];
   // Each mage's first turn is turn 1 (P1) or 2 (P2); regen starts after that.
   if (state.turn > 2) mage.mana = Math.min(maxMana(mage), mage.mana + mage.manaRegen);
   mage.mp = 0;
   mage.empower = 0;
+  for (const a of mage.abilities) a.uses = 0;
   if (mage.regen > 0) heal(mage, mage.regen, log);
   for (const s of mage.statuses) if (s.kind === 'burn' || s.kind === 'poison') dealDamage(mage, s.power, log);
   mage.ap = AP_PER_TURN;
@@ -456,6 +574,7 @@ function resolveUtility(state: GameState, caster: Mage, def: AbilityDef, target:
     case 'attack':
     case 'counter':
     case 'deflect':
+    case 'contest': // settled by bidding, not here
       return;
     case 'heal':
       heal(caster, fx.amount, log);

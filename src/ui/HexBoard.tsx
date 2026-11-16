@@ -63,6 +63,26 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
     return { discs, bars };
   }, [tiles]);
 
+  // A big, clear mark on the target when a contested Spell's bids are revealed: it took hold, or was Resisted.
+  const [flashes, setFlashes] = useState<Array<{ id: number; x: number; y: number; success: boolean; icon: string; name: string }>>([]);
+  const flashSeen = useRef(state.events.length);
+  useEffect(() => {
+    if (state.events.length < flashSeen.current) flashSeen.current = 0;
+    const fresh = state.events.slice(flashSeen.current);
+    flashSeen.current = state.events.length;
+    const add = fresh.flatMap((e) => {
+      if (e.cue?.kind !== 'contest' || !e.at) return [];
+      const p = toPixel(e.at, SIZE);
+      const def = ABILITIES[e.cue.abilityId];
+      return [{ id: Date.now() + Math.random(), x: p.x, y: p.y, success: e.cue.success, icon: def?.icon ?? '', name: def?.name ?? '' }];
+    });
+    if (!add.length) return;
+    setFlashes((f) => [...f, ...add]);
+    const ids = new Set(add.map((a) => a.id));
+    const t = setTimeout(() => setFlashes((f) => f.filter((x) => !ids.has(x.id))), 1800);
+    return () => clearTimeout(t);
+  }, [state.events]);
+
   // Floating combat text for newly appended events.
   const [floaters, setFloaters] = useState<Floater[]>([]);
   const seen = useRef(state.events.length);
@@ -264,6 +284,41 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
           </g>
         );
       })}
+
+      {state.bidding &&
+        (() => {
+          const a = toPixel(state.mages[state.bidding.caster].pos, SIZE);
+          const t = toPixel(state.mages[state.bidding.target].pos, SIZE);
+          return (
+            <g className="bid-tether" pointerEvents="none">
+              <line x1={a.x} y1={a.y} x2={t.x} y2={t.y} />
+              <text x={t.x} y={t.y - SIZE * 1.5} textAnchor="middle">
+                {ABILITIES[state.bidding.abilityId]?.icon} ?
+              </text>
+            </g>
+          );
+        })()}
+
+      {flashes.map((f) => (
+        <g key={f.id} className={`contest-flash ${f.success ? 'landed' : 'resisted'}`} transform={`translate(${f.x} ${f.y})`} pointerEvents="none">
+          <circle className="flash-ring" r={SIZE * 0.9} />
+          {f.success ? (
+            <>
+              <circle className="flash-ring second" r={SIZE * 0.9} />
+              <text className="flash-icon" textAnchor="middle" dominantBaseline="central">
+                {f.icon}
+              </text>
+            </>
+          ) : (
+            [0, 60, 120, 180, 240, 300].map((deg) => (
+              <line key={deg} className="flash-shard" x1={0} y1={-SIZE * 0.5} x2={0} y2={-SIZE * 1.1} transform={`rotate(${deg})`} />
+            ))
+          )}
+          <text className="flash-label" y={-SIZE * 1.35} textAnchor="middle">
+            {f.success ? f.name.toUpperCase() : 'RESISTED'}
+          </text>
+        </g>
+      ))}
 
       {floaters.map((f) => (
         <text key={f.id} x={f.x} y={f.y - SIZE * 0.4} className={`floater floater-${f.kind}`} textAnchor="middle">

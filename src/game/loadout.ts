@@ -106,7 +106,7 @@ export function buildMage(owner: PlayerId, name: string, l: Loadout, pos: Hex): 
     ...passives,
     manaRegen: statValue('manaRegen', l.stats.manaRegen) + passives.manaRegen,
     passiveIds: [...l.passiveIds],
-    abilities: l.abilityIds.map((id) => ({ id, cooldown: 0 })),
+    abilities: l.abilityIds.map((id) => ({ id, uses: 0 })),
     statuses: [],
   };
 }

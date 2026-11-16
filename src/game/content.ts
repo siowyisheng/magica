@@ -15,7 +15,7 @@ import { UNLIMITED, type AbilityDef, type AbilityEffect, type Hit, type Loadout,
 export const STAFF_STRIKE = 'staff-strike';
 
 type Common = Pick<AbilityDef, 'id' | 'name' | 'icon' | 'school' | 'description' | 'points'> &
-  Partial<Pick<AbilityDef, 'fast' | 'timing'>>;
+  Partial<Pick<AbilityDef, 'fast' | 'timing' | 'perTurn'>>;
 
 const technique = (a: Common & { shape: Shape; hit: Hit }): AbilityDef => ({
   ...a,
@@ -139,10 +139,11 @@ const LIST: AbilityDef[] = [
     description: 'A curse on one hex: whoever is there takes +2 from every hit for 2 turns.',
     shape: { kind: 'single', range: 6 }, hit: { damage: 0, status: { kind: 'vulnerable', turns: 2, power: 2 } },
   }),
-  attack({
-    id: 'stasis', name: 'Stasis', icon: '🕰️', school: 'time', points: 3, mana: 6,
-    description: 'Freeze one hex in time. Whoever is there cannot move next turn.',
-    shape: { kind: 'single', range: 4 }, hit: { damage: 0, status: { kind: 'root', turns: 1, power: 0 } },
+  spell({
+    id: 'stasis', name: 'Stasis', icon: '🕰️', school: 'time', points: 3, mana: 2, fast: true, perTurn: 1,
+    description:
+      'Fast, once per turn. Freeze the enemy (8 range, line of sight): you both secretly bid Mana. If your bid is at least theirs, they can’t Move on their next turn. Both bids are spent.',
+    targeting: 'enemy', range: 8, effect: { type: 'contest', severity: 6, status: { kind: 'root', turns: 1, power: 0 } },
   }),
   attack({
     id: 'meteor', name: 'Meteor', icon: '☄️', school: 'fire', points: 5, mana: 18,
