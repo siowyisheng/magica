@@ -5,7 +5,8 @@ import type { Loadout, MatchConfig } from '../game/types';
 
 interface Props {
   loadouts: Loadout[];
-  onStart: (config: MatchConfig) => void;
+  /** `watch` runs the match as AI vs AI with you spectating. */
+  onStart: (config: MatchConfig, watch: boolean) => void;
   onBack: () => void;
 }
 
@@ -15,20 +16,24 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
   const [p2, setP2] = useState(valid[1]?.id ?? valid[0]?.id ?? '');
   const [turnSeconds, setTurnSeconds] = useState(20);
   const [radius, setRadius] = useState(7);
+  const [watch, setWatch] = useState(false);
 
   const l1 = valid.find((l) => l.id === p1);
   const l2 = valid.find((l) => l.id === p2);
 
   const start = () => {
     if (!l1 || !l2) return;
-    onStart({
-      seed: randomSeed(),
-      radius,
-      turnSeconds,
-      maxTurns: 60, // 30 rounds
-      loadouts: { p1: l1, p2: l2 },
-      names: { p1: `${l1.name} (You)`, p2: `${l2.name} (AI)` },
-    });
+    onStart(
+      {
+        seed: randomSeed(),
+        radius,
+        turnSeconds,
+        maxTurns: 60, // 30 rounds
+        loadouts: { p1: l1, p2: l2 },
+        names: { p1: `${l1.name} ${watch ? '(AI)' : '(You)'}`, p2: `${l2.name} (AI)` },
+      },
+      watch,
+    );
   };
 
   const LoadoutSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
@@ -46,27 +51,40 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
       <button className="ghost" onClick={onBack}>
         ← Back
       </button>
-      <h2>New duel</h2>
+      <h2>{watch ? 'Watch a duel' : 'New duel'}</h2>
       {valid.length === 0 && <p className="errors">You need at least one valid loadout.</p>}
 
+      <div className="field" role="group" aria-labelledby="setup-mode">
+        <span id="setup-mode">Mode</span>
+        <div className="segmented">
+          <button className={!watch ? 'is-selected' : ''} onClick={() => setWatch(false)}>
+            You vs AI
+          </button>
+          <button className={watch ? 'is-selected' : ''} onClick={() => setWatch(true)}>
+            Watch AI vs AI
+          </button>
+        </div>
+      </div>
       <label>
-        Your loadout
+        {watch ? 'First AI loadout' : 'Your loadout'}
         <LoadoutSelect value={p1} onChange={setP1} />
       </label>
       <label>
-        AI loadout
+        {watch ? 'Second AI loadout' : 'AI loadout'}
         <LoadoutSelect value={p2} onChange={setP2} />
       </label>
-      <div className="field" role="group" aria-labelledby="setup-timer">
-        <span id="setup-timer">Turn timer</span>
-        <div className="segmented">
-          {[10, 20, 30, 60].map((s) => (
-            <button key={s} className={turnSeconds === s ? 'is-selected' : ''} onClick={() => setTurnSeconds(s)}>
-              {s}s
-            </button>
-          ))}
+      {!watch && (
+        <div className="field" role="group" aria-labelledby="setup-timer">
+          <span id="setup-timer">Turn timer</span>
+          <div className="segmented">
+            {[10, 20, 30, 60].map((s) => (
+              <button key={s} className={turnSeconds === s ? 'is-selected' : ''} onClick={() => setTurnSeconds(s)}>
+                {s}s
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       <div className="field" role="group" aria-labelledby="setup-arena">
         <span id="setup-arena">Arena size</span>
         <div className="segmented">
@@ -82,7 +100,7 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
         </div>
       </div>
       <button className="primary big" disabled={!l1 || !l2} onClick={start}>
-        Enter the arena
+        {watch ? 'Start the duel' : 'Enter the arena'}
       </button>
     </div>
   );

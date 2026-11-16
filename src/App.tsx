@@ -8,18 +8,19 @@ import { LoadoutBuilder } from './ui/LoadoutBuilder';
 import { SettingsControls, SettingsPanel } from './ui/Settings';
 import { MatchScreen } from './ui/MatchScreen';
 import { SetupScreen } from './ui/SetupScreen';
-import { LiveViewer, ReplayViewer, SpectateLobby } from './ui/SpectateScreen';
+import { AiDuelViewer, LiveViewer, ReplayViewer, SpectateLobby } from './ui/SpectateScreen';
 
 type Screen =
   | { name: 'menu' }
   | { name: 'loadouts' }
   | { name: 'setup' }
   | { name: 'match'; config: MatchConfig; key: number }
+  | { name: 'aiduel'; config: MatchConfig; key: number }
   | { name: 'spectate' }
   | { name: 'live'; matchId: string }
   | { name: 'replay'; record: MatchRecord };
 
-const COMBAT_SCREENS = new Set(['match', 'live', 'replay']);
+const COMBAT_SCREENS = new Set(['match', 'aiduel', 'live', 'replay']);
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'menu' });
@@ -77,12 +78,22 @@ function Screens({
         <SetupScreen
           loadouts={loadouts}
           onBack={menu}
-          onStart={(config) => setScreen({ name: 'match', config, key: Date.now() })}
+          onStart={(config, watch) => setScreen({ name: watch ? 'aiduel' : 'match', config, key: Date.now() })}
         />
       );
     case 'match':
       return (
         <MatchScreen
+          key={screen.key}
+          config={screen.config}
+          onExit={menu}
+          onRematch={() => setScreen({ ...screen, config: { ...screen.config, seed: randomSeed() }, key: Date.now() })}
+          onWatchReplay={(record) => setScreen({ name: 'replay', record: structuredClone(record) })}
+        />
+      );
+    case 'aiduel':
+      return (
+        <AiDuelViewer
           key={screen.key}
           config={screen.config}
           onExit={menu}

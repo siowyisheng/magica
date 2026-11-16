@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { replay } from '../game/engine';
-import { loadReplays } from '../game/storage';
-import type { Action, GameState, MatchRecord, PlayerId } from '../game/types';
-import { BroadcastChannelTransport, type LiveMatchInfo } from '../net/spectate';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { chooseAction } from '../game/ai';
+import { applyAction, createGame, replay } from '../game/engine';
+import { loadReplays, newId, saveReplay } from '../game/storage';
+import type { Action, GameState, MatchConfig, MatchRecord, PlayerId } from '../game/types';
+import { BroadcastChannelTransport, SpectateHost, type LiveMatchInfo } from '../net/spectate';
 import { BidPanel, type BidReveal } from './BidPanel';
 import { HexBoard } from './HexBoard';
 import { barScale, EventLog, MageCard } from './Panels';
@@ -161,16 +162,23 @@ function Viewer({
   upTo,
   badge,
   onBack,
+  liveState,
   children,
 }: {
   record: MatchRecord;
   upTo: number;
   badge: string;
   onBack: () => void;
+  /** The current state, when the caller already has it (saves replaying every action). */
+  liveState?: GameState;
   children?: ReactNode;
 }) {
   const actions: Action[] = record.actions;
-  const state = useMemo(() => replay(record.config, actions, upTo), [record.config, actions, upTo]);
+  const replayed = useMemo(
+    () => (liveState ? null : replay(record.config, actions, upTo)),
+    [liveState, record.config, actions, upTo],
+  );
+  const state = liveState ?? replayed!;
   useSfx(state, null); // a spectator has no side
   return (
     <div className="match spectating">
@@ -196,5 +204,114 @@ function Viewer({
       </aside>
       <footer className="controls">{children ?? <span className="muted">Spectating — controls disabled</span>}</footer>
     </div>
+  );
+}
+
+const AI_STEP_MS = 500;
+/** Safety net for "skip to end": a real match is a few hundred actions. */
+const MAX_SKIP_ACTIONS = 5000;
+
+/**
+ * An AI vs AI duel played out live. Both sides are the bot; you only watch, so there are no
+ * controls beyond pause, speed and skipping to the result. It is broadcast like any other match.
+ */
+export function AiDuelViewer({
+  config,
+  onExit,
+  onRematch,
+  onWatchReplay,
+}: {
+  config: MatchConfig;
+  onExit: () => void;
+  onRematch: () => void;
+  onWatchReplay: (rec: MatchRecord) => void;
+}) {
+  const [state, setState] = useState<GameState>(() => createGame(config));
+  const stateRef = useRef(state);
+  const record = useRef<MatchRecord>({ id: newId(), createdAt: Date.now(), config, actions: [] });
+  const hostRef = useRef<SpectateHost | null>(null);
+  const [playing, setPlaying] = useState(true);
+  const [speed, setSpeed] = useState(1);
+
+  useEffect(() => {
+    const transport = new BroadcastChannelTransport();
+    hostRef.current = new SpectateHost(transport, () => record.current, `${config.names.p1} vs ${config.names.p2}`);
+    return () => {
+      hostRef.current?.end();
+      transport.close();
+      if (record.current.actions.length) saveReplay(record.current);
+    };
+  }, [config]);
+
+  /** Plays the bot's next action for whoever is up (bids included: the bot drives both sides). */
+  const step = useCallback(() => {
+    const prev = stateRef.current;
+    if (prev.winner) return;
+    const action = chooseAction(prev, prev.active);
+    const next = applyAction(prev, action);
+    if (next === prev) return;
+    stateRef.current = next;
+    record.current.actions.push(action);
+    hostRef.current?.publish(record.current.actions.length - 1, action);
+    if (action.type === 'endTurn') hostRef.current?.announce();
+    if (next.winner) saveReplay(record.current);
+    setState(next);
+  }, []);
+
+  useEffect(() => {
+    if (!playing || state.winner) return;
+    const t = setTimeout(step, AI_STEP_MS / speed);
+    return () => clearTimeout(t);
+  }, [playing, speed, state, step]);
+
+  const skipToEnd = () => {
+    for (let i = 0; i < MAX_SKIP_ACTIONS && !stateRef.current.winner; i++) {
+      const before = stateRef.current;
+      step();
+      if (stateRef.current === before) break;
+    }
+  };
+
+  const winnerText = state.winner === 'draw' ? 'Draw' : state.winner ? `${state.mages[state.winner].name} wins` : '';
+  return (
+    <>
+      <Viewer record={record.current} upTo={record.current.actions.length} liveState={state} badge="● AI duel" onBack={onExit}>
+        <div className="replay-controls">
+          <button onClick={() => setPlaying((p) => !p)} disabled={!!state.winner} aria-label={playing ? 'Pause' : 'Play'}>
+            {playing ? '❚❚' : '▶'}
+          </button>
+          <span className="muted">{record.current.actions.length} actions</span>
+          <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))}>
+            {[0.5, 1, 2, 4].map((s) => (
+              <option key={s} value={s}>
+                {s}×
+              </option>
+            ))}
+          </select>
+          <button onClick={skipToEnd} disabled={!!state.winner}>
+            Skip to result ⏭
+          </button>
+        </div>
+      </Viewer>
+      {state.winner && (
+        <div className="overlay">
+          <div className="overlay-card">
+            <h1>{winnerText}</h1>
+            <p className="muted">
+              {Math.ceil(state.turn / 2)} rounds · {record.current.actions.length} actions
+            </p>
+            <div className="row">
+              <button onClick={onRematch}>Another duel</button>
+              <button className="ghost" onClick={() => onWatchReplay(record.current)}>
+                Watch replay
+              </button>
+              <button className="ghost" onClick={onExit}>
+                Menu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
