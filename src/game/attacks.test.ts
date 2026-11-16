@@ -8,12 +8,12 @@ const loadout = (abilities: string[]): Loadout => ({
   name: 'X',
   circle: 1,
   stats: { hp: 3, maxMana: 0, manaRegen: 0, movespeed: 0 },
-  abilityIds: ['staff-strike', ...abilities],
+  weapon: 'staff', abilityIds: ['staff-strike', ...abilities],
   passiveIds: [],
 });
 
 /** Open board; P1 (attacker) at `a`, P2 at `b`. Both have plenty of Mana. */
-function duel(a: Hex, b: Hex, abilities = ['firebolt', 'icicle', 'plague', 'doom', 'blink']): GameState {
+function duel(a: Hex, b: Hex, abilities = ['firebolt', 'icicle', 'plague', 'doom', 'blink', 'slash']): GameState {
   const g = createGame({
     seed: 3,
     radius: 6,
@@ -116,7 +116,7 @@ describe('dodging, by shape', () => {
   const cases: Array<[string, Hex, Hex, Hex, Hex, Hex]> = [
     ['firebolt', { q: 0, r: 2 }, { q: 0, r: -1 }, { q: 0, r: -1 }, { q: 1, r: -1 }, { q: 0, r: 0 }], // Line
     ['icicle', { q: 0, r: 4 }, { q: 0, r: -1 }, { q: 0, r: -1 }, { q: 1, r: -1 }, { q: 0, r: -1 }], // Single Hex
-    ['staff-strike', { q: 0, r: 1 }, { q: 0, r: 0 }, { q: 0, r: 0 }, { q: 0, r: -1 }, { q: 1, r: 0 }], // Melee Arc
+    ['slash', { q: 0, r: 1 }, { q: 0, r: 0 }, { q: 0, r: 0 }, { q: 0, r: -1 }, { q: 1, r: 0 }], // Melee Arc
     ['plague', { q: 0, r: 3 }, { q: 0, r: 0 }, { q: 0, r: 0 }, { q: 0, r: -2 }, { q: 1, r: -1 }], // Burst r1
   ];
 

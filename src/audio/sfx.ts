@@ -193,7 +193,18 @@ function resolveAttack(e: Env, def: AbilityDef) {
 
 /** Techniques are physical: a swish, a thud, a ring. */
 function technique(e: Env, def: AbilityDef, pitch: number, power: number) {
-  if (def.id === 'spear-thrust') {
+  if (def.id === 'slash') {
+    hiss(e, { f: 3000, to: 700, q: 0.7, dur: 0.16, peak: 0.28 });
+    ring(e, 1100, 0.2, 0.06, 0.1);
+    tone(e, { type: 'triangle', f: 180, to: 90, dur: 0.12, peak: 0.28, at: 0.1 });
+  } else if (def.id === 'shoot') {
+    tone(e, { type: 'triangle', f: 330, to: 110, dur: 0.12, peak: 0.25 }); // the string
+    hiss(e, { f: 3500, to: 1200, q: 1.2, dur: 0.22, peak: 0.15, at: 0.03 }); // the arrow
+    tone(e, { f: 160, to: 80, dur: 0.1, peak: 0.25, at: 0.2 }); // the hit
+  } else if (def.id === 'strike') {
+    hiss(e, { filter: 'lowpass', f: 900, dur: 0.05, peak: 0.28 });
+    tone(e, { f: 130, to: 70, dur: 0.08, peak: 0.3 });
+  } else if (def.id === 'thrust') {
     hiss(e, { f: 2600, to: 1200, dur: 0.09, peak: 0.2 });
     ring(e, 900, 0.25, 0.1, 0.08);
     tone(e, { f: 140, to: 90, dur: 0.1, peak: 0.2, at: 0.08 });

@@ -1,4 +1,4 @@
-import { ABILITIES, PASSIVES, STAFF_STRIKE } from './content';
+import { ABILITIES, PASSIVES, WEAPONS } from './content';
 import type { Hex } from './hex';
 import type { Circle, Loadout, Mage, PlayerId, StatKey } from './types';
 
@@ -47,8 +47,9 @@ export function statValue(stat: StatKey, steps: number): number {
 export function loadoutCost(l: Loadout): number {
   const stats = STAT_KEYS.reduce((n, k) => n + statCost(k, l.stats[k] ?? 0), 0);
   const abilities = l.abilityIds.reduce((n, id) => n + (ABILITIES[id]?.points ?? 0), 0);
+  const weapon = WEAPONS[l.weapon]?.points ?? 0;
   const passives = l.passiveIds.reduce((n, id) => n + (PASSIVES[id]?.points ?? 0), 0);
-  return stats + abilities + passives;
+  return stats + abilities + passives + weapon;
 }
 
 export const pointsLeft = (l: Loadout) => CIRCLE_POINTS[l.circle] - loadoutCost(l);
@@ -61,8 +62,15 @@ export function validateLoadout(l: Loadout): string[] {
     const steps = l.stats[k] ?? 0;
     if (!Number.isInteger(steps) || steps < 0) errors.push(`${STAT_NAME[k]} can't go below base.`);
   }
-  if (l.abilityIds[0] !== STAFF_STRIKE) errors.push('Staff Strike must be in slot 1.');
-  if (l.abilityIds.length > MAX_ABILITIES) errors.push(`At most ${MAX_ABILITIES} Abilities, Staff Strike included.`);
+  const weapon = WEAPONS[l.weapon];
+  if (!weapon) errors.push('Choose a weapon (Unarmed is fine).');
+  const owned = abilityIdsFor(l);
+  if (owned.length > MAX_ABILITIES) errors.push(`At most ${MAX_ABILITIES} Abilities, counting your weapon's technique.`);
+  for (const id of l.abilityIds) {
+    const def = ABILITIES[id];
+    if (def?.weapon && def.weapon !== l.weapon) errors.push(`${def.name} needs a ${WEAPONS[def.weapon].name}.`);
+    if (def && weapon?.defaultTechnique === id) errors.push(`${def.name} already comes with your ${weapon.name}.`);
+  }
   if (new Set(l.abilityIds).size !== l.abilityIds.length) errors.push('Duplicate Abilities.');
   if (new Set(l.passiveIds).size !== l.passiveIds.length) errors.push('Duplicate Passives.');
   for (const id of l.abilityIds) if (!ABILITIES[id]) errors.push(`Unknown Ability "${id}"`);
@@ -70,6 +78,12 @@ export function validateLoadout(l: Loadout): string[] {
   const left = pointsLeft(l);
   if (left < 0) errors.push(`Over budget by ${-left} Loadout Points.`);
   return errors;
+}
+
+/** Every Ability a mage with this Loadout carries: the weapon's own technique first, then the chosen ones. */
+export function abilityIdsFor(l: Loadout): string[] {
+  const own = WEAPONS[l.weapon]?.defaultTechnique;
+  return own ? [own, ...l.abilityIds] : [...l.abilityIds];
 }
 
 function passiveStats(ids: string[]) {
@@ -92,6 +106,7 @@ export function buildMage(owner: PlayerId, name: string, l: Loadout, pos: Hex): 
     owner,
     name,
     circle: l.circle,
+    weapon: l.weapon,
     pos,
     hp: maxHp,
     maxHp,
@@ -104,9 +119,9 @@ export function buildMage(owner: PlayerId, name: string, l: Loadout, pos: Hex): 
     mp: 0,
     empower: 0,
     ...passives,
-    manaRegen: statValue('manaRegen', l.stats.manaRegen) + passives.manaRegen,
+    manaRegen: statValue('manaRegen', l.stats.manaRegen) + passives.manaRegen + (WEAPONS[l.weapon]?.manaRegen ?? 0),
     passiveIds: [...l.passiveIds],
-    abilities: l.abilityIds.map((id) => ({ id, uses: 0 })),
+    abilities: abilityIdsFor(l).map((id) => ({ id, uses: 0 })),
     statuses: [],
   };
 }

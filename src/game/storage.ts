@@ -23,11 +23,21 @@ function write(k: string, v: unknown) {
 
 // v3: Circle-based Loadouts with the delayed-Attack catalogue. Older saves are discarded.
 const LOADOUTS = 'magica.loadouts.v3';
-// v4: Magic became Max Mana and Mana Regen, so older replays no longer play out the same.
-const REPLAYS = 'magica.replays.v4';
+// v5: weapons arrived (v4: Magic split into Max Mana and Mana Regen), so older replays no longer play out the same.
+const REPLAYS = 'magica.replays.v5';
 const MAX_REPLAYS = 25;
 
 const DEFAULTS_SEEN = 'magica.defaultsSeen.v3';
+
+/**
+ * Loadouts saved before weapons existed all had Staff Strike for free. A Spear Thrust becomes a Spear (whose
+ * Thrust comes with it), and anything else goes Unarmed with no technique, so nothing ends up over budget.
+ */
+function migrateWeapon(l: Loadout): Loadout {
+  if ((l as Partial<Loadout>).weapon) return l;
+  const spear = l.abilityIds.includes('spear-thrust');
+  return { ...l, weapon: spear ? 'spear' : 'unarmed', abilityIds: l.abilityIds.filter((id) => id !== 'staff-strike' && id !== 'spear-thrust') };
+}
 
 /** Loadouts saved before Magic split into Max Mana and Mana Regen: the old Magic steps become Mana Regen steps. */
 function migrateStats(l: Loadout): Loadout {
@@ -37,7 +47,7 @@ function migrateStats(l: Loadout): Loadout {
 
 /** Saved loadouts, plus any built-in defaults this player hasn't seen yet (e.g. after a content update). */
 export function loadLoadouts(): Loadout[] {
-  const saved = read<Loadout[] | null>(LOADOUTS, null)?.map(migrateStats) ?? null;
+  const saved = read<Loadout[] | null>(LOADOUTS, null)?.map(migrateStats).map(migrateWeapon) ?? null;
   const seen = new Set(read<string[]>(DEFAULTS_SEEN, saved ? saved.map((l) => l.id) : []));
   const fresh = DEFAULT_LOADOUTS.filter((d) => !seen.has(d.id));
   const merged = [...(saved ?? []), ...fresh];

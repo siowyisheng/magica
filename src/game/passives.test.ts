@@ -9,7 +9,7 @@ const loadout = (passiveIds: string[], abilities: string[] = []): Loadout => ({
   name: 'X',
   circle: 1,
   stats: { hp: 0, maxMana: 2, manaRegen: 0, movespeed: 0 },
-  abilityIds: ['staff-strike', ...abilities],
+  weapon: 'unarmed', abilityIds: abilities,
   passiveIds,
 });
 
@@ -35,7 +35,7 @@ describe('Passives', () => {
       regeneration: 3,
       wellspring: 4,
     });
-    const eight = ['staff-strike', 'firebolt', 'frost-lance', 'doom', 'mend', 'blink', 'ward', 'icicle'];
+    const eight = ['firebolt', 'frost-lance', 'doom', 'mend', 'blink', 'ward', 'icicle'];
     const l: Loadout = { ...loadout(['mana-well', 'iron-skin', 'regeneration', 'wellspring']), abilityIds: eight };
     expect(validateLoadout(l).join()).not.toMatch(/8/);
     expect(loadoutCost(loadout(['wellspring']))).toBe(4 + 2); // plus the 2 points of Max Mana the test duel buys

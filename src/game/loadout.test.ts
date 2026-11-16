@@ -8,7 +8,7 @@ const blank = (patch: Partial<Loadout> = {}): Loadout => ({
   name: 'Test',
   circle: 3,
   stats: { hp: 0, maxMana: 0, manaRegen: 0, movespeed: 0 },
-  abilityIds: ['staff-strike'],
+  weapon: 'unarmed', abilityIds: [],
   passiveIds: [],
   ...patch,
 });
@@ -57,13 +57,8 @@ describe('validation', () => {
     expect(validateLoadout(blank({ stats: { hp: -1, maxMana: 0, manaRegen: 0, movespeed: 0 } })).length).toBeGreaterThan(0);
   });
 
-  it('always has Staff Strike in slot 1', () => {
-    expect(validateLoadout(blank({ abilityIds: [] })).join()).toMatch(/Staff Strike/);
-    expect(validateLoadout(blank({ abilityIds: ['firebolt', 'staff-strike'] })).join()).toMatch(/Staff Strike/);
-  });
-
-  it('caps a Loadout at 8 Abilities, Staff Strike included', () => {
-    const nine = ['staff-strike', 'firebolt', 'meteor', 'frost-lance', 'icicle', 'spark', 'blink', 'mend', 'doom'];
+  it('caps a Loadout at 8 Abilities, counting the weapon technique', () => {
+    const nine = ['spark', 'firebolt', 'meteor', 'frost-lance', 'icicle', 'spark', 'blink', 'mend', 'doom'];
     expect(validateLoadout(blank({ circle: 1, abilityIds: nine.slice(0, 8) })).join()).not.toMatch(/8/);
     expect(validateLoadout(blank({ circle: 1, abilityIds: nine })).join()).toMatch(/8/);
   });

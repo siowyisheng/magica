@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ABILITIES, PASSIVES, SCHOOLS, STAFF_STRIKE } from '../game/content';
+import { ABILITIES, PASSIVES, SCHOOLS, WEAPONS, WEAPON_IDS } from '../game/content';
 import {
+  abilityIdsFor,
   CIRCLE_NAME,
   CIRCLE_POINTS,
   MAX_ABILITIES,
@@ -16,7 +17,7 @@ import {
 import { timing } from '../game/engine';
 import { newId } from '../game/storage';
 import { SHAPE_NAME } from '../game/threat';
-import { UNLIMITED, type AbilityDef, type Circle, type Loadout, type School, type StatKey } from '../game/types';
+import { UNLIMITED, type AbilityDef, type Circle, type Loadout, type School, type StatKey, type WeaponId } from '../game/types';
 
 interface Props {
   loadouts: Loadout[];
@@ -42,7 +43,8 @@ export function LoadoutBuilder({ loadouts, onChange, onBack }: Props) {
       name: 'New loadout',
       circle: 2,
       stats: { hp: 0, maxMana: 0, manaRegen: 0, movespeed: 0 },
-      abilityIds: [STAFF_STRIKE],
+      weapon: 'unarmed',
+      abilityIds: [],
       passiveIds: [],
     };
     onChange([...loadouts, l]);
@@ -106,11 +108,17 @@ function Editor({
   const errors = validateLoadout(loadout);
   const left = pointsLeft(loadout);
   const budget = CIRCLE_POINTS[loadout.circle];
-  const full = loadout.abilityIds.length >= MAX_ABILITIES;
+  const owned = abilityIdsFor(loadout);
+  const full = owned.length >= MAX_ABILITIES;
+  const ownTechnique = WEAPONS[loadout.weapon]?.defaultTechnique;
+  /** Each weapon's free technique, which is never picked by hand. */
+  const defaultTechniques = new Set(WEAPON_IDS.map((w) => WEAPONS[w].defaultTechnique));
+  const setWeapon = (w: WeaponId) =>
+    update({ weapon: w, abilityIds: loadout.abilityIds.filter((id) => !ABILITIES[id]?.weapon || ABILITIES[id].weapon === w) });
 
   const setSteps = (k: StatKey, steps: number) => update({ stats: { ...loadout.stats, [k]: Math.max(0, steps) } });
   const toggleAbility = (id: string) => {
-    if (id === STAFF_STRIKE) return;
+    if (id === ownTechnique) return;
     const has = loadout.abilityIds.includes(id);
     update({ abilityIds: has ? loadout.abilityIds.filter((x) => x !== id) : [...loadout.abilityIds, id] });
   };
@@ -119,7 +127,7 @@ function Editor({
     update({ passiveIds: has ? loadout.passiveIds.filter((x) => x !== id) : [...loadout.passiveIds, id] });
   };
 
-  const equipped = loadout.abilityIds.filter((id) => ABILITIES[id]);
+  const equipped = owned.filter((id) => ABILITIES[id]);
   const renderCard = (a: AbilityDef) => {
     const on = loadout.abilityIds.includes(a.id);
     return (
@@ -150,9 +158,9 @@ function Editor({
     return (
       <button
         className={`slot school-${a.school}`}
-        disabled={id === STAFF_STRIKE}
+        disabled={id === ownTechnique}
         onClick={onClick}
-        title={id === STAFF_STRIKE ? 'Every mage has Staff Strike' : 'Click to remove'}
+        title={id === ownTechnique ? `Comes with your ${WEAPONS[loadout.weapon].name}` : 'Click to remove'}
       >
         <span>{a.icon}</span>
         <span className="slot-name">{a.name}</span>
@@ -160,7 +168,9 @@ function Editor({
     );
   };
 
-  const shown = Object.values(ABILITIES).filter((a) => a.id !== STAFF_STRIKE && (filter === 'all' || a.school === filter));
+  const shown = Object.values(ABILITIES).filter(
+    (a) => !defaultTechniques.has(a.id) && (!a.weapon || a.weapon === loadout.weapon) && (filter === 'all' || a.school === filter),
+  );
   const schools = (Object.keys(SCHOOLS) as School[]).filter((sc) => Object.values(ABILITIES).some((a) => a.school === sc));
 
   return (
@@ -196,6 +206,31 @@ function Editor({
       </section>
 
       <section>
+        <h3>
+          Weapon <span className="muted">choose one</span>
+        </h3>
+        <div className="cards small">
+          {WEAPON_IDS.map((w) => {
+            const def = WEAPONS[w];
+            const on = loadout.weapon === w;
+            const swing = left + (WEAPONS[loadout.weapon]?.points ?? 0) - def.points;
+            const technique = def.defaultTechnique ? ABILITIES[def.defaultTechnique] : null;
+            return (
+              <button key={w} className={`pick-card ${on ? 'is-selected' : ''}`} disabled={!on && swing < 0} onClick={() => setWeapon(w)}>
+                <span className="pick-head">
+                  <span className="pick-icon">{def.icon}</span>
+                  <span className="price">{def.points} pts</span>
+                </span>
+                <strong>{def.name}</strong>
+                <span className="muted">{def.description}</span>
+                {technique && <span className="stats">{abilitySummary(technique)}</span>}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
         <h3>Stats</h3>
         <div className="stat-rows">
           {STAT_KEYS.map((k) => {
@@ -221,7 +256,7 @@ function Editor({
 
       <section>
         <h3>
-          Abilities <span className="muted">{loadout.abilityIds.length}/{MAX_ABILITIES}</span>
+          Abilities <span className="muted">{owned.length}/{MAX_ABILITIES}</span>
         </h3>
         <div className="slot-groups">
           <div className="slot-group">
@@ -230,7 +265,7 @@ function Editor({
               {equipped.filter((id) => !canReact(ABILITIES[id])).map((id) => (
                 <SlotButton key={id} id={id} onClick={() => toggleAbility(id)} />
               ))}
-              {Array.from({ length: Math.max(0, MAX_ABILITIES - loadout.abilityIds.length) }, (_, i) => (
+              {Array.from({ length: Math.max(0, MAX_ABILITIES - owned.length) }, (_, i) => (
                 <button key={`empty-${i}`} className="slot empty" disabled title="Empty slot">
                   <span className="muted">·</span>
                 </button>
@@ -310,8 +345,9 @@ const canReact = (a: AbilityDef) => timing(a) !== 'action';
 /** Everything about an Ability except its Mana cost, which has its own place on the card. Every non-Fast Ability costs 1 AP, so that is left unsaid. */
 export function abilitySummary(a: AbilityDef): string {
   const parts: string[] = [];
-  if (a.kind === 'technique') parts.push('Technique');
-  if (a.fast) parts.push('Fast');
+  if (a.weapon) parts.push(`${WEAPONS[a.weapon].name} technique`);
+  else if (a.kind === 'technique') parts.push('Technique');
+  if (a.fast) parts.push(a.multi ? 'Fast · Multi' : 'Fast');
   if (a.timing === 'reaction') parts.push('Reaction');
   if (a.timing === 'both') parts.push('Reaction or Action');
   if (a.effect.type === 'attack') {
@@ -322,6 +358,7 @@ export function abilitySummary(a: AbilityDef): string {
   } else if (a.targeting === 'tile') parts.push(`rng ${a.range}`);
   else if (a.targeting === 'enemy') parts.push(`enemy · rng ${a.range} · line of sight`);
   if (a.effect.type === 'contest') parts.push('secret bid');
-  if (a.perTurn === 1) parts.push('once per turn');
+  // A Fast Ability is once per turn unless it is Multi, so only the other cases are worth saying.
+  if (a.perTurn === 1 && !a.fast) parts.push('once per turn');
   return parts.join(' · ');
 }

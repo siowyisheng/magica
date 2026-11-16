@@ -12,7 +12,7 @@ const loadout: Loadout = {
   name: 'X',
   circle: 1,
   stats: { hp: 3, maxMana: 0, manaRegen: 0, movespeed: 0 },
-  abilityIds: ['staff-strike', ...KIT],
+  weapon: 'staff', abilityIds: ['staff-strike', ...KIT],
   passiveIds: [],
 };
 
@@ -214,7 +214,7 @@ describe('balance', () => {
   it('prices Spear Thrust 4, Spark 2 (2 Mana), Dragon’s Breath and Fireball cheaper, Block 3, Empower and Stone Pillar 2', () => {
     expect(ABILITIES.ward.fast).toBe(true);
     expect(ABILITIES['stone-pillar']).toMatchObject({ fast: true, range: 5 });
-    expect(ABILITIES['spear-thrust'].points).toBe(4);
+    expect(ABILITIES.thrust.points).toBe(0); // comes free with the Spear
     expect([ABILITIES.spark.points, ABILITIES.spark.mana]).toEqual([2, 2]);
     expect(ABILITIES['dragons-breath']).toMatchObject({ points: 2, mana: 3 });
     expect(ABILITIES.fireball).toMatchObject({ points: 3, mana: 5 });

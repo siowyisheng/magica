@@ -8,6 +8,7 @@ const EFFECT_TEXT: Record<Status['kind'], string> = {
   slow: 'gets fewer Movement Points next turn',
   burn: 'burns',
   poison: 'is poisoned',
+  disarmed: 'is disarmed',
   vulnerable: 'takes extra damage from every hit',
 };
 

@@ -13,8 +13,9 @@ export interface Tile extends Hex {
 /**
  * burn / poison: damage each turn. slow: −move. root: no movement.
  * vulnerable: takes +power damage from every hit.
+ * disarmed: the weapon is out of use (see Weapon): weapon techniques and weapon bonuses are lost. Unarmed mages can't be disarmed.
  */
-export type StatusKind = 'burn' | 'poison' | 'slow' | 'root' | 'vulnerable';
+export type StatusKind = 'burn' | 'poison' | 'slow' | 'root' | 'vulnerable' | 'disarmed';
 
 export interface Status {
   kind: StatusKind;
@@ -29,7 +30,8 @@ export const UNLIMITED = 99;
 
 /** The geometry of an Attack's Threat Area. */
 export type Shape =
-  | { kind: 'line'; range: number }
+  /** `pierce`: hits every mage along the Line; otherwise only the first one it reaches. */
+  | { kind: 'line'; range: number; pierce?: boolean }
   /** `los`: the hex must be in line of sight (no Rock between). */
   | { kind: 'single'; range: number; los?: boolean }
   | { kind: 'meleeArc' }
@@ -98,8 +100,12 @@ export interface AbilityDef {
   points: number;
   /** Mana per cast. Spells always cost some; Techniques never do. */
   mana: number;
-  /** Fast Spells cost no AP. Everything else costs exactly 1 AP, in the Reaction Phase too. */
+  /** Fast Abilities cost no AP and, unless `multi`, can be used once per turn. Everything else costs exactly 1 AP, in the Reaction Phase too. */
   fast?: boolean;
+  /** A Fast Ability that can be used any number of times a turn. */
+  multi?: boolean;
+  /** A weapon technique: only mages carrying this weapon can have it, and it can't be used while disarmed. */
+  weapon?: WeaponId;
   /**
    * When it can be used. 'reaction' = Reaction ability (Reaction Phase only).
    * 'both' = also works proactively in the Action Phase. Default 'action'.
@@ -112,9 +118,28 @@ export interface AbilityDef {
   /** Non-Attack Abilities only (Attacks aim with their Shape). */
   targeting?: Targeting;
   range?: number;
-  /** At most this many uses per turn (e.g. 1 = once per turn). Unlimited when unset. */
+  /** At most this many uses per turn. Unset: once for a Fast Ability (unless `multi`), otherwise unlimited. */
   perTurn?: number;
   effect: AbilityEffect;
+}
+
+export type WeaponId = 'unarmed' | 'staff' | 'wand' | 'sword' | 'spear' | 'bow';
+
+export interface WeaponDef {
+  id: WeaponId;
+  name: string;
+  icon: string;
+  description: string;
+  /** Loadout Points to carry it. */
+  points: number;
+  /** Mana Regen it adds (lost while disarmed). */
+  manaRegen?: number;
+  /** A Technique that comes free with the weapon, in the first slot. */
+  defaultTechnique?: string;
+  /** Can't cast Spells while disarmed. */
+  spellsNeedWeapon?: boolean;
+  /** Unarmed mages have nothing to take away. */
+  disarmable: boolean;
 }
 
 /** Which of a mage's stats a Loadout can buy steps of. */
@@ -129,7 +154,9 @@ export interface Loadout {
   circle: Circle;
   /** Steps bought above base, per stat. */
   stats: Record<StatKey, number>;
-  /** Up to 8 Abilities; Staff Strike is always first. */
+  /** Exactly one weapon (Unarmed included). */
+  weapon: WeaponId;
+  /** Up to 8 Abilities in all, counting the weapon's default Technique, which is added for you and not listed here. */
   abilityIds: string[];
   passiveIds: string[];
 }
@@ -166,6 +193,7 @@ export interface Mage {
   owner: PlayerId;
   name: string;
   circle: Circle;
+  weapon: WeaponId;
   pos: Hex;
   hp: number;
   maxHp: number;

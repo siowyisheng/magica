@@ -9,8 +9,8 @@ import type { Action, GameState, Loadout, MatchConfig } from './types';
 /** A duel on an all-plain board with P1 at a and P2 at b, P1 to act with plenty of Mana. */
 function arena(p1Abilities: string[], a: Hex, b: Hex, p2Passives: string[] = []): GameState {
   const stats = { hp: 3, maxMana: 0, manaRegen: 0, movespeed: 0 };
-  const l1: Loadout = { id: 'a', name: 'A', circle: 1, stats, abilityIds: ['staff-strike', ...p1Abilities], passiveIds: [] };
-  const l2: Loadout = { id: 'b', name: 'B', circle: 1, stats, abilityIds: ['staff-strike'], passiveIds: p2Passives };
+  const l1: Loadout = { id: 'a', name: 'A', circle: 1, stats, weapon: 'staff', abilityIds: ['staff-strike', ...p1Abilities], passiveIds: [] };
+  const l2: Loadout = { id: 'b', name: 'B', circle: 1, stats, weapon: 'staff', abilityIds: ['staff-strike'], passiveIds: p2Passives };
   const g = createGame(baseConfig(l1, l2));
   for (const t of Object.values(g.tiles)) t.terrain = 'plain';
   g.mages.p1.pos = a;
@@ -41,8 +41,9 @@ describe('catalogue', () => {
   const all = Object.values(ABILITIES);
   const spells = all.filter((a) => a.kind === 'spell');
 
-  it('has 4 Techniques (Block the only Reaction Technique), 4 Reaction Spells and about 14 other Spells', () => {
-    expect(all.filter((a) => a.kind === 'technique')).toHaveLength(4);
+  it('has 7 Techniques (4 of them weapon techniques, Block the only Reaction Technique), 4 Reaction Spells and about 14 other Spells', () => {
+    expect(all.filter((a) => a.kind === 'technique')).toHaveLength(7);
+    expect(all.filter((a) => a.weapon).map((a) => a.id)).toEqual(['strike', 'staff-strike', 'slash', 'thrust', 'shoot']);
     expect(all.filter((a) => a.kind === 'technique' && a.timing === 'reaction').map((a) => [a.id, a.points])).toEqual([['block', 3]]);
     expect(spells.filter((a) => a.timing === 'reaction' || a.timing === 'both')).toHaveLength(4);
     expect(spells.filter((a) => !a.timing || a.timing === 'action').length).toBeGreaterThanOrEqual(14);

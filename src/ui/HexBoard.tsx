@@ -7,7 +7,7 @@ import { PLAYERS, type GameState, type PlayerId, type StatusKind } from '../game
 const SIZE = 30;
 /** Time a walking mage spends on each hex. */
 const STEP_MS = 120;
-export const STATUS_ICON: Record<StatusKind, string> = { burn: '🔥', poison: '🦠', slow: '🐌', root: '⛓️', vulnerable: '🎯' };
+export const STATUS_ICON: Record<StatusKind, string> = { burn: '🔥', poison: '🦠', slow: '🐌', root: '⛓️', vulnerable: '🎯', disarmed: '🚫' };
 const TERRAIN_ICON: Record<string, string> = {};
 
 export interface BoardHighlights {

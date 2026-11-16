@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ABILITIES } from './content';
-import { actionError, applyAction, bidCommitment, castError, createGame, reachable } from './engine';
+import { usesPerTurn, actionError, applyAction, bidCommitment, castError, createGame, reachable } from './engine';
 import type { Hex } from './hex';
 import type { Action, GameState, Loadout, PlayerId } from './types';
 
@@ -9,7 +9,7 @@ const loadout = (abilities: string[]): Loadout => ({
   name: 'X',
   circle: 1,
   stats: { hp: 0, maxMana: 0, manaRegen: 0, movespeed: 0 },
-  abilityIds: ['staff-strike', ...abilities],
+  weapon: 'staff', abilityIds: ['staff-strike', ...abilities],
   passiveIds: [],
 });
 
@@ -51,9 +51,10 @@ function contest(g: GameState, casterBid: number, targetBid: number): GameState 
 const rooted = (g: GameState) => g.mages.p2.statuses.some((s) => s.kind === 'root');
 
 describe('Stasis', () => {
-  it('is a Fast, 2-Mana, once-per-turn contested Spell', () => {
+  it('is a Fast, 2-Mana contested Spell, once per turn like any Fast Ability', () => {
     const def = ABILITIES.stasis;
-    expect(def).toMatchObject({ fast: true, mana: 2, perTurn: 1, targeting: 'enemy', range: 8 });
+    expect(def).toMatchObject({ fast: true, mana: 2, targeting: 'enemy', range: 8 });
+    expect(usesPerTurn(def)).toBe(1);
     expect(def.effect.type).toBe('contest');
   });
 

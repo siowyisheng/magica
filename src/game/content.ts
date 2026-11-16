@@ -1,4 +1,4 @@
-import { UNLIMITED, type AbilityDef, type AbilityEffect, type Hit, type Loadout, type PassiveDef, type School, type Shape, type Targeting } from './types';
+import { UNLIMITED, type WeaponDef, type WeaponId, type AbilityDef, type AbilityEffect, type Hit, type Loadout, type PassiveDef, type School, type Shape, type Targeting } from './types';
 
 // ---------------------------------------------------------------------------
 // Content tables. Add Abilities and Passives here; the builder, engine and AI
@@ -14,8 +14,37 @@ import { UNLIMITED, type AbilityDef, type AbilityEffect, type Hit, type Loadout,
 
 export const STAFF_STRIKE = 'staff-strike';
 
+/** The weapons. Every mage carries exactly one; Unarmed is the default and costs nothing. */
+export const WEAPONS: Record<WeaponId, WeaponDef> = {
+  unarmed: {
+    id: 'unarmed', name: 'Unarmed', icon: '✊', points: 0, disarmable: false,
+    description: 'Bare hands. Costs nothing and can never be disarmed. Can learn Strike.',
+  },
+  staff: {
+    id: 'staff', name: 'Staff', icon: '🪄', points: 3, manaRegen: 1, disarmable: true,
+    description: '+1 Mana Regen. Can learn Staff Strike.',
+  },
+  wand: {
+    id: 'wand', name: 'Wand', icon: '✨', points: 2, manaRegen: 1, spellsNeedWeapon: true, disarmable: true,
+    description: '+1 Mana Regen. A disarmed wand mage cannot cast Spells at all.',
+  },
+  sword: {
+    id: 'sword', name: 'Sword', icon: '⚔️', points: 3, defaultTechnique: 'slash', disarmable: true,
+    description: 'Comes with Slash.',
+  },
+  spear: {
+    id: 'spear', name: 'Spear', icon: '🔱', points: 3, defaultTechnique: 'thrust', disarmable: true,
+    description: 'Comes with Thrust.',
+  },
+  bow: {
+    id: 'bow', name: 'Bow', icon: '🏹', points: 4, defaultTechnique: 'shoot', disarmable: true,
+    description: 'Comes with Shoot.',
+  },
+};
+export const WEAPON_IDS = Object.keys(WEAPONS) as WeaponId[];
+
 type Common = Pick<AbilityDef, 'id' | 'name' | 'icon' | 'school' | 'description' | 'points'> &
-  Partial<Pick<AbilityDef, 'fast' | 'timing' | 'perTurn'>>;
+  Partial<Pick<AbilityDef, 'fast' | 'multi' | 'timing' | 'perTurn' | 'weapon'>>;
 
 const technique = (a: Common & { shape: Shape; hit: Hit }): AbilityDef => ({
   ...a,
@@ -45,15 +74,31 @@ const spell = (a: Common & Pick<AbilityDef, 'mana' | 'effect' | 'targeting' | 'r
 
 const LIST: AbilityDef[] = [
   // --- Techniques: physical, AP only -----------------------------------------
+  // Weapon techniques. A weapon's default technique (0 points) comes free with it; the rest are bought.
   technique({
-    id: STAFF_STRIKE, name: 'Staff Strike', icon: '🪄', school: 'steel', points: 0,
-    description: 'A plain whack with your staff. Every mage has it.',
-    shape: { kind: 'meleeArc' }, hit: { damage: 2 },
+    id: 'strike', name: 'Strike', icon: '👊', school: 'steel', points: 2, fast: true, weapon: 'unarmed',
+    description: 'A quick jab at an adjacent mage.',
+    shape: { kind: 'single', range: 1 }, hit: { damage: 1 },
   }),
   technique({
-    id: 'spear-thrust', name: 'Spear Thrust', icon: '🗡️', school: 'steel', points: 4,
-    description: 'A long thrust that reaches two hexes.',
-    shape: { kind: 'line', range: 2 }, hit: { damage: 3 },
+    id: STAFF_STRIKE, name: 'Staff Strike', icon: '🪄', school: 'steel', points: 1, weapon: 'staff',
+    description: 'A whack with your staff that reaches two hexes.',
+    shape: { kind: 'line', range: 2 }, hit: { damage: 2 },
+  }),
+  technique({
+    id: 'slash', name: 'Slash', icon: '⚔️', school: 'steel', points: 0, weapon: 'sword',
+    description: 'A wide sweep across three hexes.',
+    shape: { kind: 'meleeArc' }, hit: { damage: 5 },
+  }),
+  technique({
+    id: 'thrust', name: 'Thrust', icon: '🔱', school: 'steel', points: 0, weapon: 'spear',
+    description: 'A long thrust that reaches two hexes and hits everyone in them.',
+    shape: { kind: 'line', range: 2, pierce: true }, hit: { damage: 4 },
+  }),
+  technique({
+    id: 'shoot', name: 'Shoot', icon: '🏹', school: 'steel', points: 0, weapon: 'bow',
+    description: 'An arrow down a long line.',
+    shape: { kind: 'line', range: 7 }, hit: { damage: 4 },
   }),
   technique({
     id: 'shield-bash', name: 'Shield Bash', icon: '🥊', school: 'steel', points: 2,
@@ -140,7 +185,7 @@ const LIST: AbilityDef[] = [
     shape: { kind: 'single', range: 6 }, hit: { damage: 0, status: { kind: 'vulnerable', turns: 2, power: 2 } },
   }),
   spell({
-    id: 'stasis', name: 'Stasis', icon: '🕰️', school: 'time', points: 3, mana: 2, fast: true, perTurn: 1,
+    id: 'stasis', name: 'Stasis', icon: '🕰️', school: 'time', points: 3, mana: 2, fast: true,
     description:
       'Fast, once per turn. Freeze the enemy (8 range, line of sight): you both secretly bid Mana. If your bid is at least theirs, they can’t Move on their next turn. Both bids are spent.',
     targeting: 'enemy', range: 8, effect: { type: 'contest', severity: 6, status: { kind: 'root', turns: 1, power: 0 } },
@@ -230,46 +275,47 @@ const loadout = (l: Omit<Loadout, 'abilityIds'> & { abilities: string[] }): Load
   id: l.id,
   name: l.name,
   circle: l.circle,
+  weapon: l.weapon,
   stats: l.stats,
-  abilityIds: [STAFF_STRIKE, ...l.abilities],
+  abilityIds: l.abilities,
   passiveIds: l.passiveIds,
 });
 
 export const DEFAULT_LOADOUTS: Loadout[] = [
   loadout({
-    id: 'c1-archmage', name: 'Archmage', circle: 1,
+    id: 'c1-archmage', name: 'Archmage', circle: 1, weapon: 'staff',
     stats: { hp: 0, maxMana: 4, manaRegen: 1, movespeed: 0 },
-    abilities: ['firebolt', 'fireball', 'ward', 'counterspell', 'cataclysm'],
+    abilities: ['firebolt', 'fireball', 'ward', 'cataclysm'],
     passiveIds: ['wellspring'],
   }),
   loadout({
-    id: 'c1-spellblade', name: 'Spellblade', circle: 1,
+    id: 'c1-spellblade', name: 'Spellblade', circle: 1, weapon: 'sword',
     stats: { hp: 3, maxMana: 2, manaRegen: 0, movespeed: 1 },
-    abilities: ['spear-thrust', 'shield-bash', 'firebolt', 'ice-shards', 'blink', 'ward'],
+    abilities: ['shield-bash', 'firebolt', 'ice-shards', 'blink', 'ward'],
     passiveIds: ['iron-skin', 'regeneration'],
   }),
   loadout({
-    id: 'c2-pyromancer', name: 'Pyromancer', circle: 2,
-    stats: { hp: 2, maxMana: 2, manaRegen: 1, movespeed: 0 },
+    id: 'c2-pyromancer', name: 'Pyromancer', circle: 2, weapon: 'wand',
+    stats: { hp: 2, maxMana: 2, manaRegen: 0, movespeed: 0 },
     abilities: ['firebolt', 'dragons-breath', 'wall-of-fire', 'ward'],
     passiveIds: ['mana-well'],
   }),
   loadout({
-    id: 'c2-tidecaller', name: 'Tidecaller', circle: 2,
+    id: 'c2-tidecaller', name: 'Tidecaller', circle: 2, weapon: 'unarmed',
     stats: { hp: 2, maxMana: 2, manaRegen: 0, movespeed: 0 },
     abilities: ['riptide', 'tidal-wave', 'frost-lance', 'deflect', 'blink'],
     passiveIds: ['regeneration'],
   }),
   loadout({
-    id: 'c3-adept', name: 'Adept', circle: 3,
+    id: 'c3-adept', name: 'Adept', circle: 3, weapon: 'unarmed',
     stats: { hp: 2, maxMana: 2, manaRegen: 0, movespeed: 0 },
     abilities: ['firebolt', 'icicle', 'ward'],
     passiveIds: [],
   }),
   loadout({
-    id: 'c3-brawler', name: 'Brawler', circle: 3,
+    id: 'c3-brawler', name: 'Brawler', circle: 3, weapon: 'spear',
     stats: { hp: 1, maxMana: 1, manaRegen: 0, movespeed: 0 },
-    abilities: ['spear-thrust', 'shield-bash', 'haste'],
+    abilities: ['shield-bash', 'haste'],
     passiveIds: [],
   }),
 ];

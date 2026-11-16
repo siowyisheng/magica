@@ -1,5 +1,5 @@
 import { generateBoard, moveCost, spawnFor } from './board';
-import { ABILITIES } from './content';
+import { ABILITIES, WEAPONS } from './content';
 import { advanceCrystals, crystalAt, crystalYield, initialCrystals, respawnCrystal } from './crystals';
 import { distance, equals, fromKey, key, line, neighbors, toPixel, type Hex } from './hex';
 import { buildMage } from './loadout';
@@ -66,6 +66,15 @@ export const maxMana = (m: Mage) => m.maxMana;
 export const hpFraction = (m: Mage) => m.hp / m.maxHp;
 /** A round is one turn by each mage. */
 export const round = (state: GameState) => Math.ceil(state.turn / 2);
+/** True while the mage's weapon is out of use. Unarmed mages can't be disarmed. */
+export const isDisarmed = (m: Mage): boolean => WEAPONS[m.weapon].disarmable && m.statuses.some((s) => s.kind === 'disarmed');
+
+/** Mana Regen right now: the weapon's bonus is lost while disarmed. */
+export const effectiveManaRegen = (m: Mage): number => m.manaRegen - (isDisarmed(m) ? (WEAPONS[m.weapon].manaRegen ?? 0) : 0);
+
+/** How many times an Ability can be used in a turn: a Fast one once, unless it is Multi. Undefined = unlimited. */
+export const usesPerTurn = (def: AbilityDef): number | undefined => def.perTurn ?? (def.fast && !def.multi ? 1 : undefined);
+
 /** AP an Ability costs: 1, or 0 if Fast. The same in the Reaction Phase as in the Action Phase. */
 export const apCost = (def: AbilityDef): number => (def.fast ? 0 : 1);
 const enemyPos = (state: GameState, player: PlayerId): Hex => state.mages[other(player)].pos;
@@ -214,7 +223,10 @@ export function castError(
   const slot = mage.abilities.find((a) => a.id === abilityId);
   const def = ABILITIES[abilityId];
   if (!slot || !def) return 'Ability not equipped.';
-  if (def.perTurn && slot.uses >= def.perTurn) return def.perTurn === 1 ? 'Only once per turn.' : `Only ${def.perTurn} times per turn.`;
+  const limit = usesPerTurn(def);
+  if (limit && slot.uses >= limit) return limit === 1 ? 'Only once per turn.' : `Only ${limit} times per turn.`;
+  if (def.weapon && isDisarmed(mage)) return `Disarmed: no ${WEAPONS[def.weapon].name} techniques.`;
+  if (def.kind === 'spell' && WEAPONS[mage.weapon].spellsNeedWeapon && isDisarmed(mage)) return 'Disarmed: a wand mage cannot cast Spells.';
   const reacting = state.phase === 'reaction';
   if (reacting && timing(def) === 'action') return 'Only Reactions are allowed in the Reaction Phase.';
   if (!reacting && timing(def) === 'reaction') return 'Reactions can only be used in the Reaction Phase.';
@@ -487,7 +499,7 @@ function settleBidding(state: GameState, log: Log) {
 function startTurn(state: GameState, player: PlayerId, log: Log) {
   const mage = state.mages[player];
   // Each mage's first turn is turn 1 (P1) or 2 (P2); regen starts after that.
-  if (state.turn > 2) mage.mana = Math.min(maxMana(mage), mage.mana + mage.manaRegen);
+  if (state.turn > 2) mage.mana = Math.min(maxMana(mage), mage.mana + effectiveManaRegen(mage));
   mage.mp = 0;
   mage.empower = 0;
   for (const a of mage.abilities) a.uses = 0;
@@ -524,7 +536,10 @@ function resolveAttack(state: GameState, attack: PendingAttack, log: Log) {
   const def = ABILITIES[attack.abilityId];
   const caster = state.mages[attack.caster];
   const area = new Set(attack.area);
-  const victims = Object.values(state.mages).filter((m) => area.has(key(m.pos)));
+  let victims = Object.values(state.mages).filter((m) => area.has(key(m.pos)));
+  // A Line stops at the first mage it reaches, unless it pierces.
+  if (def.effect.type === 'attack' && def.effect.shape.kind === 'line' && !def.effect.shape.pierce && victims.length > 1)
+    victims = [victims.reduce((a, b) => (distance(attack.origin, a.pos) <= distance(attack.origin, b.pos) ? a : b))];
   const at = fromKey(attack.area[Math.floor(attack.area.length / 2)]);
   const cue: Cue = { kind: 'resolve', abilityId: def.id };
   if (!victims.length) {
@@ -709,6 +724,7 @@ const STATUS_VERB: Record<Status['kind'], string> = {
   slow: 'slowed',
   root: 'rooted',
   vulnerable: 'vulnerable',
+  disarmed: 'disarmed',
 };
 
 function checkWinner(state: GameState, log: Log) {

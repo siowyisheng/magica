@@ -13,7 +13,7 @@ A mage's rank, which sets their Loadout Point budget: First Circle has 30 points
 _Avoid_: Class, rank, tier, level
 
 **Loadout**:
-A Circle plus everything bought with that Circle's Loadout Points: stat increases, Abilities and Passives.
+A Circle plus everything bought with that Circle's Loadout Points: a Weapon, stat increases, Abilities and Passives.
 _Avoid_: Build, deck
 
 **Loadout Points**:
@@ -21,15 +21,26 @@ The budget a Loadout is bought with.
 _Avoid_: Points (alone), credits
 
 **Ability**:
-Anything a mage actively uses that was bought with Loadout Points: either a Spell or a Technique. A Loadout holds at most 8 Abilities.
+Anything a mage actively uses that was bought with Loadout Points: either a Spell or a Technique. A Loadout holds at most 8 Abilities, counting the Weapon's default Technique.
 _Avoid_: Move (that means walking), skill, action
 
 **Technique**:
-A physical Ability, such as a weapon attack or a dodge. It costs AP but no Mana.
+A physical Ability, such as a weapon attack or a block. It costs AP but no Mana.
 _Avoid_: Physical move, weapon skill
 
-**Staff Strike**:
-The free Technique in every Loadout. It is a Melee Arc attack and always takes one of the 8 Ability slots.
+**Weapon**:
+What a mage carries: exactly one per Loadout, and Unarmed counts. Each has a Loadout Point price, and may add Mana Regen, come with a default Technique, or allow weapon techniques to be bought. The Weapons are Unarmed (0 pts), Staff (3), Wand (2), Sword (3), Spear (3) and Bow (4).
+_Avoid_: Item, equipment
+
+**Weapon Technique**:
+A Technique that needs a particular Weapon, and can't be used while Disarmed. A Weapon's **default Technique** (Slash, Thrust, Shoot) comes free with it, in the first Ability slot. Others (Strike for Unarmed, Staff Strike for Staff) are bought.
+_Avoid_: Weapon skill
+
+**Disarmed**:
+A status that takes a mage's Weapon out of use: Weapon Techniques can't be used, and the Weapon's bonuses (such as Staff and Wand Mana Regen) are lost. A disarmed Wand mage can't cast Spells at all. Unarmed mages can't be Disarmed.
+
+**Multi**:
+Marks a Fast Ability that can be used any number of times in a turn. Every other Fast Ability can be used once per turn, so that is left unsaid.
 
 **Passive**:
 An always-on effect bought with Loadout Points. It is not an Ability, because it is never used.

@@ -8,7 +8,7 @@ const loadout = (regenSteps: number, abilities: string[] = [], maxManaSteps = 0)
   name: 'X',
   circle: 1,
   stats: { hp: 0, maxMana: maxManaSteps, manaRegen: regenSteps, movespeed: 0 },
-  abilityIds: ['staff-strike', ...abilities],
+  weapon: 'unarmed', abilityIds: abilities,
   passiveIds: [],
 });
 

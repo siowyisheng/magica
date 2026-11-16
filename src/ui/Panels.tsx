@@ -1,7 +1,7 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
-import { ABILITIES, PASSIVES } from '../game/content';
+import { ABILITIES, PASSIVES, WEAPONS } from '../game/content';
 import { CIRCLE_NAME } from '../game/loadout';
-import { AP_PER_TURN, apCost, castError, maxMana, timing } from '../game/engine';
+import { AP_PER_TURN, apCost, castError, effectiveManaRegen, maxMana, timing } from '../game/engine';
 import type { GameEvent, GameState, PlayerId, Mage } from '../game/types';
 import { STATUS_ICON } from './HexBoard';
 import { abilitySummary } from './LoadoutBuilder';
@@ -28,7 +28,7 @@ export function MageCard({ mage, active, scale }: { mage: Mage; active: boolean;
         <div>
           <div className="mage-card-name">{mage.name}</div>
           <div className="muted">
-            {CIRCLE_NAME[mage.circle]} · 🔮{mage.maxMana} (+{mage.manaRegen}) · 👣{mage.movespeed}
+            {CIRCLE_NAME[mage.circle]} · {WEAPONS[mage.weapon].icon}{WEAPONS[mage.weapon].name} · 🔮{mage.maxMana} (+{effectiveManaRegen(mage)}) · 👣{mage.movespeed}
           </div>
         </div>
       </div>

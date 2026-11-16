@@ -9,7 +9,7 @@ const loadout = (abilities: string[]): Loadout => ({
   name: 'X',
   circle: 1,
   stats: { hp: 3, maxMana: 0, manaRegen: 0, movespeed: 0 },
-  abilityIds: ['staff-strike', ...abilities],
+  weapon: 'staff', abilityIds: ['staff-strike', ...abilities],
   passiveIds: [],
 });
 const KIT = ['firebolt', 'frost-lance', 'doom', 'counterspell', 'deflect', 'ward'];
