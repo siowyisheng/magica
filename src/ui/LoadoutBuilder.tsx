@@ -206,6 +206,30 @@ function Editor({
       </section>
 
       <section>
+        <h3>Stats</h3>
+        <div className="stat-rows">
+          {STAT_KEYS.map((k) => {
+            const steps = loadout.stats[k];
+            const next = statStepCost(k, steps + 1);
+            return (
+              <div key={k} className="stat-row">
+                <span className="stat-label">
+                  {STAT_ICON[k]} {STAT_NAME[k]}
+                </span>
+                <button className="ghost" disabled={steps <= 0} onClick={() => setSteps(k, steps - 1)}>
+                  −
+                </button>
+                <strong className="stat-value">{statValue(k, steps)}</strong>
+                <button disabled={next > left} onClick={() => setSteps(k, steps + 1)}>
+                  +{statStepGain(k, steps + 1)} <span className="muted">({next} pts)</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
         <h3>
           Weapon <span className="muted">choose one</span>
         </h3>
@@ -225,30 +249,6 @@ function Editor({
                 <span className="muted">{def.description}</span>
                 {technique && <span className="stats">{abilitySummary(technique)}</span>}
               </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section>
-        <h3>Stats</h3>
-        <div className="stat-rows">
-          {STAT_KEYS.map((k) => {
-            const steps = loadout.stats[k];
-            const next = statStepCost(k, steps + 1);
-            return (
-              <div key={k} className="stat-row">
-                <span className="stat-label">
-                  {STAT_ICON[k]} {STAT_NAME[k]}
-                </span>
-                <button className="ghost" disabled={steps <= 0} onClick={() => setSteps(k, steps - 1)}>
-                  −
-                </button>
-                <strong className="stat-value">{statValue(k, steps)}</strong>
-                <button disabled={next > left} onClick={() => setSteps(k, steps + 1)}>
-                  +{statStepGain(k, steps + 1)} <span className="muted">({next} pts)</span>
-                </button>
-              </div>
             );
           })}
         </div>
