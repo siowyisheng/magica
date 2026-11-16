@@ -63,6 +63,21 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
     return { discs, bars };
   }, [tiles]);
 
+  // Removal timers for flashes and floaters. They run to completion even when more events arrive
+  // (cancelling them on every update would leave old marks behind); only unmounting clears them.
+  const removals = useRef(new Set<ReturnType<typeof setTimeout>>());
+  const later = (fn: () => void, ms: number) => {
+    const t = setTimeout(() => {
+      removals.current.delete(t);
+      fn();
+    }, ms);
+    removals.current.add(t);
+  };
+  useEffect(() => {
+    const pending = removals.current;
+    return () => pending.forEach(clearTimeout);
+  }, []);
+
   // A big, clear mark on the target when a contested Spell's bids are revealed: it took hold, or was Resisted.
   const [flashes, setFlashes] = useState<Array<{ id: number; x: number; y: number; success: boolean; icon: string; name: string }>>([]);
   const flashSeen = useRef(state.events.length);
@@ -79,8 +94,7 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
     if (!add.length) return;
     setFlashes((f) => [...f, ...add]);
     const ids = new Set(add.map((a) => a.id));
-    const t = setTimeout(() => setFlashes((f) => f.filter((x) => !ids.has(x.id))), 1800);
-    return () => clearTimeout(t);
+    later(() => setFlashes((f) => f.filter((x) => !ids.has(x.id))), 1800);
   }, [state.events]);
 
   // Floating combat text for newly appended events.
@@ -98,8 +112,7 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
     });
     setFloaters((f) => [...f, ...add]);
     const ids = new Set(add.map((a) => a.id));
-    const t = setTimeout(() => setFloaters((f) => f.filter((x) => !ids.has(x.id))), 1100);
-    return () => clearTimeout(t);
+    later(() => setFloaters((f) => f.filter((x) => !ids.has(x.id))), 1100);
   }, [state.events]);
 
   // A Move is drawn hex by hex along the walked path rather than as a straight slide through rocks.

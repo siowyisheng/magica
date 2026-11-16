@@ -331,9 +331,13 @@ export function applyAction(prev: GameState, action: Action): GameState {
   const me = state.mages[action.player];
 
   switch (action.type) {
-    case 'commitBid':
-      state.bidding!.commits[action.player] = action.hash; // silent: when someone locks in is not a tell
+    case 'commitBid': {
+      const b = state.bidding!;
+      b.commits[action.player] = action.hash; // silent: only the reveal shows anything
+      // Once both have bid there is nothing to wait for: go straight to the reveal.
+      if (b.commits[b.caster] && b.commits[b.target]) b.stage = 'reveal';
       break;
+    }
     case 'closeBidding': {
       const b = state.bidding!;
       b.stage = 'reveal';

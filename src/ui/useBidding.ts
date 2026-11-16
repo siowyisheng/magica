@@ -5,7 +5,7 @@ import type { Action, GameState, PlayerId } from '../game/types';
 import type { BidReveal } from './BidPanel';
 import { useCountdown } from './useCountdown';
 
-/** The secret bidding window, the same for both duellists so lock-in speed tells nothing. */
+/** The longest the secret bidding can take. It ends early as soon as both duellists have bid. */
 export const BID_WINDOW_S = 7;
 /** How long revealed bids stay on screen; the caster's turn timer gets this back. */
 export const REVEAL_S = 2;
@@ -55,14 +55,11 @@ export function useBidding(
     [commit],
   );
 
-  // The AI decides quickly; since the reveal waits for the full window anyway, that tells nothing.
+  // The AI bids at once, so the reveal comes as soon as the player locks in.
   const botKey = bots.join(',');
   useEffect(() => {
     if (!b || b.stage !== 'commit') return;
-    const timers = bots
-      .filter((p) => (p === b.caster || p === b.target) && !b.commits[p])
-      .map((p, i) => setTimeout(() => commit(p, aiBid(getState(), p)), 600 + 250 * i));
-    return () => timers.forEach(clearTimeout);
+    for (const p of bots) if ((p === b.caster || p === b.target) && !b.commits[p]) commit(p, aiBid(getState(), p));
     // Re-run only when a new bidding opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [b?.id, b?.stage, botKey, commit, getState]);
@@ -89,7 +86,8 @@ export function useBidding(
     return () => clearTimeout(t);
   }, [b, getState, dispatch]);
 
-  // Show the revealed bids for a moment.
+  // Show the revealed bids for a moment. The timer belongs to the reveal itself: new events (say, a
+  // Firebolt cast right after) must not cancel it, or the result would stay up and hold the AI forever.
   const [reveal, setReveal] = useState<BidReveal | null>(null);
   const seen = useRef(state.events.length);
   useEffect(() => {
@@ -99,9 +97,12 @@ export function useBidding(
     if (!e || e.cue?.kind !== 'contest') return;
     const c = e.cue;
     setReveal({ abilityId: c.abilityId, success: c.success, target: c.target, caster: c.target === 'p1' ? 'p2' : 'p1', bids: c.bids });
+  }, [state.events]);
+  useEffect(() => {
+    if (!reveal) return;
     const t = setTimeout(() => setReveal(null), REVEAL_S * 1000);
     return () => clearTimeout(t);
-  }, [state.events]);
+  }, [reveal]);
 
   return { remaining, locked, lock, reveal, bidders };
 }

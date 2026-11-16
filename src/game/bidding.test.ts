@@ -45,8 +45,7 @@ const close = (g: GameState) => act(g, { type: 'closeBidding', player: g.active 
 
 /** Run a whole bid: both commit, the window closes, both reveal. */
 function contest(g: GameState, casterBid: number, targetBid: number): GameState {
-  g = commit(commit(g, 'p1', casterBid), 'p2', targetBid);
-  g = close(g);
+  g = commit(commit(g, 'p1', casterBid), 'p2', targetBid); // both in: the reveal starts at once
   return reveal(reveal(g, 'p1', casterBid), 'p2', targetBid);
 }
 const rooted = (g: GameState) => g.mages.p2.statuses.some((s) => s.kind === 'root');
@@ -127,7 +126,7 @@ describe('bidding', () => {
   });
 
   it('rejects a reveal that does not match its commitment', () => {
-    const g = close(commit(commit(stasis(duel()), 'p1', 2), 'p2', 2));
+    const g = commit(commit(stasis(duel()), 'p1', 2), 'p2', 2);
     expect(actionError(g, { type: 'revealBid', player: 'p1', amount: 9, salt: 'salt-p1' })).toMatch(/commit/i);
     expect(actionError(g, { type: 'revealBid', player: 'p1', amount: 2, salt: 'wrong' })).toMatch(/commit/i);
   });
@@ -139,18 +138,26 @@ describe('bidding', () => {
   });
 
   it('punishes an overbid: it counts as 0 and forfeits all of that mage’s Mana', () => {
-    let g = close(commit(commit(stasis(duel()), 'p1', 2), 'p2', 99));
+    let g = commit(commit(stasis(duel()), 'p1', 2), 'p2', 99);
     g = reveal(reveal(g, 'p1', 2), 'p2', 99);
     expect(rooted(g)).toBe(true);
     expect(g.mages.p2.mana).toBe(0);
   });
 
   it('treats a mage who will not reveal as bidding 0 once the reveal times out', () => {
-    let g = close(commit(commit(stasis(duel()), 'p1', 1), 'p2', 6));
+    let g = commit(commit(stasis(duel()), 'p1', 1), 'p2', 6);
     g = reveal(g, 'p1', 1);
     g = act(g, { type: 'revealTimeout', player: 'p1' });
     expect(rooted(g)).toBe(true);
     expect(g.mages.p2.mana).toBe(10);
+  });
+
+  it('moves straight to the reveal once both duellists have bid, without waiting out the window', () => {
+    const one = commit(stasis(duel()), 'p2', 1);
+    expect(one.bidding!.stage).toBe('commit');
+    const both = commit(one, 'p1', 3);
+    expect(both.bidding!.stage).toBe('reveal');
+    expect(actionError(both, { type: 'closeBidding', player: 'p1' })).toMatch(/closed/i);
   });
 
   it('only accepts one commitment per player, and only from the two duellists', () => {

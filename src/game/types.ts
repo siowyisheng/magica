@@ -267,7 +267,7 @@ export interface Bidding {
   abilityId: string;
   caster: PlayerId;
   target: PlayerId;
-  /** 'commit': hashes are coming in. 'reveal': the window closed; amounts are being revealed. */
+  /** 'commit': hashes are coming in. 'reveal': both bid (or the window ran out); amounts are being revealed. */
   stage: 'commit' | 'reveal';
   commits: Partial<Record<PlayerId, string>>;
   /** Checked, valid bids (an overbid or no-show counts as 0). */
@@ -307,7 +307,7 @@ export type Action =
   | { type: 'endTurn'; player: PlayerId; reason?: 'timeout' }
   /** Send a commitment: SHA-256 of `${biddingId}|${player}|${amount}|${salt}` (see bidCommitment). */
   | { type: 'commitBid'; player: PlayerId; hash: string }
-  /** The bidding window is over. Anyone who hasn't committed bids 0. */
+  /** The bidding window ran out before both bid. Anyone who hasn't committed bids 0. */
   | { type: 'closeBidding'; player: PlayerId }
   /** Reveal a committed bid; it must match the commitment. */
   | { type: 'revealBid'; player: PlayerId; amount: number; salt: string }

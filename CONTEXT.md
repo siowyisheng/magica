@@ -163,7 +163,7 @@ A Spell settled by a secret Bid instead of a Threat Area. Casting it opens Biddi
 _Avoid_: Bid spell, opposed spell
 
 **Bidding**:
-The fixed 7-second window after a Contested Spell is cast, in which both duellists lock in their Bids at the same time without seeing each other's. Nothing else can happen during it, and the caster's turn timer stops. When the Bids are revealed, the timer resumes with 2 seconds added.
+The window of up to 7 seconds after a Contested Spell is cast, in which both duellists lock in their Bids without seeing each other's. It ends as soon as both have bid. Nothing else can happen during it, and the caster's turn timer stops. When the Bids are revealed, the timer resumes with 2 seconds added.
 
 **Bid**:
 The Mana a duellist secretly commits during Bidding: the caster's to make a Contested Spell land, the target's to Resist it. Bids are shown only after Bidding closes. Not bidding counts as 0, and so does a Bid of more Mana than the duellist has, which also forfeits all of their Mana.
