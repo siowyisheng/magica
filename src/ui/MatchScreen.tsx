@@ -225,8 +225,13 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
         endTurn();
       }
     };
+    const onContextMenu = () => setSelected(null); // right click cancels the selected Ability
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('contextmenu', onContextMenu);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('contextmenu', onContextMenu);
+    };
   }, [controlling, endTurn, absorb, select, selected]);
 
   const barPlayer: PlayerId = mode === 'hotseat' ? state.active : 'p1';

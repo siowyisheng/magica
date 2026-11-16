@@ -34,8 +34,14 @@ export default function App() {
       const c = btn.classList;
       sfx.play({ id: c.contains('ability') ? 'select' : c.contains('primary') || c.contains('end-turn') ? 'confirm' : 'click' });
     };
+    // The browser's context menu is off everywhere; the match uses right click to cancel an Ability.
+    const noMenu = (e: MouseEvent) => e.preventDefault();
     document.addEventListener('click', onClick, true);
-    return () => document.removeEventListener('click', onClick, true);
+    document.addEventListener('contextmenu', noMenu);
+    return () => {
+      document.removeEventListener('click', onClick, true);
+      document.removeEventListener('contextmenu', noMenu);
+    };
   }, []);
   return (
     <>
