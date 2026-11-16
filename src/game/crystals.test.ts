@@ -8,7 +8,7 @@ const loadout: Loadout = {
   id: 'x',
   name: 'X',
   circle: 1,
-  stats: { hp: 0, magic: 0, movespeed: 0 },
+  stats: { hp: 0, maxMana: 0, manaRegen: 0, movespeed: 0 },
   abilityIds: ['staff-strike'],
   passiveIds: [],
 };

@@ -5,25 +5,28 @@ import type { Circle, Loadout, Mage, PlayerId, StatKey } from './types';
 export const CIRCLE_POINTS: Record<Circle, number> = { 1: 30, 2: 20, 3: 10 };
 export const CIRCLE_NAME: Record<Circle, string> = { 1: 'First Circle', 2: 'Second Circle', 3: 'Third Circle' };
 
-export const BASE_STATS: Record<StatKey, number> = { hp: 10, magic: 3, movespeed: 3 };
-export const STAT_NAME: Record<StatKey, string> = { hp: 'HP', magic: 'Magic', movespeed: 'Movespeed' };
+export const BASE_STATS: Record<StatKey, number> = { hp: 10, maxMana: 10, manaRegen: 2, movespeed: 3 };
+export const STAT_NAME: Record<StatKey, string> = { hp: 'HP', maxMana: 'Max Mana', manaRegen: 'Mana Regen', movespeed: 'Movespeed' };
 export const STAT_KEYS = Object.keys(BASE_STATS) as StatKey[];
 
 export const MAX_ABILITIES = 8;
 
 /** How much the k-th step (1-based) of a stat raises it. HP pays less and less: +3, +3, +2, +2, +2, then +1. */
 export function statStepGain(stat: StatKey, k: number): number {
+  if (stat === 'maxMana') return 10;
   if (stat !== 'hp') return 1;
   return k <= 2 ? 3 : k <= 5 ? 2 : 1;
 }
 
-/** Loadout Points for the k-th step (1-based) of a stat. Magic and Movespeed cost more each step; HP is always 1. */
+/** Loadout Points for the k-th step (1-based) of a stat. HP and Max Mana cost 1 a step; Mana Regen 2, 3, 4, then 4 each; Movespeed costs more each step. */
 export function statStepCost(stat: StatKey, k: number): number {
   switch (stat) {
     case 'hp':
       return 1;
-    case 'magic':
-      return k + 1;
+    case 'maxMana':
+      return 1;
+    case 'manaRegen':
+      return Math.min(k + 1, 4);
     case 'movespeed':
       return 2 * k + 1;
   }
@@ -84,6 +87,7 @@ function passiveStats(ids: string[]) {
 export function buildMage(owner: PlayerId, name: string, l: Loadout, pos: Hex): Mage {
   const maxHp = statValue('hp', l.stats.hp);
   const movespeed = statValue('movespeed', l.stats.movespeed);
+  const passives = passiveStats(l.passiveIds);
   return {
     owner,
     name,
@@ -93,12 +97,14 @@ export function buildMage(owner: PlayerId, name: string, l: Loadout, pos: Hex): 
     maxHp,
     shield: 0,
     ap: 2,
-    magic: statValue('magic', l.stats.magic),
-    mana: statValue('magic', l.stats.magic),
+    maxMana: statValue('maxMana', l.stats.maxMana),
+    // Starts with one turn of regen (the stat alone, not passives).
+    mana: Math.min(statValue('maxMana', l.stats.maxMana), statValue('manaRegen', l.stats.manaRegen)),
     movespeed,
     mp: 0,
     empower: 0,
-    ...passiveStats(l.passiveIds),
+    ...passives,
+    manaRegen: statValue('manaRegen', l.stats.manaRegen) + passives.manaRegen,
     passiveIds: [...l.passiveIds],
     abilities: l.abilityIds.map((id) => ({ id, cooldown: 0 })),
     statuses: [],

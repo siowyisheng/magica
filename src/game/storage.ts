@@ -23,14 +23,21 @@ function write(k: string, v: unknown) {
 
 // v3: Circle-based Loadouts with the delayed-Attack catalogue. Older saves are discarded.
 const LOADOUTS = 'magica.loadouts.v3';
-const REPLAYS = 'magica.replays.v3';
+// v4: Magic became Max Mana and Mana Regen, so older replays no longer play out the same.
+const REPLAYS = 'magica.replays.v4';
 const MAX_REPLAYS = 25;
 
 const DEFAULTS_SEEN = 'magica.defaultsSeen.v3';
 
+/** Loadouts saved before Magic split into Max Mana and Mana Regen: the old Magic steps become Mana Regen steps. */
+function migrateStats(l: Loadout): Loadout {
+  const s = l.stats as Partial<Record<string, number>>;
+  return { ...l, stats: { hp: s.hp ?? 0, maxMana: s.maxMana ?? 0, manaRegen: s.manaRegen ?? s.magic ?? 0, movespeed: s.movespeed ?? 0 } };
+}
+
 /** Saved loadouts, plus any built-in defaults this player hasn't seen yet (e.g. after a content update). */
 export function loadLoadouts(): Loadout[] {
-  const saved = read<Loadout[] | null>(LOADOUTS, null);
+  const saved = read<Loadout[] | null>(LOADOUTS, null)?.map(migrateStats) ?? null;
   const seen = new Set(read<string[]>(DEFAULTS_SEEN, saved ? saved.map((l) => l.id) : []));
   const fresh = DEFAULT_LOADOUTS.filter((d) => !seen.has(d.id));
   const merged = [...(saved ?? []), ...fresh];

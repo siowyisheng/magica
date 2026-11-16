@@ -125,7 +125,8 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
         ? neighbors(last).filter((n) => state.tiles[key(n)]?.terrain === 'plain' && !taken.has(key(n)))
         : validTargets(state, controlling, selected);
       const preview = hover && next.some((n) => equals(n, hover)) ? [...wallPath, hover] : wallPath;
-      return { targets: new Set(next.map(key)), impact: new Set(preview.map(key)) };
+      const aim = hover && next.some((n) => equals(n, hover)) ? key(hover) : undefined;
+      return { targets: new Set(next.map(key)), impact: new Set(preview.map(key)), aim };
     }
     if (selected && reactTargets.length) {
       const hovered = hover && reactTargets.find((a) => a.area.includes(key(hover)));
@@ -134,7 +135,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
     if (selected) {
       const targets = new Set(validTargets(state, controlling, selected).map(key));
       const impact = hover && targets.has(key(hover)) ? new Set(impactArea(state, controlling, selected, hover).map(key)) : undefined;
-      return { targets, impact };
+      return { targets, impact, aim: impact ? key(hover!) : undefined };
     }
     const all = reachable(state, controlling);
     const mage = state.mages[controlling];

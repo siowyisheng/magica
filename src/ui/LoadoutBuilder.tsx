@@ -25,7 +25,7 @@ interface Props {
 }
 
 const CIRCLES: Circle[] = [1, 2, 3];
-const STAT_ICON: Record<StatKey, string> = { hp: '❤', magic: '🔮', movespeed: '👣' };
+const STAT_ICON: Record<StatKey, string> = { hp: '❤', maxMana: '🔮', manaRegen: '💧', movespeed: '👣' };
 
 export function LoadoutBuilder({ loadouts, onChange, onBack }: Props) {
   const [editingId, setEditingId] = useState<string | null>(loadouts[0]?.id ?? null);
@@ -41,7 +41,7 @@ export function LoadoutBuilder({ loadouts, onChange, onBack }: Props) {
       id: newId(),
       name: 'New loadout',
       circle: 2,
-      stats: { hp: 0, magic: 0, movespeed: 0 },
+      stats: { hp: 0, maxMana: 0, manaRegen: 0, movespeed: 0 },
       abilityIds: [STAFF_STRIKE],
       passiveIds: [],
     };

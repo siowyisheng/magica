@@ -39,7 +39,7 @@ export function createGame(config: MatchConfig): GameState {
     p2: buildMage('p2', config.names.p2, config.loadouts.p2, spawnFor('p2', config.radius)),
   };
   // Going second is a disadvantage: P2 starts with one extra turn of regen.
-  mages.p2.mana = Math.min(maxMana(mages.p2), mages.p2.mana + mages.p2.magic);
+  mages.p2.mana = Math.min(maxMana(mages.p2), mages.p2.mana * 2);
   const state: GameState = {
     config,
     turn: 1,
@@ -60,7 +60,7 @@ export function createGame(config: MatchConfig): GameState {
 
 // --- Queries ---------------------------------------------------------------
 
-export const maxMana = (m: Mage) => 10 * m.magic;
+export const maxMana = (m: Mage) => m.maxMana;
 export const hpFraction = (m: Mage) => m.hp / m.maxHp;
 /** A round is one turn by each mage. */
 export const round = (state: GameState) => Math.ceil(state.turn / 2);
@@ -366,7 +366,7 @@ export function applyAction(prev: GameState, action: Action): GameState {
 function startTurn(state: GameState, player: PlayerId, log: Log) {
   const mage = state.mages[player];
   // Each mage's first turn is turn 1 (P1) or 2 (P2); regen starts after that.
-  if (state.turn > 2) mage.mana = Math.min(maxMana(mage), mage.mana + mage.magic + mage.manaRegen);
+  if (state.turn > 2) mage.mana = Math.min(maxMana(mage), mage.mana + mage.manaRegen);
   mage.mp = 0;
   mage.empower = 0;
   if (mage.regen > 0) heal(mage, mage.regen, log);

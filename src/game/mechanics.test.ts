@@ -8,7 +8,7 @@ import type { Action, GameState, Loadout, MatchConfig } from './types';
 
 /** A duel on an all-plain board with P1 at a and P2 at b, P1 to act with plenty of Mana. */
 function arena(p1Abilities: string[], a: Hex, b: Hex, p2Passives: string[] = []): GameState {
-  const stats = { hp: 3, magic: 0, movespeed: 0 };
+  const stats = { hp: 3, maxMana: 0, manaRegen: 0, movespeed: 0 };
   const l1: Loadout = { id: 'a', name: 'A', circle: 1, stats, abilityIds: ['staff-strike', ...p1Abilities], passiveIds: [] };
   const l2: Loadout = { id: 'b', name: 'B', circle: 1, stats, abilityIds: ['staff-strike'], passiveIds: p2Passives };
   const g = createGame(baseConfig(l1, l2));

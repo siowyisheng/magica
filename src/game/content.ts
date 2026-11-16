@@ -151,7 +151,7 @@ const LIST: AbilityDef[] = [
   }),
   attack({
     id: 'cataclysm', name: 'Cataclysm', icon: '🌋', school: 'earth', points: 10, mana: 50,
-    description: 'Game-ender: a radius-4 eruption (61 hexes). Needs Magic 5+ to ever afford.',
+    description: 'Game-ender: a radius-4 eruption (61 hexes). Needs Max Mana 50 to ever afford.',
     shape: { kind: 'burst', range: 6, radius: 4 }, hit: { damage: 20 },
   }),
 
@@ -208,7 +208,7 @@ export const PASSIVES: Record<string, PassiveDef> = Object.fromEntries(
       { id: 'mana-well', name: 'Mana Well', icon: '🏺', points: 3, description: 'Absorb Mana gives +50%.', mods: { absorbBonus: 0.5 } },
       { id: 'iron-skin', name: 'Iron Skin', icon: '🪨', points: 3, description: 'Every hit you take is 1 lower (but at least 1).', mods: { armor: 1 } },
       { id: 'regeneration', name: 'Regeneration', icon: '✚', points: 3, description: '+1 HP at the start of your turn.', mods: { regen: 1 } },
-      { id: 'wellspring', name: 'Wellspring', icon: '⛲', points: 4, description: '+1 Mana per turn on top of Magic.', mods: { manaRegen: 1 } },
+      { id: 'wellspring', name: 'Wellspring', icon: '⛲', points: 4, description: '+1 Mana per turn on top of your Mana Regen.', mods: { manaRegen: 1 } },
     ] satisfies PassiveDef[]
   ).map((p) => [p.id, p]),
 );
@@ -237,37 +237,37 @@ const loadout = (l: Omit<Loadout, 'abilityIds'> & { abilities: string[] }): Load
 export const DEFAULT_LOADOUTS: Loadout[] = [
   loadout({
     id: 'c1-archmage', name: 'Archmage', circle: 1,
-    stats: { hp: 0, magic: 2, movespeed: 0 },
+    stats: { hp: 0, maxMana: 4, manaRegen: 1, movespeed: 0 },
     abilities: ['firebolt', 'fireball', 'ward', 'counterspell', 'cataclysm'],
     passiveIds: ['wellspring'],
   }),
   loadout({
     id: 'c1-spellblade', name: 'Spellblade', circle: 1,
-    stats: { hp: 3, magic: 0, movespeed: 1 },
+    stats: { hp: 3, maxMana: 2, manaRegen: 0, movespeed: 1 },
     abilities: ['spear-thrust', 'shield-bash', 'firebolt', 'ice-shards', 'blink', 'ward'],
     passiveIds: ['iron-skin', 'regeneration'],
   }),
   loadout({
     id: 'c2-pyromancer', name: 'Pyromancer', circle: 2,
-    stats: { hp: 2, magic: 1, movespeed: 0 },
+    stats: { hp: 2, maxMana: 2, manaRegen: 1, movespeed: 0 },
     abilities: ['firebolt', 'dragons-breath', 'wall-of-fire', 'ward'],
     passiveIds: ['mana-well'],
   }),
   loadout({
     id: 'c2-tidecaller', name: 'Tidecaller', circle: 2,
-    stats: { hp: 2, magic: 0, movespeed: 0 },
+    stats: { hp: 2, maxMana: 2, manaRegen: 0, movespeed: 0 },
     abilities: ['riptide', 'tidal-wave', 'frost-lance', 'deflect', 'blink'],
     passiveIds: ['regeneration'],
   }),
   loadout({
     id: 'c3-adept', name: 'Adept', circle: 3,
-    stats: { hp: 2, magic: 0, movespeed: 0 },
+    stats: { hp: 2, maxMana: 2, manaRegen: 0, movespeed: 0 },
     abilities: ['firebolt', 'icicle', 'ward'],
     passiveIds: [],
   }),
   loadout({
     id: 'c3-brawler', name: 'Brawler', circle: 3,
-    stats: { hp: 1, magic: 0, movespeed: 0 },
+    stats: { hp: 1, maxMana: 1, manaRegen: 0, movespeed: 0 },
     abilities: ['spear-thrust', 'shield-bash', 'haste'],
     passiveIds: [],
   }),

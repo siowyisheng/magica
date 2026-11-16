@@ -120,7 +120,7 @@ The per-turn budget for doing things. Each mage has 2 per turn, shared by the Re
 The hexes a mage can still walk this turn. Spending 1 AP grants Movement Points equal to Movespeed. Unspent points are lost at the end of the turn.
 
 **Mana**:
-The resource every Spell costs. A mage starts the duel with Mana equal to their Magic, regains that much each turn, and can hold at most 10 × Magic.
+The resource every Spell costs. A mage starts the duel with Mana equal to their Mana Regen, regains that much at the start of each of their later turns, and can hold at most their Max Mana.
 
 **Mana Crystal**:
 One of the two crystals that are always on the board: one Large, one Small. Each is in one of three states: Spawning, Almost Ready or Ready. A mage standing on a Ready crystal can Absorb Mana from it.
@@ -145,9 +145,13 @@ A mage's health. The base is 10, and the mage loses when it reaches 0. A Loadout
 **Movespeed**:
 The Movement Points a mage gets per AP spent on movement. The base is 3. In the Reaction Phase it is 3 lower, so a mage with Movespeed 3 can't Move there and one with 4 walks 1 hex per AP.
 
-**Magic**:
-The stat that sets a mage's Mana economy: starting Mana, Mana regained per turn, and the Mana cap. The base is 3.
-_Avoid_: Power, Mana (Mana is the resource, Magic is the stat)
+**Max Mana**:
+The stat that caps how much Mana a mage can hold. The base is 10, and each Loadout Point adds 10.
+_Avoid_: Magic, Mana (Mana is the resource, Max Mana is the stat)
+
+**Mana Regen**:
+The stat for Mana regained at the start of each of a mage's turns after their first, and also the Mana they start the duel with. The base is 2, and each step adds 1.
+_Avoid_: Magic, regen on its own (that is HP regeneration)
 
 ## Spells
 

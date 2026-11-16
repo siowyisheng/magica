@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ABILITIES } from '../game/content';
-import { fromKey, hexPoints, key, toPixel, type Hex } from '../game/hex';
+import { fromKey, hexPoints, key, neighbors, toPixel, type Hex } from '../game/hex';
 import { CRYSTAL_STATE_NAME } from '../game/crystals';
 import { PLAYERS, type GameState, type PlayerId, type StatusKind } from '../game/types';
 
@@ -8,7 +8,7 @@ const SIZE = 30;
 /** Time a walking mage spends on each hex. */
 const STEP_MS = 120;
 export const STATUS_ICON: Record<StatusKind, string> = { burn: '🔥', poison: '🦠', slow: '🐌', root: '⛓️', vulnerable: '🎯' };
-const TERRAIN_ICON: Record<string, string> = { rock: '🪨' };
+const TERRAIN_ICON: Record<string, string> = {};
 
 export interface BoardHighlights {
   reachable?: Set<string>;
@@ -17,6 +17,8 @@ export interface BoardHighlights {
   /** Reachable only by spending 2 AP on movement. */
   twoAp?: Set<string>;
   targets?: Set<string>;
+  /** The hex being aimed at, drawn apart from the rest of the Threat Area it would create. */
+  aim?: string;
   impact?: Set<string>;
   path?: Set<string>;
 }
@@ -48,6 +50,18 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
     return `${minX} ${minY} ${Math.max(...xs) + pad - minX} ${Math.max(...ys) + pad - minY}`;
   }, [tiles]);
   const poly = useMemo(() => hexPoints(SIZE - 1.5), []);
+  // Rocks are discs, and neighbouring rocks are joined by a bar of the same width: two make a flat-sided
+  // wall with rounded ends, three that touch make a rounded triangle, and so on.
+  const rocks = useMemo(() => {
+    const rock = new Set(tiles.filter((t) => t.terrain === 'rock').map(key));
+    const discs = [...rock].map((k) => toPixel(fromKey(k), SIZE));
+    const bars = [...rock].flatMap((k) =>
+      neighbors(fromKey(k))
+        .filter((n) => rock.has(key(n)) && key(n) > k)
+        .map((n) => ({ a: toPixel(fromKey(k), SIZE), b: toPixel(n, SIZE) })),
+    );
+    return { discs, bars };
+  }, [tiles]);
 
   // Floating combat text for newly appended events.
   const [floaters, setFloaters] = useState<Floater[]>([]);
@@ -129,6 +143,7 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
           highlights.twoAp?.has(k) && !highlights.free?.has(k) && 'costs-2ap',
           highlights.targets?.has(k) && 'is-target',
           highlights.impact?.has(k) && 'is-impact',
+          highlights.aim === k && 'is-aim',
         ]
           .filter(Boolean)
           .join(' ');
@@ -141,6 +156,12 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
             onMouseEnter={() => onHexHover?.(t)}
           >
             <polygon points={poly} />
+            {highlights.aim === k && (
+              <g className="aim-reticle">
+                <circle r={SIZE * 0.4} />
+                <path d={`M0 ${-SIZE * 0.62}V${-SIZE * 0.2}M0 ${SIZE * 0.62}V${SIZE * 0.2}M${-SIZE * 0.62} 0H${-SIZE * 0.2}M${SIZE * 0.62} 0H${SIZE * 0.2}`} />
+              </g>
+            )}
             {TERRAIN_ICON[t.terrain] && (
               <text className="terrain-icon" textAnchor="middle" dominantBaseline="central">
                 {TERRAIN_ICON[t.terrain]}
@@ -149,6 +170,24 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
           </g>
         );
       })}
+
+      {rocks.discs.length > 0 && (
+        <g className="rocks" pointerEvents="none">
+          {[
+            ['rock-edge', SIZE * 0.87],
+            ['rock-face', SIZE * 0.87 - 3],
+          ].map(([cls, r]) => (
+            <g key={cls as string} className={cls as string}>
+              {rocks.bars.map(({ a, b }, i) => (
+                <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth={(r as number) * 2} strokeLinecap="round" />
+              ))}
+              {rocks.discs.map((d, i) => (
+                <circle key={i} cx={d.x} cy={d.y} r={r as number} />
+              ))}
+            </g>
+          ))}
+        </g>
+      )}
 
       {state.pending.filter((a) => a.area.length > 0).map((a) => (
         <g key={a.id} className={`threat threat-${a.caster}`}>

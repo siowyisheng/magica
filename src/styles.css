@@ -115,7 +115,11 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .board { width: 100%; height: 100%; max-height: calc(100vh - 190px); user-select: none; }
 .tile polygon { fill: #221d36; stroke: #3a3358; stroke-width: 1.5; transition: fill 0.12s; }
 .tile:hover polygon { fill: #2e2749; }
-.terrain-rock polygon { fill: #2a2733; stroke: #4a4558; }
+.terrain-rock polygon { fill: #2a2733; stroke: none; }
+.rock-edge circle { fill: #6a6483; }
+.rock-edge line { stroke: #6a6483; }
+.rock-face circle { fill: #35313f; }
+.rock-face line { stroke: #35313f; }
 .terrain-icon { font-size: 18px; pointer-events: none; opacity: 0.85; }
 .terrain-rock .terrain-icon { font-size: 22px; }
 .is-reachable { cursor: pointer; }
@@ -123,6 +127,9 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .is-target { cursor: crosshair; }
 .is-target polygon { fill: #3d2f1c; stroke: var(--target); }
 .is-impact polygon { fill: #6b3418 !important; stroke: #ffd18a; }
+/* The hex under the cursor: pale, thick-edged and crossed by a reticle, so it reads apart from the orange Threat Area. */
+.is-aim polygon { fill: #fff0c4 !important; stroke: #ffffff; stroke-width: 3; }
+.aim-reticle { pointer-events: none; fill: none; stroke: #5a2a0c; stroke-width: 2.5; stroke-linecap: round; }
 
 .mage { transition: transform 0.22s cubic-bezier(0.3, 0.7, 0.4, 1.2); cursor: pointer; }
 .mage.is-walking { transition: transform 0.12s linear; }

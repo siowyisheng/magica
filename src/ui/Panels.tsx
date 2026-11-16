@@ -28,7 +28,7 @@ export function MageCard({ mage, active, scale }: { mage: Mage; active: boolean;
         <div>
           <div className="mage-card-name">{mage.name}</div>
           <div className="muted">
-            {CIRCLE_NAME[mage.circle]} · 🔮{mage.magic} · 👣{mage.movespeed}
+            {CIRCLE_NAME[mage.circle]} · 🔮{mage.maxMana} (+{mage.manaRegen}) · 👣{mage.movespeed}
           </div>
         </div>
       </div>

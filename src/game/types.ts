@@ -107,7 +107,7 @@ export interface AbilityDef {
 }
 
 /** Which of a mage's stats a Loadout can buy steps of. */
-export type StatKey = 'hp' | 'magic' | 'movespeed';
+export type StatKey = 'hp' | 'maxMana' | 'manaRegen' | 'movespeed';
 
 /** A mage's rank. Sets the Loadout Point budget: First 30, Second 20, Third 10. */
 export type Circle = 1 | 2 | 3;
@@ -129,7 +129,7 @@ export interface PassiveMods {
   armor?: number;
   /** HP restored at the start of your turn. */
   regen?: number;
-  /** Extra Mana regained each turn, on top of Magic. */
+  /** Extra Mana regained each turn, on top of the Mana Regen stat. */
   manaRegen?: number;
   /** Absorb Mana yields this fraction more (0.5 = +50%). */
   absorbBonus?: number;
@@ -158,13 +158,15 @@ export interface Mage {
   maxHp: number;
   shield: number;
   ap: number;
-  magic: number;
+  /** The most Mana the mage can hold. */
+  maxMana: number;
   mana: number;
   movespeed: number;
   /** Movement Points left this turn. Bought with AP: Movespeed points per AP. */
   mp: number;
   armor: number;
   regen: number;
+  /** Mana regained at the start of each own turn after the first: the Mana Regen stat plus passives. */
   manaRegen: number;
   absorbBonus: number;
   /** Bonus damage on Techniques launched this turn (Empower). Cleared when the turn ends. */

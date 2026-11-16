@@ -8,7 +8,7 @@ const loadout = (passiveIds: string[], abilities: string[] = []): Loadout => ({
   id: 'x',
   name: 'X',
   circle: 1,
-  stats: { hp: 0, magic: 0, movespeed: 0 },
+  stats: { hp: 0, maxMana: 2, manaRegen: 0, movespeed: 0 },
   abilityIds: ['staff-strike', ...abilities],
   passiveIds,
 });
@@ -38,7 +38,7 @@ describe('Passives', () => {
     const eight = ['staff-strike', 'firebolt', 'frost-lance', 'doom', 'mend', 'blink', 'ward', 'icicle'];
     const l: Loadout = { ...loadout(['mana-well', 'iron-skin', 'regeneration', 'wellspring']), abilityIds: eight };
     expect(validateLoadout(l).join()).not.toMatch(/8/);
-    expect(loadoutCost(loadout(['wellspring']))).toBe(4);
+    expect(loadoutCost(loadout(['wellspring']))).toBe(4 + 2); // plus the 2 points of Max Mana the test duel buys
   });
 
   it('Mana Well: Absorb Mana gives +50%', () => {
@@ -74,10 +74,10 @@ describe('Passives', () => {
     expect(g.mages.p1.hp).toBe(6);
   });
 
-  it('Wellspring: +1 Mana per turn on top of Magic', () => {
+  it('Wellspring: +1 Mana per turn on top of Mana Regen', () => {
     let g = duel(['wellspring']);
     g = endTurn(endTurn(g));
-    expect(g.mages.p1.mana).toBe(3 + 3 + 1);
+    expect(g.mages.p1.mana).toBe(2 + 2 + 1);
   });
 
   it('show up on the mage in a match', () => {
