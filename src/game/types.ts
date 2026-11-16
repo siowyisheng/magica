@@ -209,6 +209,9 @@ export interface GameEvent {
   /** Hex the event happened at, for floating combat text. */
   at?: Hex;
   amount?: number;
+  /** For a Move: who walked, and the hexes walked through, from where they started to where they ended. */
+  player?: PlayerId;
+  path?: Hex[];
 }
 
 export type CrystalSize = 'large' | 'small';

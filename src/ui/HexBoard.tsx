@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ABILITIES } from '../game/content';
 import { fromKey, hexPoints, key, toPixel, type Hex } from '../game/hex';
 import { CRYSTAL_STATE_NAME } from '../game/crystals';
-import { PLAYERS, type GameState, type StatusKind } from '../game/types';
+import { PLAYERS, type GameState, type PlayerId, type StatusKind } from '../game/types';
 
 const SIZE = 30;
+/** Time a walking mage spends on each hex. */
+const STEP_MS = 120;
 export const STATUS_ICON: Record<StatusKind, string> = { burn: '🔥', poison: '🦠', slow: '🐌', root: '⛓️', vulnerable: '🎯' };
 const TERRAIN_ICON: Record<string, string> = { rock: '🪨' };
 
@@ -63,6 +65,43 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
     const t = setTimeout(() => setFloaters((f) => f.filter((x) => !ids.has(x.id))), 1100);
     return () => clearTimeout(t);
   }, [state.events]);
+
+  // A Move is drawn hex by hex along the walked path rather than as a straight slide through rocks.
+  const [walking, setWalking] = useState<Partial<Record<PlayerId, Hex>>>({});
+  const walkSeen = useRef(state.events.length);
+  const walkTimers = useRef<Partial<Record<PlayerId, number[]>>>({});
+  useLayoutEffect(() => {
+    if (state.events.length < walkSeen.current) {
+      // Scrubbed backwards: drop any walk in progress.
+      Object.values(walkTimers.current).forEach((ts) => ts?.forEach(clearTimeout));
+      walkTimers.current = {};
+      setWalking({});
+      walkSeen.current = state.events.length;
+      return;
+    }
+    const fresh = state.events.slice(walkSeen.current);
+    walkSeen.current = state.events.length;
+    if (fresh.length > 12) return; // a jump, not a turn: no animation
+    for (const e of fresh) {
+      if (!e.player || !e.path || e.path.length < 2) continue;
+      const p = e.player;
+      const path = e.path;
+      walkTimers.current[p]?.forEach(clearTimeout);
+      setWalking((w) => ({ ...w, [p]: path[0] }));
+      walkTimers.current[p] = path.slice(1).map((h, i) =>
+        window.setTimeout(() => {
+          setWalking((w) => {
+            if (i === path.length - 2) {
+              const { [p]: _done, ...rest } = w;
+              return rest;
+            }
+            return { ...w, [p]: h };
+          });
+        }, (i + 1) * STEP_MS),
+      );
+    }
+  }, [state.events]);
+  useEffect(() => () => Object.values(walkTimers.current).forEach((ts) => ts?.forEach(clearTimeout)), []);
 
   return (
     <svg className="board" viewBox={viewBox} onMouseLeave={() => onHexHover?.(null)}>
@@ -153,13 +192,14 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
 
       {PLAYERS.map((p) => {
         const u = state.mages[p];
-        const { x, y } = toPixel(u.pos, SIZE);
+        const shown = walking[p];
+        const { x, y } = toPixel(shown ?? u.pos, SIZE);
         const hpW = SIZE * 1.4;
         const active = state.active === p && !state.winner;
         return (
           <g
             key={p}
-            className={`mage mage-${p} ${active ? 'is-active' : ''} ${u.hp <= 0 ? 'is-dead' : ''}`}
+            className={`mage mage-${p} ${shown ? 'is-walking' : ''} ${active ? 'is-active' : ''} ${u.hp <= 0 ? 'is-dead' : ''}`}
             style={{ transform: `translate(${x}px, ${y}px)` }}
             onClick={() => onHexClick?.(u.pos)}
             onMouseEnter={() => onHexHover?.(u.pos)}

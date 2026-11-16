@@ -93,7 +93,13 @@ export function apForMove(m: Mage, cost: number): number {
  * Hexes reachable from `from` by walking at most `budget` hexes, with their cost.
  * Rock and the hex `blocked` can't be entered. `from` itself is left out.
  */
-function walk(state: GameState, from: Hex, budget: number, blocked: string): Map<string, number> {
+function walk(
+  state: GameState,
+  from: Hex,
+  budget: number,
+  blocked: string,
+  parents?: Map<string, Hex>,
+): Map<string, number> {
   const best = new Map<string, number>([[key(from), 0]]);
   const frontier: Array<[Hex, number]> = [[from, 0]];
   while (frontier.length) {
@@ -108,11 +114,24 @@ function walk(state: GameState, from: Hex, budget: number, blocked: string): Map
       if (next > budget) continue;
       if ((best.get(k) ?? Infinity) <= next) continue;
       best.set(k, next);
+      parents?.set(k, cur);
       frontier.push([n, next]);
     }
   }
   best.delete(key(from));
   return best;
+}
+
+/** The cheapest walk from `from` to `to` (both included), around rocks and the other mage. Empty if unreachable. */
+export function walkPath(state: GameState, from: Hex, to: Hex, blocked: string, budget = Infinity): Hex[] {
+  const parents = new Map<string, Hex>();
+  walk(state, from, budget, blocked, parents);
+  const path: Hex[] = [];
+  for (let h: Hex | undefined = to; h; h = parents.get(key(h))) {
+    path.push(h);
+    if (key(h) === key(from)) return path.reverse();
+  }
+  return [];
 }
 
 /** Hexes the player's mage can Move to this turn, with their movement cost. Nobody Moves in the Reaction Phase. */
@@ -269,7 +288,8 @@ export function applyAction(prev: GameState, action: Action): GameState {
       me.ap -= spend;
       me.mp += spend * mpPerAp(me) - cost;
       me.pos = action.to;
-      log({ kind: 'move', text: `${me.name} moves.`, at: action.to, cue: { kind: 'move', hexes: distance(from, action.to) } });
+      const path = walkPath(prev, from, action.to, key(prev.mages[other(action.player)].pos), moveBudget(prev.mages[action.player]));
+      log({ kind: 'move', text: `${me.name} moves.`, at: action.to, player: action.player, path, cue: { kind: 'move', hexes: distance(from, action.to) } });
       break;
     }
     case 'cast': {

@@ -94,3 +94,20 @@ describe('casting costs', () => {
     expect(castError(g, 'p1', 'staff-strike')).toMatch(/AP/);
   });
 });
+
+describe('the walked path of a Move', () => {
+  it('goes around rocks hex by hex, from where the mage started to where it ended', () => {
+    const g = duel([], 2);
+    const from = g.mages.p1.pos; // (0, 5)
+    for (const h of [{ q: 0, r: 4 }, { q: 1, r: 3 }, { q: -1, r: 4 }]) g.tiles[`${h.q},${h.r}`].terrain = 'rock';
+    const to = { q: 0, r: 3 };
+    const after = move(g, to);
+    const ev = after.events.find((e) => e.kind === 'move' && e.path)!;
+    expect(ev.player).toBe('p1');
+    expect(ev.path![0]).toEqual(from);
+    expect(ev.path!.at(-1)).toEqual(to);
+    for (const h of ev.path!) expect(after.tiles[`${h.q},${h.r}`].terrain).not.toBe('rock');
+    ev.path!.slice(1).forEach((h, i) => expect(Math.max(Math.abs(h.q - ev.path![i].q), Math.abs(h.r - ev.path![i].r), Math.abs(h.q + h.r - ev.path![i].q - ev.path![i].r))).toBe(1));
+    expect(ev.path!.length).toBeGreaterThan(3); // the straight line is blocked, so it is longer
+  });
+});
