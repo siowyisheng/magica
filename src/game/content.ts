@@ -225,7 +225,7 @@ const LIST: AbilityDef[] = [
 
   // --- Reaction Spells (defensive: less Mana-efficient than offence) ---------
   spell({
-    id: 'ward', name: 'Ward', icon: '🛡️', school: 'arcane', points: 2, mana: 6, fast: true, timing: 'reaction',
+    id: 'ward', name: 'Ward', icon: '🛡️', school: 'arcane', points: 2, mana: 6, fast: true, multi: true, timing: 'reaction',
     description: 'Fast Reaction: a 4-point shield over every Attack in this resolution.',
     targeting: 'self', effect: { type: 'shield', amount: 4 },
   }),
