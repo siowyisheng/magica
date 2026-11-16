@@ -22,7 +22,7 @@ export interface BidReveal {
 
 interface Props {
   state: GameState;
-  /** Duellists who bid on this screen: one in vs AI, both in hotseat, none for spectators. */
+  /** Duellists who bid on this screen: the local player, or none for spectators. */
   bidders: PlayerId[];
   /** Duellists who have locked in on this screen (others' lock-ins are never shown). */
   locked: Set<PlayerId>;
@@ -87,7 +87,7 @@ export function BidPanel({ state, bidders, locked, onLock, remaining, total, rev
                   locked.has(p) ? (
                     <div className="bid-locked">Locked in ✓</div>
                   ) : (
-                    <BidInput max={state.mages[p].mana} label={`Bid ${role(p)}`} onLock={(n) => onLock(p, n)} hidden={bidders.length > 1} />
+                    <BidInput max={state.mages[p].mana} label={`Bid ${role(p)}`} onLock={(n) => onLock(p, n)} />
                   )
                 ) : (
                   <div className="bid-waiting">Deciding…</div>
@@ -112,19 +112,14 @@ export function BidPanel({ state, bidders, locked, onLock, remaining, total, rev
   );
 }
 
-/**
- * A secret bid entry. In hotseat both players share the screen, so the amount is only
- * shown while the bidder is choosing (`hidden` masks it when not focused).
- */
-function BidInput({ max, label, onLock, hidden }: { max: number; label: string; onLock: (n: number) => void; hidden: boolean }) {
+/** A secret bid entry: pick an amount, then lock it in. */
+function BidInput({ max, label, onLock }: { max: number; label: string; onLock: (n: number) => void }) {
   const [amount, setAmount] = useState(0);
-  const [focused, setFocused] = useState(false);
   useEffect(() => setAmount((a) => Math.min(a, max)), [max]);
-  const show = !hidden || focused;
   return (
-    <div className="bid-input" onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}>
+    <div className="bid-input">
       <label className="muted">
-        {label}: <strong className="bid-value">{show ? amount : '•'}</strong>
+        {label}: <strong className="bid-value">{amount}</strong>
       </label>
       <input
         type="range"

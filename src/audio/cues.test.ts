@@ -132,19 +132,17 @@ describe('who hears what', () => {
     { turn: 2, kind: 'turn', text: '', cue: { kind: 'actionStart', player } },
   ];
 
-  it('a player hears only their own phase starts; hotseat hears both; a spectator none', () => {
+  it('a player hears only their own phase starts; a spectator none', () => {
     expect(ids(planSounds(turnEvents('p2'), 'p1', 6))).toEqual([]);
     expect(ids(planSounds(turnEvents('p1'), 'p1', 6))).toEqual(['reactionStart', 'actionStart']);
-    expect(ids(planSounds(turnEvents('p2'), 'both', 6))).toEqual(['reactionStart', 'actionStart']);
     expect(ids(planSounds(turnEvents('p1'), null, 6))).toEqual([]);
   });
 
-  it('results: win, lose, or a neutral fanfare for hotseat, spectators and draws', () => {
+  it('results: win, lose, or a neutral fanfare for spectators and draws', () => {
     const result = (winner: 'p1' | 'p2' | 'draw'): GameEvent[] => [{ turn: 9, kind: 'victory', text: '', cue: { kind: 'result', winner } }];
     expect(ids(planSounds(result('p1'), 'p1', 6))).toEqual(['win']);
     expect(ids(planSounds(result('p2'), 'p1', 6))).toEqual(['lose']);
     expect(ids(planSounds(result('draw'), 'p1', 6))).toEqual(['fanfare']);
-    expect(ids(planSounds(result('p1'), 'both', 6))).toEqual(['fanfare']);
     expect(ids(planSounds(result('p2'), null, 6))).toEqual(['fanfare']);
   });
 
@@ -159,7 +157,7 @@ describe('who hears what', () => {
       { turn: 3, kind: 'status', text: '', cue: { kind: 'crystalReady', size: 'large' } },
       { turn: 3, kind: 'heal', text: '', cue: { kind: 'crystalAbsorb', size: 'small' } },
     ];
-    for (const v of ['p1', 'both', null] as const) expect(ids(planSounds(events, v, 6))).toEqual(['crystalReady', 'crystalAbsorb']);
+    for (const v of ['p1', null] as const) expect(ids(planSounds(events, v, 6))).toEqual(['crystalReady', 'crystalAbsorb']);
   });
 });
 

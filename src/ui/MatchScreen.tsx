@@ -27,11 +27,9 @@ import { BID_WINDOW_S, REVEAL_S, useBidding } from './useBidding';
 import { useSfx } from './useSfx';
 import { sfx } from '../audio/sfx';
 
-export type MatchMode = 'ai' | 'hotseat';
 
 interface Props {
   config: MatchConfig;
-  mode: MatchMode;
   onExit: () => void;
   onRematch: () => void;
   onWatchReplay: (rec: MatchRecord) => void;
@@ -39,7 +37,14 @@ interface Props {
 
 const AI_DELAY_MS = 420;
 
-export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: Props) {
+/**
+ * You always play P1 on this screen. P2 is the AI for now; with peer-to-peer play it will be the
+ * remote player, so code here should only ever treat P1 as local.
+ */
+const LOCAL: PlayerId = 'p1';
+const OPPONENT: PlayerId = 'p2';
+
+export function MatchScreen({ config, onExit, onRematch, onWatchReplay }: Props) {
   const [state, setState] = useState<GameState>(() => createGame(config));
   const stateRef = useRef(state);
   const record = useRef<MatchRecord>({ id: newId(), createdAt: Date.now(), config, actions: [] });
@@ -51,9 +56,8 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
   useEffect(() => setWallPath([]), [selected, state.turn, state.phase]);
   const [hover, setHover] = useState<Hex | null>(null);
 
-  const isLocal = useCallback((p: PlayerId) => mode === 'hotseat' || p === 'p1', [mode]);
-  // Against the AI you play P1; in hotseat both sides are yours.
-  useSfx(state, mode === 'hotseat' ? 'both' : 'p1');
+  const isLocal = useCallback((p: PlayerId) => p === LOCAL, []);
+  useSfx(state, LOCAL);
   const controlling = !state.winner && isLocal(state.active) ? state.active : null;
 
   // --- Spectate host -------------------------------------------------------
@@ -88,8 +92,8 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
     state,
     getState,
     dispatch,
-    mode === 'hotseat' ? ['p1', 'p2'] : ['p1'],
-    mode === 'hotseat' ? [] : ['p2'],
+    [LOCAL],
+    [OPPONENT],
   );
 
   // --- AI ------------------------------------------------------------------
@@ -249,7 +253,7 @@ export function MatchScreen({ config, mode, onExit, onRematch, onWatchReplay }: 
     };
   }, [controlling, endTurn, absorb, select, selected]);
 
-  const barPlayer: PlayerId = mode === 'hotseat' ? state.active : 'p1';
+  const barPlayer = LOCAL;
   const winnerText =
     state.winner === 'draw' ? 'Draw' : state.winner ? `${state.mages[state.winner].name} wins` : '';
 

@@ -114,7 +114,7 @@ When packaging, swap `storage.ts` to a file-backed store, and swap the spectate 
 
 ## Roadmap ideas
 
-- Online matchmaking and spectating over WebSockets (authoritative server reusing `engine.ts`)
+- Online PvP over peer-to-peer WebRTC: both clients run `engine.ts` and exchange actions (secret bids already use commit-and-reveal for this). For now, play is single-player against the AI, and you are always P1.
 - Squads (2–3 units per side), push/pull effects, destructible terrain
 - Smarter AI (lookahead search over `applyAction`)
 - Sound, sprite art, camera shake on crits

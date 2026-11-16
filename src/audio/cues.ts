@@ -25,9 +25,9 @@ export interface ScheduledSound {
 
 /**
  * Who is listening. A player id when one person plays that side (the other is an AI or remote);
- * 'both' for hotseat; null for a spectator or replay viewer, who has no side.
+ * null for a spectator or replay viewer, who has no side.
  */
-export type Viewer = PlayerId | 'both' | null;
+export type Viewer = PlayerId | null;
 
 /** Attacks landing in one Resolution are spaced out, one after another in launch order. */
 export const RESOLVE_GAP_S = 0.35;
@@ -67,7 +67,7 @@ function resultSound(winner: PlayerId | 'draw', viewer: Viewer): Sound {
 }
 
 /** Whether `player`'s phase-start cues are for this listener. A spectator hears neither. */
-const hearsPhaseOf = (player: PlayerId, viewer: Viewer) => viewer === 'both' || viewer === player;
+const hearsPhaseOf = (player: PlayerId, viewer: Viewer) => viewer === player;
 
 /** Plans the sounds for a batch of new events (normally everything one action produced). */
 export function planSounds(events: GameEvent[], viewer: Viewer, radius: number): ScheduledSound[] {

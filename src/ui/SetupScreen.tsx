@@ -2,17 +2,15 @@ import { useState } from 'react';
 import { CIRCLE_NAME, validateLoadout } from '../game/loadout';
 import { randomSeed } from '../game/rng';
 import type { Loadout, MatchConfig } from '../game/types';
-import type { MatchMode } from './MatchScreen';
 
 interface Props {
   loadouts: Loadout[];
-  onStart: (config: MatchConfig, mode: MatchMode) => void;
+  onStart: (config: MatchConfig) => void;
   onBack: () => void;
 }
 
 export function SetupScreen({ loadouts, onStart, onBack }: Props) {
   const valid = loadouts.filter((l) => validateLoadout(l).length === 0);
-  const [mode, setMode] = useState<MatchMode>('ai');
   const [p1, setP1] = useState(valid[0]?.id ?? '');
   const [p2, setP2] = useState(valid[1]?.id ?? valid[0]?.id ?? '');
   const [turnSeconds, setTurnSeconds] = useState(20);
@@ -23,17 +21,14 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
 
   const start = () => {
     if (!l1 || !l2) return;
-    onStart(
-      {
-        seed: randomSeed(),
-        radius,
-        turnSeconds,
-        maxTurns: 60, // 30 rounds
-        loadouts: { p1: l1, p2: l2 },
-        names: mode === 'ai' ? { p1: `${l1.name} (You)`, p2: `${l2.name} (AI)` } : { p1: `${l1.name} (P1)`, p2: `${l2.name} (P2)` },
-      },
-      mode,
-    );
+    onStart({
+      seed: randomSeed(),
+      radius,
+      turnSeconds,
+      maxTurns: 60, // 30 rounds
+      loadouts: { p1: l1, p2: l2 },
+      names: { p1: `${l1.name} (You)`, p2: `${l2.name} (AI)` },
+    });
   };
 
   const LoadoutSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
@@ -54,23 +49,12 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
       <h2>New duel</h2>
       {valid.length === 0 && <p className="errors">You need at least one valid loadout.</p>}
 
-      <div className="field" role="group" aria-labelledby="setup-mode">
-        <span id="setup-mode">Mode</span>
-        <div className="segmented">
-          <button className={mode === 'ai' ? 'is-selected' : ''} onClick={() => setMode('ai')}>
-            vs AI
-          </button>
-          <button className={mode === 'hotseat' ? 'is-selected' : ''} onClick={() => setMode('hotseat')}>
-            Hotseat
-          </button>
-        </div>
-      </div>
       <label>
-        {mode === 'ai' ? 'Your loadout' : 'Player 1 loadout'}
+        Your loadout
         <LoadoutSelect value={p1} onChange={setP1} />
       </label>
       <label>
-        {mode === 'ai' ? 'AI loadout' : 'Player 2 loadout'}
+        AI loadout
         <LoadoutSelect value={p2} onChange={setP2} />
       </label>
       <div className="field" role="group" aria-labelledby="setup-timer">
