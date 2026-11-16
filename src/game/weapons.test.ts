@@ -110,6 +110,18 @@ describe('weapon techniques', () => {
     expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp - 4);
   });
 
+  it('Shoot flies its full range even when aimed at a nearer hex', () => {
+    let g = duel('bow');
+    for (const t of Object.values(g.tiles)) t.terrain = 'plain';
+    g.mages.p1.pos = { q: 0, r: 6 };
+    g.mages.p2.pos = { q: 0, r: -1 };
+    g = act(g, { type: 'cast', player: 'p1', abilityId: 'shoot', target: { q: 0, r: 3 } }); // aimed 3 hexes out
+    expect(g.pending[0].area).toHaveLength(7);
+    g = act(g, { type: 'endTurn', player: 'p1' });
+    g = act(g, { type: 'endReaction', player: 'p2' });
+    expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp - 4);
+  });
+
   it('Slash hits for 5', () => {
     let g = duel('sword');
     g.mages.p1.pos = { q: 0, r: 1 };
