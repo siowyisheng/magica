@@ -137,8 +137,8 @@ const LIST: AbilityDef[] = [
 
   // --- Reaction Techniques: AP only -----------------------------------
   reactionTechnique({
-    id: 'block', name: 'Block', icon: '✋', school: 'steel', points: 3,
-    description: 'Reaction: reduce the damage of the first incoming Attack by 4.',
+    id: 'block', name: 'Block', icon: '✋', school: 'steel', points: 3, cooldown: 1,
+    description: 'Cooldown 1. Reaction: reduce the damage of the first incoming Attack by 4.',
     targeting: 'self', effect: { type: 'block', amount: 4 },
   }),
 

@@ -128,6 +128,13 @@ describe('Block', () => {
     expect(after.mages.p2.mana).toBe(g.mages.p2.mana);
   });
 
+  it('has a cooldown of 1, so it is ready again on the next reaction after a turn', () => {
+    expect(ABILITIES.block.cooldown).toBe(1);
+    const g = self(underFire('firebolt'), 'block');
+    expect(g.mages.p2.abilities.find((a) => a.id === 'block')!.cooldown).toBe(1);
+    expect(castError({ ...g, phase: 'reaction' }, 'p2', 'block')).toMatch(/cooldown/i);
+  });
+
   it('takes 4 off the first incoming Attack only', () => {
     const g = underFire('firebolt', 'icicle'); // 4 then 5
     expect(hpLost(resolve(self(g, 'block')))).toBe(0 + 5);
