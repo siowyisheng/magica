@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { chooseAction } from '../game/ai';
-import { applyAction, createGame, replay, roundsLeftLabel } from '../game/engine';
+import { applyAction, createGame, replay } from '../game/engine';
 import { loadReplays, newId, saveReplay } from '../game/storage';
 import type { Action, GameState, MatchConfig, MatchRecord, PlayerId } from '../game/types';
 import { BroadcastChannelTransport, SpectateHost, type LiveMatchInfo } from '../net/spectate';
 import { BidPanel, type BidReveal } from './BidPanel';
 import { HexBoard } from './HexBoard';
-import { barScale, EventLog, MageCard } from './Panels';
+import { EventLog, MageCard } from './Panels';
+import { Hud } from './Hud';
 import { useSfx } from './useSfx';
 
 /** Lobby: live matches (from other windows) + saved replays. */
@@ -179,24 +180,22 @@ function Viewer({
   useSfx(state, null); // a spectator has no side
   return (
     <div className="match spectating">
+      <Hud state={state} />
       <header className="match-top">
         <button className="ghost" onClick={onBack}>
           ← Back
         </button>
-        <div className="round">
-          {record.config.names.p1} vs {record.config.names.p2} · {roundsLeftLabel(state)}
-        </div>
         <div className="live-pill">{badge}</div>
       </header>
       <aside className="side left">
-        <MageCard mage={state.mages.p1} active={state.active === 'p1'} scale={barScale(state)} />
+        <MageCard mage={state.mages.p1} active={state.active === 'p1'} />
       </aside>
       <main className="board-wrap">
         <BidPanel state={state} bidders={[]} locked={NO_LOCKS} onLock={() => {}} remaining={0} total={1} reveal={recentReveal(state)} />
         <HexBoard state={state} />
       </main>
       <aside className="side right">
-        <MageCard mage={state.mages.p2} active={state.active === 'p2'} scale={barScale(state)} />
+        <MageCard mage={state.mages.p2} active={state.active === 'p2'} />
         <EventLog events={state.events} />
       </aside>
       <footer className="controls">{children ?? <span className="muted">Spectating — controls disabled</span>}</footer>

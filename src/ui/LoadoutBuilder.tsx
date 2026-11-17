@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ABILITIES, PASSIVES, SCHOOLS, WEAPONS, WEAPON_IDS } from '../game/content';
+import { ABILITIES, DEFAULT_MAGE_ICON, MAGE_ICONS, PASSIVES, SCHOOLS, WEAPONS, WEAPON_IDS } from '../game/content';
 import {
   abilityIdsFor,
   CIRCLE_NAME,
@@ -41,6 +41,7 @@ export function LoadoutBuilder({ loadouts, onChange, onBack }: Props) {
     const l: Loadout = {
       id: newId(),
       name: 'New loadout',
+      icon: DEFAULT_MAGE_ICON,
       circle: 2,
       stats: { hp: 0, maxMana: 0, manaRegen: 0, movespeed: 0 },
       weapon: 'unarmed',
@@ -193,6 +194,24 @@ function Editor({
           <strong>{left}</strong> / {budget} Loadout Points left
         </span>
       </div>
+
+      <section>
+        <h3>Mage icon</h3>
+        <div className="icon-picker" role="radiogroup" aria-label="Mage icon">
+          {MAGE_ICONS.map((m) => (
+            <button
+              key={m.icon}
+              role="radio"
+              aria-checked={(loadout.icon || DEFAULT_MAGE_ICON) === m.icon}
+              className={`icon-choice ${(loadout.icon || DEFAULT_MAGE_ICON) === m.icon ? 'is-selected' : ''}`}
+              title={m.name}
+              onClick={() => update({ icon: m.icon })}
+            >
+              {m.icon}
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section>
         <h3>Circle</h3>

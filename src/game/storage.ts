@@ -1,4 +1,4 @@
-import { DEFAULT_LOADOUTS } from './content';
+import { DEFAULT_LOADOUTS, DEFAULT_MAGE_ICON } from './content';
 import type { Loadout, MatchRecord } from './types';
 
 // Thin localStorage wrapper. Swap for a file-backed store when packaged
@@ -39,6 +39,10 @@ function migrateWeapon(l: Loadout): Loadout {
   return { ...l, weapon: spear ? 'spear' : 'unarmed', abilityIds: l.abilityIds.filter((id) => id !== 'staff-strike' && id !== 'spear-thrust') };
 }
 
+/** Loadouts saved before mage icons get their default's icon (or the standard one). */
+const migrateIcon = (l: Loadout): Loadout =>
+  l.icon ? l : { ...l, icon: DEFAULT_LOADOUTS.find((d) => d.id === l.id)?.icon ?? DEFAULT_MAGE_ICON };
+
 /** Abilities that no longer exist; saved loadouts drop them. */
 const REMOVED_ABILITIES = new Set(['shield-bash', 'cataclysm']);
 const dropRemoved = (l: Loadout): Loadout =>
@@ -52,7 +56,7 @@ function migrateStats(l: Loadout): Loadout {
 
 /** Saved loadouts, plus any built-in defaults this player hasn't seen yet (e.g. after a content update). */
 export function loadLoadouts(): Loadout[] {
-  const saved = read<Loadout[] | null>(LOADOUTS, null)?.map(migrateStats).map(migrateWeapon).map(dropRemoved) ?? null;
+  const saved = read<Loadout[] | null>(LOADOUTS, null)?.map(migrateStats).map(migrateWeapon).map(dropRemoved).map(migrateIcon) ?? null;
   const seen = new Set(read<string[]>(DEFAULTS_SEEN, saved ? saved.map((l) => l.id) : []));
   const fresh = DEFAULT_LOADOUTS.filter((d) => !seen.has(d.id));
   const merged = [...(saved ?? []), ...fresh];

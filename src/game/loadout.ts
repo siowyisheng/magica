@@ -1,4 +1,4 @@
-import { ABILITIES, PASSIVES, WEAPONS } from './content';
+import { ABILITIES, DEFAULT_MAGE_ICON, PASSIVES, WEAPONS } from './content';
 import type { Hex } from './hex';
 import type { Circle, Loadout, Mage, PlayerId, StatKey } from './types';
 
@@ -105,6 +105,7 @@ export function buildMage(owner: PlayerId, name: string, l: Loadout, pos: Hex): 
   return {
     owner,
     name,
+    icon: l.icon || DEFAULT_MAGE_ICON,
     circle: l.circle,
     weapon: l.weapon,
     pos,

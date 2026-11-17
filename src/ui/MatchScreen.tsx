@@ -11,7 +11,6 @@ import {
   isTargetedReaction,
   apForMove,
   reachable,
-  roundsLeftLabel,
   validTargets,
 } from '../game/engine';
 import { equals, key, neighbors, type Hex } from '../game/hex';
@@ -20,7 +19,8 @@ import type { Action, GameState, MatchConfig, MatchRecord, PlayerId } from '../g
 import { BroadcastChannelTransport, SpectateHost } from '../net/spectate';
 import { isDrawn } from '../game/threat';
 import { HexBoard, type BoardHighlights } from './HexBoard';
-import { AbilityBar, barAbilityIds, barScale, EventLog, MageCard, PhaseBanner, TurnResources, TurnTimer } from './Panels';
+import { AbilityBar, barAbilityIds, EventLog, MageCard, PhaseBanner, TurnResources, TurnTimer } from './Panels';
+import { Hud } from './Hud';
 import { BidPanel } from './BidPanel';
 import { useCountdown } from './useCountdown';
 import { BID_WINDOW_S, REVEAL_S, useBidding } from './useBidding';
@@ -144,16 +144,20 @@ export function MatchScreen({ config, onExit, onRematch, onWatchReplay }: Props)
         : validTargets(state, controlling, selected);
       const preview = hover && next.some((n) => equals(n, hover)) ? [...wallPath, hover] : wallPath;
       const aim = hover && next.some((n) => equals(n, hover)) ? key(hover) : undefined;
-      return { targets: new Set(next.map(key)), impact: new Set(preview.map(key)), aim };
+      return { targets: new Set(next.map(key)), impact: new Set(preview.map(key)), impactIcon: ABILITIES[selected].icon, aim };
     }
     if (selected && reactTargets.length) {
       const hovered = hover && reactTargets.find((a) => a.area.includes(key(hover)));
-      return { targets: new Set(reactTargets.flatMap((a) => a.area)), impact: hovered ? new Set(hovered.area) : undefined };
+      return {
+        targets: new Set(reactTargets.flatMap((a) => a.area)),
+        impact: hovered ? new Set(hovered.area) : undefined,
+        impactIcon: hovered ? ABILITIES[hovered.abilityId].icon : undefined,
+      };
     }
     if (selected) {
       const targets = new Set(validTargets(state, controlling, selected).map(key));
       const impact = hover && targets.has(key(hover)) ? new Set(impactArea(state, controlling, selected, hover).map(key)) : undefined;
-      return { targets, impact, aim: impact ? key(hover!) : undefined };
+      return { targets, impact, impactIcon: ABILITIES[selected].icon, aim: impact ? key(hover!) : undefined };
     }
     const all = reachable(state, controlling);
     const mage = state.mages[controlling];
@@ -259,13 +263,12 @@ export function MatchScreen({ config, onExit, onRematch, onWatchReplay }: Props)
 
   return (
     <div className="match">
+      <Hud state={state} />
+
       <header className="match-top">
         <button className="ghost" onClick={onExit}>
           ← Leave
         </button>
-        <div className="round">
-          {roundsLeftLabel(state)}
-        </div>
         <PhaseBanner state={state} />
         <div className="live-pill" title="Open a second window and choose Spectate to watch this match">
           ● Broadcasting
@@ -273,7 +276,7 @@ export function MatchScreen({ config, onExit, onRematch, onWatchReplay }: Props)
       </header>
 
       <aside className="side left">
-        <MageCard mage={state.mages.p1} active={state.active === 'p1'} scale={barScale(state)} />
+        <MageCard mage={state.mages.p1} active={state.active === 'p1'} />
       </aside>
 
       <main className="board-wrap">
@@ -290,7 +293,7 @@ export function MatchScreen({ config, onExit, onRematch, onWatchReplay }: Props)
       </main>
 
       <aside className="side right">
-        <MageCard mage={state.mages.p2} active={state.active === 'p2'} scale={barScale(state)} />
+        <MageCard mage={state.mages.p2} active={state.active === 'p2'} />
         <EventLog events={state.events} />
       </aside>
 

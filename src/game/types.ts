@@ -176,6 +176,8 @@ export type Circle = 1 | 2 | 3;
 export interface Loadout {
   id: string;
   name: string;
+  /** The mage's portrait emoji (see MAGE_ICONS). Older saved loadouts have none. */
+  icon?: string;
   circle: Circle;
   /** Steps bought above base, per stat. */
   stats: Record<StatKey, number>;
@@ -219,6 +221,7 @@ export interface AbilityState {
 export interface Mage {
   owner: PlayerId;
   name: string;
+  icon: string;
   circle: Circle;
   weapon: WeaponId;
   pos: Hex;

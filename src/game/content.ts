@@ -43,6 +43,25 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
 };
 export const WEAPON_IDS = Object.keys(WEAPONS) as WeaponId[];
 
+/** Portraits a mage can pick, across the archetypes. The first is the default. */
+export const MAGE_ICONS: Array<{ icon: string; name: string }> = [
+  { icon: '🧙', name: 'Wizard' },
+  { icon: '🥷', name: 'Ninja (fast)' },
+  { icon: '🤺', name: 'Duelist (warrior mage)' },
+  { icon: '🧝', name: 'Ranger (archer)' },
+  { icon: '🦸', name: 'Champion (brawler)' },
+  { icon: '🧛', name: 'Necromancer' },
+  { icon: '🧞', name: 'Genie (arcane)' },
+  { icon: '🧜', name: 'Tidecaller' },
+  { icon: '🧚', name: 'Fae (nature)' },
+  { icon: '🦹', name: 'Rogue (trickster)' },
+  { icon: '🤴', name: 'Prince (battle mage)' },
+  { icon: '🧟', name: 'Revenant (tank)' },
+  { icon: '👺', name: 'Oni (berserker)' },
+  { icon: '🐲', name: 'Dragon (fire)' },
+];
+export const DEFAULT_MAGE_ICON = MAGE_ICONS[0].icon;
+
 type Common = Pick<AbilityDef, 'id' | 'name' | 'icon' | 'school' | 'description' | 'points'> &
   Partial<Pick<AbilityDef, 'fast' | 'cooldown' | 'multi' | 'timing' | 'perTurn' | 'weapon' | 'noLos'>>;
 
@@ -335,6 +354,7 @@ export const SCHOOLS: Record<School, { name: string; icon: string }> = {
 const loadout = (l: Omit<Loadout, 'abilityIds'> & { abilities: string[] }): Loadout => ({
   id: l.id,
   name: l.name,
+  icon: l.icon,
   circle: l.circle,
   weapon: l.weapon,
   stats: l.stats,
@@ -344,37 +364,37 @@ const loadout = (l: Omit<Loadout, 'abilityIds'> & { abilities: string[] }): Load
 
 export const DEFAULT_LOADOUTS: Loadout[] = [
   loadout({
-    id: 'c1-archmage', name: 'Archmage', circle: 1, weapon: 'staff',
+    id: 'c1-archmage', name: 'Archmage', icon: '🧙', circle: 1, weapon: 'staff',
     stats: { hp: 0, maxMana: 4, manaRegen: 1, movespeed: 0 },
     abilities: ['firebolt', 'fireball', 'ward', 'magic-missile'],
     passiveIds: ['wellspring'],
   }),
   loadout({
-    id: 'c1-spellblade', name: 'Spellblade', circle: 1, weapon: 'sword',
+    id: 'c1-spellblade', name: 'Spellblade', icon: '🤺', circle: 1, weapon: 'sword',
     stats: { hp: 3, maxMana: 2, manaRegen: 0, movespeed: 1 },
     abilities: ['firebolt', 'ice-shards', 'blink', 'ward'],
     passiveIds: ['iron-skin', 'regeneration'],
   }),
   loadout({
-    id: 'c2-pyromancer', name: 'Pyromancer', circle: 2, weapon: 'wand',
+    id: 'c2-pyromancer', name: 'Pyromancer', icon: '🐲', circle: 2, weapon: 'wand',
     stats: { hp: 2, maxMana: 2, manaRegen: 0, movespeed: 0 },
     abilities: ['firebolt', 'dragons-breath', 'wall-of-fire', 'ward'],
     passiveIds: ['mana-well'],
   }),
   loadout({
-    id: 'c2-tidecaller', name: 'Tidecaller', circle: 2, weapon: 'unarmed',
+    id: 'c2-tidecaller', name: 'Tidecaller', icon: '🧜', circle: 2, weapon: 'unarmed',
     stats: { hp: 2, maxMana: 2, manaRegen: 0, movespeed: 0 },
     abilities: ['riptide', 'tidal-wave', 'frost-lance', 'deflect', 'blink'],
     passiveIds: ['regeneration'],
   }),
   loadout({
-    id: 'c3-adept', name: 'Adept', circle: 3, weapon: 'unarmed',
+    id: 'c3-adept', name: 'Adept', icon: '🥷', circle: 3, weapon: 'unarmed',
     stats: { hp: 2, maxMana: 2, manaRegen: 0, movespeed: 0 },
     abilities: ['firebolt', 'icicle', 'ward'],
     passiveIds: [],
   }),
   loadout({
-    id: 'c3-brawler', name: 'Brawler', circle: 3, weapon: 'spear',
+    id: 'c3-brawler', name: 'Brawler', icon: '🦸', circle: 3, weapon: 'spear',
     stats: { hp: 1, maxMana: 1, manaRegen: 0, movespeed: 0 },
     abilities: ['haste', 'channel-mana'],
     passiveIds: [],

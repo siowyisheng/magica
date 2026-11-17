@@ -20,6 +20,8 @@ export interface BoardHighlights {
   /** The hex being aimed at, drawn apart from the rest of the Threat Area it would create. */
   aim?: string;
   impact?: Set<string>;
+  /** The Ability being aimed: its icon is drawn on every hex of the preview. */
+  impactIcon?: string;
   path?: Set<string>;
 }
 
@@ -195,6 +197,11 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
                 <path d={`M0 ${-SIZE * 0.62}V${-SIZE * 0.2}M0 ${SIZE * 0.62}V${SIZE * 0.2}M${-SIZE * 0.62} 0H${-SIZE * 0.2}M${SIZE * 0.62} 0H${SIZE * 0.2}`} />
               </g>
             )}
+            {highlights.impact?.has(k) && highlights.impactIcon && (
+              <text className="threat-icon impact-icon" textAnchor="middle" dominantBaseline="central">
+                {highlights.impactIcon}
+              </text>
+            )}
             {TERRAIN_ICON[t.terrain] && (
               <text className="terrain-icon" textAnchor="middle" dominantBaseline="central">
                 {TERRAIN_ICON[t.terrain]}
@@ -231,14 +238,15 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
             const { x, y } = toPixel(fromKey(k), SIZE);
             return <polygon key={k} points={poly} transform={`translate(${x} ${y})`} />;
           })}
-          {(() => {
-            const mid = toPixel(fromKey(area[Math.floor(area.length / 2)]), SIZE);
+          {/* The Ability's icon on every threatened hex. */}
+          {area.map((k) => {
+            const { x, y } = toPixel(fromKey(k), SIZE);
             return (
-              <text className="threat-icon" x={mid.x} y={mid.y} textAnchor="middle" dominantBaseline="central">
+              <text key={`i${k}`} className="threat-icon" x={x} y={y} textAnchor="middle" dominantBaseline="central">
                 {ABILITIES[a.abilityId]?.icon}
               </text>
             );
-          })()}
+          })}
         </g>
         );
       })}
@@ -286,7 +294,7 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
             {active && <circle r={SIZE * 1.1} fill={`url(#glow-${p})`} className="mage-glow" />}
             <circle r={SIZE * 0.68} className="mage-body" />
             <text className="mage-icon" textAnchor="middle" dominantBaseline="central">
-              🧙
+              {u.icon}
             </text>
             <g transform={`translate(${-hpW / 2} ${-SIZE * 1.05})`}>
               <rect width={hpW} height={5} rx={2} className="hp-bg" />
