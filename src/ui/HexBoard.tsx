@@ -117,15 +117,43 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
     later(() => setFloaters((f) => f.filter((x) => !ids.has(x.id))), 1100);
   }, [state.events]);
 
-  // A Move is drawn hex by hex along the walked path rather than as a straight slide through rocks.
-  const [walking, setWalking] = useState<Partial<Record<PlayerId, Hex>>>({});
+  // A Move is drawn along the walked path rather than as a straight slide through rocks. The position is
+  // interpolated every frame at a constant speed (no CSS transition), so long walks, such as a 2 AP Move,
+  // stay smooth: stepping hex by hex with timers and a transition stutters when the timers drift.
+  type Px = { x: number; y: number };
+  const [walking, setWalking] = useState<Partial<Record<PlayerId, Px>>>({});
   const walkSeen = useRef(state.events.length);
-  const walkTimers = useRef<Partial<Record<PlayerId, number[]>>>({});
+  const walks = useRef<Partial<Record<PlayerId, { start: number; pts: Px[] }>>>({});
+  const walkFrame = useRef(0);
+  const stopWalks = () => {
+    cancelAnimationFrame(walkFrame.current);
+    walkFrame.current = 0;
+    walks.current = {};
+  };
+  const tickWalks = (now: number) => {
+    walkFrame.current = 0;
+    const next: Partial<Record<PlayerId, Px>> = {};
+    let active = false;
+    for (const p of PLAYERS) {
+      const w = walks.current[p];
+      if (!w) continue;
+      const t = (now - w.start) / STEP_MS;
+      if (t >= w.pts.length - 1) {
+        delete walks.current[p];
+        continue;
+      }
+      const i = Math.floor(t);
+      const f = t - i;
+      next[p] = { x: w.pts[i].x + (w.pts[i + 1].x - w.pts[i].x) * f, y: w.pts[i].y + (w.pts[i + 1].y - w.pts[i].y) * f };
+      active = true;
+    }
+    setWalking(next);
+    if (active) walkFrame.current = requestAnimationFrame(tickWalks);
+  };
   useLayoutEffect(() => {
     if (state.events.length < walkSeen.current) {
       // Scrubbed backwards: drop any walk in progress.
-      Object.values(walkTimers.current).forEach((ts) => ts?.forEach(clearTimeout));
-      walkTimers.current = {};
+      stopWalks();
       setWalking({});
       walkSeen.current = state.events.length;
       return;
@@ -133,26 +161,23 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
     const fresh = state.events.slice(walkSeen.current);
     walkSeen.current = state.events.length;
     if (fresh.length > 12) return; // a jump, not a turn: no animation
+    let started = false;
     for (const e of fresh) {
       if (!e.player || !e.path || e.path.length < 2) continue;
-      const p = e.player;
-      const path = e.path;
-      walkTimers.current[p]?.forEach(clearTimeout);
-      setWalking((w) => ({ ...w, [p]: path[0] }));
-      walkTimers.current[p] = path.slice(1).map((h, i) =>
-        window.setTimeout(() => {
-          setWalking((w) => {
-            if (i === path.length - 2) {
-              const { [p]: _done, ...rest } = w;
-              return rest;
-            }
-            return { ...w, [p]: h };
-          });
-        }, (i + 1) * STEP_MS),
-      );
+      const pts = e.path.map((h) => toPixel(h, SIZE));
+      const walk = walks.current[e.player];
+      if (walk) {
+        // A second Move (the other AP) before the first has finished: carry on along it rather than snapping.
+        walk.pts.push(...pts.slice(1));
+      } else {
+        walks.current[e.player] = { start: performance.now(), pts };
+        setWalking((w) => ({ ...w, [e.player!]: pts[0] })); // start at the origin before the first frame paints
+      }
+      started = true;
     }
+    if (started && !walkFrame.current) walkFrame.current = requestAnimationFrame(tickWalks);
   }, [state.events]);
-  useEffect(() => () => Object.values(walkTimers.current).forEach((ts) => ts?.forEach(clearTimeout)), []);
+  useEffect(() => stopWalks, []);
 
   return (
     <svg className="board" viewBox={viewBox} onMouseLeave={() => onHexHover?.(null)}>
@@ -280,7 +305,7 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
       {PLAYERS.map((p) => {
         const u = state.mages[p];
         const shown = walking[p];
-        const { x, y } = toPixel(shown ?? u.pos, SIZE);
+        const { x, y } = shown ?? toPixel(u.pos, SIZE);
         const hpW = SIZE * 1.4;
         const active = state.active === p && !state.winner;
         return (

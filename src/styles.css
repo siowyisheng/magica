@@ -131,7 +131,7 @@ button.big { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-width: 260px; }
 .aim-reticle { pointer-events: none; fill: none; stroke: #5a2a0c; stroke-width: 2.5; stroke-linecap: round; }
 
 .mage { transition: transform 0.22s cubic-bezier(0.3, 0.7, 0.4, 1.2); cursor: pointer; }
-.mage.is-walking { transition: transform 0.12s linear; }
+.mage.is-walking { transition: none; }
 .mage-body { stroke-width: 3; }
 .mage-p1 .mage-body { fill: #10263a; stroke: var(--p1); }
 .mage-p2 .mage-body { fill: #3a1018; stroke: var(--p2); }
