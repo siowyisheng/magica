@@ -127,3 +127,14 @@ describe('AI positioning', () => {
     expect(steps((a as { to: Hex }).to)).toBeLessThan(steps(g.mages.p1.pos));
   });
 });
+
+describe('AI spending its AP', () => {
+  it('spends its last AP walking toward the enemy instead of leaving it unused', async () => {
+    const { chooseAction } = await import('./ai');
+    const g = duel();
+    g.crystals = [];
+    g.mages.p1.ap = 1;
+    const a = chooseAction(g, 'p1');
+    expect(a.type).toBe('move');
+  });
+});

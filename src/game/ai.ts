@@ -6,6 +6,7 @@ import {
   bidCommitment,
   absorbError,
   apCost,
+  apForMove,
   castError,
   hasLOS,
   hitDamage,
@@ -156,12 +157,14 @@ function chooseReaction(state: GameState, player: PlayerId): Action {
       if (out) consider(dodgeable, def.mana, { type: 'cast', player, abilityId: slot.id, target: out });
     }
   }
-  // Or just walk out: Movement is slower in the Reaction Phase, but costs no Mana.
+  // Or just walk out: Movement is slower in the Reaction Phase, but costs no Mana. Spend as few AP
+  // as possible, but use the Movement those AP buy to step toward where we want to fight from.
+  const toPost = stepsToFiringPost(state, state.mages[other(player)].pos, idealRange(me));
   const out = [...reachable(state, player)]
-    .sort((a, b) => a[1] - b[1])
-    .map(([k]) => fromKey(k))
-    .find((h) => !danger.has(key(h)) && !own.has(key(h)));
-  if (out) consider(dodgeable, 0, { type: 'move', player, to: out });
+    .filter(([k]) => !danger.has(k) && !own.has(k))
+    .map(([k, cost]) => ({ k, cost, ap: apForMove(me, cost, true), post: toPost.get(k) ?? Infinity }))
+    .sort((a, b) => a.ap - b.ap || a.post - b.post || a.cost - b.cost)[0];
+  if (out) consider(dodgeable, 0, { type: 'move', player, to: fromKey(out.k) });
   return best ? (best as { action: Action }).action : { type: 'endReaction', player };
 }
 
@@ -203,19 +206,19 @@ function chooseMain(state: GameState, player: PlayerId): Action {
     const scorePos = (h: Hex) => (ownDanger.has(key(h)) ? -100 : 0) - (toPost.get(key(h)) ?? Infinity);
     let bestPos: Hex | null = null;
     let bestScore = scorePos(me.pos);
-    for (const k of options.keys()) {
+    let bestCost = 0;
+    for (const [k, cost] of options) {
       const h = fromKey(k);
       const s = scorePos(h);
-      if (s > bestScore + 1e-9) {
+      // On a tie, the cheaper walk: it keeps AP for an Attack once we get there.
+      if (s > bestScore + 1e-9 || (bestPos && Math.abs(s - bestScore) < 1e-9 && cost < bestCost)) {
         bestScore = s;
         bestPos = h;
+        bestCost = cost;
       }
     }
-    // Don't burn the last AP just to shuffle around unless we're standing in our own attack.
-    const needsAp = bestPos ? options.get(key(bestPos))! > me.mp : false;
-    if (bestPos && (!needsAp || me.ap === AP_PER_TURN || ownDanger.has(key(me.pos)))) {
-      return { type: 'move', player, to: bestPos };
-    }
+    // AP left at the end of a turn is lost, so any step to a better position is worth it.
+    if (bestPos) return { type: 'move', player, to: bestPos };
   }
 
   return { type: 'endTurn', player };

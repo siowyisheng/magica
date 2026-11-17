@@ -178,3 +178,18 @@ describe('AI reactions', () => {
     expect(g.mages.p2.mana).toBeLessThan(30);
   });
 });
+
+describe('AI dodging', () => {
+  it('dodges toward the enemy when it wants to get in close', () => {
+    const g = underFire('firebolt');
+    // A fast melee mage with nothing to cast: it can only dodge.
+    g.mages.p2.abilities = g.mages.p2.abilities.filter((s) => s.id === 'staff-strike');
+    g.mages.p2.movespeed = 5; // 2 hexes per AP while reacting
+    const a = chooseAction(g, 'p2');
+    expect(a.type).toBe('move');
+    const to = (a as { to: Hex }).to;
+    expect(g.pending[0].area).not.toContain(`${to.q},${to.r}`);
+    const d = (x: Hex, y: Hex) => (Math.abs(x.q - y.q) + Math.abs(x.r - y.r) + Math.abs(x.q + x.r - y.q - y.r)) / 2;
+    expect(d(to, g.mages.p1.pos)).toBeLessThan(d(g.mages.p2.pos, g.mages.p1.pos));
+  });
+});
