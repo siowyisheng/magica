@@ -460,6 +460,7 @@ button.absorb:not(:disabled) { border-color: #7aa2ff; box-shadow: 0 0 12px #5b8c
 .rounds-left { display: grid; justify-items: center; min-width: 120px; line-height: 1; padding-top: 0.1rem; }
 .rl-num { font-family: Cinzel, Georgia, serif; font-weight: 900; font-size: 3.6rem; text-shadow: 0 2px 8px #000; transition: color 0.3s; }
 .rl-label { margin-top: 0.15rem; font-size: 0.66rem; letter-spacing: 0.28em; font-weight: 700; color: var(--muted); }
+.rl-rules { margin-top: 0.35rem; padding: 0.1rem 0.45rem; border: 1px solid var(--line); border-radius: 999px; font-size: 0.6rem; letter-spacing: 0.08em; color: var(--muted); white-space: nowrap; }
 .rl-calm .rl-num { color: var(--text); }
 .rl-warning .rl-num { color: #ffd23f; text-shadow: 0 0 14px #ffd23f66, 0 2px 8px #000; }
 .rl-warning .rl-label { color: #ffd23f; }

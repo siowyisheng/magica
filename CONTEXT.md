@@ -65,6 +65,15 @@ Marks a Fast Ability that can be used any number of times in a turn. Every other
 An always-on effect bought with Loadout Points. It is not an Ability, because it is never used.
 _Avoid_: Perk, trait, relic
 
+## Rules variants
+
+**Rules variant**:
+An optional change to the standard rules, chosen per match on the Setup screen and kept with the match, so replays and spectators play by the same rules. Matches from before a variant existed play without it.
+_Avoid_: Ruleset, mode (a Mode is You vs AI or Watch AI vs AI)
+
+**Free Movement**:
+A Rules variant meant to encourage moving: every Action Phase starts with Movement Points equal to the mage's Movespeed (less Slow, none while Rooted), without spending AP. They add to any left over from the Reaction Phase, to Haste, and to the walk of a Compelled turn; a sleeping mage gets none. Mages can still spend AP for more.
+
 ## Turn structure
 
 **Round**:
@@ -147,7 +156,7 @@ _Avoid_: Wall (a Wall is a Threat Area shape), obstacle
 The per-turn budget for doing things. Each mage has 2 per turn, shared by the Reaction Phase and the Action Phase. AP is spent on movement, casting non-Fast spells, attacking, absorbing mana and Reactions.
 
 **Movement Points**:
-The hexes a mage can still walk this turn. Spending 1 AP grants Movement Points equal to Movespeed. Unspent points are lost at the end of the turn.
+The hexes a mage can still walk this turn. Spending 1 AP grants Movement Points equal to Movespeed. Under Free Movement, the Action Phase also starts with that many for free. Unspent points are lost at the end of the turn.
 
 **Mana**:
 The resource every Spell costs. A mage starts the duel with Mana equal to their Mana Regen, regains that much at the start of each of their later turns, and can hold at most their Max Mana.

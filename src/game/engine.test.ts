@@ -40,7 +40,10 @@ describe('engine', () => {
     expect(applyAction(g, { type: 'endTurn', player: 'p2' })).toBe(g);
   });
 
-  it('AI vs AI finishes deterministically and replays identically', () => {
+  it.each([
+    ['standard rules', config],
+    ['Free Movement', { ...config, freeMovement: true }],
+  ])('AI vs AI finishes deterministically and replays identically (%s)', (_, config) => {
     let g = createGame(config);
     const actions: Action[] = [];
     for (let i = 0; i < 5000 && !g.winner; i++) {

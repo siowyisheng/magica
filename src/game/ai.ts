@@ -360,9 +360,9 @@ function enemyThreat(state: GameState, player: PlayerId): (k: string) => number 
     })
     .sort((a, b) => b.value - a.value);
   if (!attacks.length) return () => 0;
-  // Where the enemy could cast from: walking with all but one AP of their next turn.
+  // Where the enemy could cast from: walking with all but one AP of their next turn (plus Free Movement).
   const from: Hex[] = [enemy.pos];
-  const budget = Math.max(0, nextTurnAp(enemy) - 1) * mpPerAp(enemy);
+  const budget = (Math.max(0, nextTurnAp(enemy) - 1) + (state.config.freeMovement ? 1 : 0)) * mpPerAp(enemy);
   if (budget > 0) {
     const seen = new Set([key(enemy.pos)]);
     let frontier = [enemy.pos];

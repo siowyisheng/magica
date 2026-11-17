@@ -126,6 +126,11 @@ export function RoundsLeft({ state }: { state: GameState }) {
     <div className={`rounds-left rl-${roundsTone(left)}`} aria-label={left === 1 ? 'Final round' : `${left} rounds left`}>
       <span className="rl-num">{left}</span>
       <span className="rl-label">{left === 1 ? 'FINAL ROUND' : 'ROUNDS LEFT'}</span>
+      {state.config.freeMovement && (
+        <span className="rl-rules" title="Rules variant: each Action Phase starts with Movement Points equal to Movespeed, without spending AP.">
+          Free Movement
+        </span>
+      )}
     </div>
   );
 }

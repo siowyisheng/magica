@@ -87,3 +87,12 @@ const SETTINGS = 'magica.settings.v1';
 export const DEFAULT_SETTINGS: Settings = { musicVolume: 55, musicMuted: false, sfxVolume: 70, sfxMuted: false };
 export const loadSettings = (): Settings => ({ ...DEFAULT_SETTINGS, ...read<Partial<Settings>>(SETTINGS, {}) });
 export const saveSettings = (s: Settings) => write(SETTINGS, s);
+
+/** Match options the Setup screen remembers between duels. */
+export interface SetupPrefs {
+  /** The Free Movement Rules variant. */
+  freeMovement: boolean;
+}
+const SETUP = 'magica.setup.v1';
+export const loadSetupPrefs = (): SetupPrefs => ({ freeMovement: false, ...read<Partial<SetupPrefs>>(SETUP, {}) });
+export const saveSetupPrefs = (p: SetupPrefs) => write(SETUP, p);

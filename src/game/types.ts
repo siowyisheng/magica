@@ -382,6 +382,8 @@ export interface MatchConfig {
   maxTurns: number;
   loadouts: Record<PlayerId, Loadout>;
   names: Record<PlayerId, string>;
+  /** Free Movement Rules variant: Movespeed in Movement Points at the start of every Action Phase. Absent in older matches (off). */
+  freeMovement?: boolean;
 }
 
 /** Everything needed to reproduce a match exactly. Matches are deterministic. */

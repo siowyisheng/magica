@@ -58,6 +58,7 @@ export function createGame(config: MatchConfig): GameState {
     winner: null,
   };
   state.crystals = initialCrystals(state);
+  grantFreeMovement(state, 'p1'); // the first turn starts straight in the Action Phase
   return state;
 }
 
@@ -578,6 +579,7 @@ function startTurn(state: GameState, player: PlayerId, log: Log) {
     if (state.winner) return;
     if (hasStatus(mage, 'asleep')) {
       mage.ap = 0;
+      mage.mp = 0;
       log({ kind: 'status', text: `${mage.name} sleeps through the turn.`, at: mage.pos });
       finishTurn(state, player, log);
     } else if (hasStatus(mage, 'charm') || hasStatus(mage, 'fear')) {
@@ -624,7 +626,13 @@ function resolveIncoming(state: GameState, log: Log) {
     return;
   }
   state.phase = 'action';
+  grantFreeMovement(state, defender);
   if (!state.winner) log({ kind: 'turn', text: '', cue: { kind: 'actionStart', player: defender } });
+}
+
+/** Free Movement Rules variant: an Action Phase starts with Movement Points worth one AP of walking, for free. */
+function grantFreeMovement(state: GameState, player: PlayerId) {
+  if (state.config.freeMovement) state.mages[player].mp += mpPerAp(state.mages[player]);
 }
 
 function resolveAttack(state: GameState, attack: PendingAttack, log: Log) {

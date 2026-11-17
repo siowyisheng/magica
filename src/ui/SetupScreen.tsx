@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CIRCLE_NAME, validateLoadout } from '../game/loadout';
 import { randomSeed } from '../game/rng';
+import { loadSetupPrefs, saveSetupPrefs } from '../game/storage';
 import type { Loadout, MatchConfig } from '../game/types';
 
 interface Props {
@@ -17,6 +18,11 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
   const [turnSeconds, setTurnSeconds] = useState(20);
   const [radius, setRadius] = useState(7);
   const [watch, setWatch] = useState(false);
+  const [freeMovement, setFreeMovement] = useState(() => loadSetupPrefs().freeMovement);
+  const chooseRules = (on: boolean) => {
+    setFreeMovement(on);
+    saveSetupPrefs({ freeMovement: on });
+  };
 
   const l1 = valid.find((l) => l.id === p1);
   const l2 = valid.find((l) => l.id === p2);
@@ -31,6 +37,7 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
         maxTurns: 24, // 12 rounds
         loadouts: { p1: l1, p2: l2 },
         names: { p1: `${l1.name} ${watch ? '(AI)' : '(You)'}`, p2: `${l2.name} (AI)` },
+        freeMovement,
       },
       watch,
     );
@@ -98,6 +105,18 @@ export function SetupScreen({ loadouts, onStart, onBack }: Props) {
             </button>
           ))}
         </div>
+      </div>
+      <div className="field" role="group" aria-labelledby="setup-rules">
+        <span id="setup-rules">Rules</span>
+        <div className="segmented">
+          <button className={!freeMovement ? 'is-selected' : ''} onClick={() => chooseRules(false)}>
+            Standard
+          </button>
+          <button className={freeMovement ? 'is-selected' : ''} onClick={() => chooseRules(true)}>
+            Free Movement
+          </button>
+        </div>
+        {freeMovement && <small className="muted">Each turn, walk as far as your Movespeed without spending AP.</small>}
       </div>
       <button className="primary big" disabled={!l1 || !l2} onClick={start}>
         {watch ? 'Start the duel' : 'Enter the arena'}
