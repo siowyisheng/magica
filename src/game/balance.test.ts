@@ -188,6 +188,25 @@ describe('round limit', () => {
     expect(finish(g).winner).toBe('p2');
   });
 
+  it('waits for the second mage’s last Attacks: P1 still gets a Reaction Phase, and they land before the result', () => {
+    // P2 is the one launching here, so give P2 the Spell and P1 the target.
+    let g = createGame({ seed: 3, radius: 7, turnSeconds: 20, maxTurns: 2, loadouts: { p1: loadout([]), p2: loadout(['lightning-bolt']) }, names: { p1: 'A', p2: 'B' } });
+    for (const t of Object.values(g.tiles)) t.terrain = 'plain';
+    g.crystals = [];
+    g.mages.p1.pos = { q: 0, r: 3 };
+    g.mages.p2.pos = { q: 0, r: 0 };
+    g.mages.p2.mana = 30;
+    g = endTurn(g); // P1
+    g = act(g, { type: 'cast', player: 'p2', abilityId: 'lightning-bolt', target: g.mages.p1.pos });
+    g = endTurn(g); // P2 ends the last turn
+    expect(g.winner).toBeNull();
+    expect(g.phase).toBe('reaction');
+    expect(g.active).toBe('p1');
+    g = endReaction(g);
+    expect(g.mages.p1.hp).toBeLessThan(g.mages.p1.maxHp);
+    expect(g.winner).toBe('p2'); // P1 took the hit, so P2 has the higher share of HP
+  });
+
   it('goes to the mage who moves second on a tie', () => {
     const g = finish(short());
     expect(g.winner).toBe('p2');

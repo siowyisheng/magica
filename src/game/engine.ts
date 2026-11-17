@@ -484,20 +484,7 @@ function finishTurn(state: GameState, player: PlayerId, log: Log) {
   me.statuses = me.statuses.map((s) => ({ ...s, turns: s.turns - 1 })).filter((s) => s.turns > 0);
   me.empower = 0;
   state.turn += 1;
-  if (state.turn > state.config.maxTurns) {
-    const [a, b] = [hpFraction(state.mages.p1), hpFraction(state.mages.p2)];
-    // The higher share of HP wins; the mage who goes second takes a tie.
-    state.winner = a > b ? 'p1' : 'p2';
-    log({
-      kind: 'victory',
-      text:
-        a === b
-          ? `Time! Level on health, so ${state.mages.p2.name}, who goes second, wins.`
-          : `Time! ${state.mages[state.winner].name} wins on health.`,
-      cue: { kind: 'result', winner: state.winner },
-    });
-    return;
-  }
+  // Past the round limit the last turn is P1's Reaction and Resolution Phases only; see resolveIncoming.
   state.active = other(player);
   if (state.active === 'p1')
     advanceCrystals(state, (c) =>
@@ -609,6 +596,20 @@ function startTurn(state: GameState, player: PlayerId, log: Log) {
   } else resolveIncoming(state, log);
 }
 
+/** The round limit has passed and the last Attacks have landed: the higher share of HP wins, and the mage who goes second takes a tie. */
+function timeUp(state: GameState, log: Log) {
+  const [a, b] = [hpFraction(state.mages.p1), hpFraction(state.mages.p2)];
+  state.winner = a > b ? 'p1' : 'p2';
+  log({
+    kind: 'victory',
+    text:
+      a === b
+        ? `Time! Level on health, so ${state.mages.p2.name}, who goes second, wins.`
+        : `Time! ${state.mages[state.winner].name} wins on health.`,
+    cue: { kind: 'result', winner: state.winner },
+  });
+}
+
 /** End of the Reaction Phase: incoming Attacks land in launch order, shields fade, Action Phase begins. */
 function resolveIncoming(state: GameState, log: Log) {
   const defender = state.active;
@@ -618,6 +619,10 @@ function resolveIncoming(state: GameState, log: Log) {
   }
   state.pending = state.pending.filter((a) => a.caster === defender);
   state.mages[defender].shield = 0;
+  if (!state.winner && state.turn > state.config.maxTurns) {
+    timeUp(state, log);
+    return;
+  }
   state.phase = 'action';
   if (!state.winner) log({ kind: 'turn', text: '', cue: { kind: 'actionStart', player: defender } });
 }
