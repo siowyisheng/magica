@@ -130,14 +130,15 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
     walkFrame.current = 0;
     walks.current = {};
   };
-  const tickWalks = (now: number) => {
+  const tickWalks = () => {
     walkFrame.current = 0;
+    const now = performance.now(); // not rAF's timestamp, which can predate a walk started later in the same frame
     const next: Partial<Record<PlayerId, Px>> = {};
     let active = false;
     for (const p of PLAYERS) {
       const w = walks.current[p];
       if (!w) continue;
-      const t = (now - w.start) / STEP_MS;
+      const t = Math.max(0, (now - w.start) / STEP_MS);
       if (t >= w.pts.length - 1) {
         delete walks.current[p];
         continue;
