@@ -199,11 +199,8 @@ function chooseMain(state: GameState, player: PlayerId): Action {
 
   // 3. Reposition: get out of our own Threat Areas, then toward the ideal range for our attacks.
   if (options.size) {
-    const ideal = idealRange(me);
-    const scorePos = (h: Hex) =>
-      (ownDanger.has(key(h)) ? -100 : 0) -
-      Math.abs(distance(h, enemy.pos) - ideal) +
-      (hasLOS(state, h, enemy.pos) ? 0.5 : 0);
+    const toPost = stepsToFiringPost(state, enemy.pos, idealRange(me));
+    const scorePos = (h: Hex) => (ownDanger.has(key(h)) ? -100 : 0) - (toPost.get(key(h)) ?? Infinity);
     let bestPos: Hex | null = null;
     let bestScore = scorePos(me.pos);
     for (const k of options.keys()) {
@@ -222,6 +219,40 @@ function chooseMain(state: GameState, player: PlayerId): Action {
   }
 
   return { type: 'endTurn', player };
+}
+
+/**
+ * For every hex, how far it is from a good place to attack from: Movement to walk there around
+ * rocks, plus a heavy penalty for how far that place is off the ideal range or out of sight.
+ * Walking distance (not straight-line distance) keeps the bot from getting stuck behind a wall
+ * whose way round first leads away from the enemy.
+ */
+function stepsToFiringPost(state: GameState, enemyPos: Hex, ideal: number): Map<string, number> {
+  const enemy = key(enemyPos);
+  const passable = (k: string) => k !== enemy && state.tiles[k] && state.tiles[k].terrain !== 'rock';
+  const best = new Map<string, number>();
+  const frontier: Array<[string, number]> = [];
+  for (const k of Object.keys(state.tiles)) {
+    if (!passable(k)) continue;
+    const h = fromKey(k);
+    // Being off range or out of sight weighs far more than a step of walking, so a long way round
+    // to a real firing post still beats standing nearer in a straight line.
+    const cost = 10 * Math.abs(distance(h, enemyPos) - ideal) + (hasLOS(state, h, enemyPos) ? 0 : 3);
+    best.set(k, cost);
+    frontier.push([k, cost]);
+  }
+  while (frontier.length) {
+    frontier.sort((a, b) => a[1] - b[1]);
+    const [k, cost] = frontier.shift()!;
+    if (cost > best.get(k)!) continue;
+    for (const n of neighbors(fromKey(k))) {
+      const nk = key(n);
+      if (!passable(nk) || (best.get(nk) ?? Infinity) <= cost + 1) continue;
+      best.set(nk, cost + 1);
+      frontier.push([nk, cost + 1]);
+    }
+  }
+  return best;
 }
 
 /** Could we still launch an Attack covering the enemy this turn with this much AP and Mana left? */

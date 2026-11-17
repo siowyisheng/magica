@@ -111,3 +111,19 @@ describe('the walked path of a Move', () => {
     expect(ev.path!.length).toBeGreaterThan(3); // the straight line is blocked, so it is longer
   });
 });
+
+describe('AI positioning', () => {
+  it('walks around a rock wall toward the enemy even when every step first leads away in a straight line', async () => {
+    const { chooseAction } = await import('./ai');
+    const { walkPath } = await import('./engine');
+    const g = duel();
+    g.mages.p1.pos = { q: 0, r: 2 };
+    // A wall across the board between the mages, open only at the far right end.
+    for (let q = -6; q <= 4; q++) g.tiles[`${q},0`].terrain = 'rock';
+    g.crystals = [];
+    const steps = (from: Hex) => walkPath(g, from, g.mages.p2.pos, '').length;
+    const a = chooseAction(g, 'p1');
+    expect(a.type).toBe('move');
+    expect(steps((a as { to: Hex }).to)).toBeLessThan(steps(g.mages.p1.pos));
+  });
+});
