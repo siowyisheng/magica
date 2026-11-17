@@ -400,7 +400,7 @@ button.absorb:not(:disabled) { border-color: #7aa2ff; box-shadow: 0 0 12px #5b8c
 .hud-p2 .hud-name { text-align: right; }
 
 /* HP: anchored at the centre, so damage eats it from the outer edge inwards. */
-.hp-track { position: relative; height: 38px; background: #0b0912; border: 2px solid #ffffff40; border-radius: 6px; overflow: visible; box-shadow: 0 0 0 1px #000, 0 3px 10px #0008; }
+.hp-track { position: relative; height: 38px; background: #0b0912; border: 3px solid var(--side); border-radius: 6px; overflow: visible; box-shadow: 0 0 0 1px #000, 0 3px 10px #0008; }
 .hp-fill, .hp-trail { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
 .hud-p1 .hp-fill, .hud-p1 .hp-trail { right: 0; }
 .hud-p2 .hp-fill, .hud-p2 .hp-trail { left: 0; }
@@ -447,7 +447,7 @@ button.absorb:not(:disabled) { border-color: #7aa2ff; box-shadow: 0 0 12px #5b8c
 .mana-slot { display: flex; }
 .hud-p1 .mana-slot { justify-content: flex-end; }
 .hud-p2 .mana-slot { justify-content: flex-start; }
-.mana-track { position: relative; height: 18px; background: #0b0912; border: 2px solid #ffffff30; border-radius: 5px; overflow: hidden; transition: width 0.3s; }
+.mana-track { position: relative; height: 18px; background: #0b0912; border: 2px solid var(--side); border-radius: 5px; overflow: hidden; transition: width 0.3s; }
 .mana-fill { position: absolute; top: 0; bottom: 0; background: linear-gradient(180deg, #b6caff, #6f8fff 55%, #3b5bdb); transition: width 0.25s; }
 .hud-p1 .mana-fill { right: 0; }
 .hud-p2 .mana-fill { left: 0; }
@@ -467,3 +467,37 @@ button.absorb:not(:disabled) { border-color: #7aa2ff; box-shadow: 0 0 12px #5b8c
 .rl-danger .rl-label { color: #ff3b4e; }
 @keyframes rl-throb { 50% { transform: scale(1.1); } }
 @media (max-width: 700px) { .hud-portrait { width: 56px; height: 56px; font-size: 2.1rem; } .rl-num { font-size: 2.6rem; } .rounds-left { min-width: 80px; } }
+
+/* --- Whose turn it is --------------------------------------------------- */
+.hud-side {
+  padding: 0.5rem 0.6rem; border-radius: 14px; border: 2px solid color-mix(in srgb, var(--side) 35%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--side) 12%, #0b0912), #0b0912e0);
+  transition: opacity 0.25s, filter 0.25s, box-shadow 0.25s, border-color 0.25s;
+}
+.hud-side.is-waiting { opacity: 0.55; filter: saturate(0.6); }
+.hud-side.is-turn {
+  border-color: var(--side); animation: side-glow 1.4s ease-in-out infinite;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--side) 30%, #0b0912), #0b0912e0);
+}
+@keyframes side-glow {
+  0%, 100% { box-shadow: 0 0 10px color-mix(in srgb, var(--side) 55%, transparent), 0 0 0 1px var(--side) inset; }
+  50% { box-shadow: 0 0 28px var(--side), 0 0 0 1px var(--side) inset; }
+}
+.hud-side.is-turn .hud-portrait { transform: scale(1.06); box-shadow: 0 0 22px var(--side), 0 0 0 1px #000a inset; }
+.hud-portrait { transition: transform 0.2s, box-shadow 0.2s, filter 0.3s; }
+.hud-name { display: flex; align-items: center; gap: 0.6rem; justify-content: space-between; }
+.hud-p2 .hud-name { flex-direction: row-reverse; }
+.turn-badge {
+  font-family: Inter, system-ui, sans-serif; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.14em; color: #0b0912;
+  background: var(--side); padding: 0.15rem 0.6rem; border-radius: 999px; text-shadow: none; white-space: nowrap;
+  animation: pulse 1.2s infinite;
+}
+.turn-ring { fill: none; stroke: var(--p1); stroke-width: 4; pointer-events: none; }
+.mage-p2 .turn-ring { stroke: var(--p2); }
+.turn-ring-pulse { stroke-width: 3; transform-box: fill-box; transform-origin: center; animation: ring-out 1.3s ease-out infinite; }
+@keyframes ring-out { from { transform: scale(1); opacity: 0.9; } to { transform: scale(1.7); opacity: 0; } }
+.turn-marker { fill: var(--p1); stroke: #000; stroke-width: 1.5; pointer-events: none; animation: marker-bob 0.9s ease-in-out infinite; }
+.mage-p2 .turn-marker { fill: var(--p2); }
+@keyframes marker-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+.mage:not(.is-active) .mage-body { stroke-width: 2; opacity: 0.85; }
+.mage.is-active .mage-body { stroke-width: 5; }

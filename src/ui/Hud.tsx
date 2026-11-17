@@ -103,12 +103,15 @@ function ManaBar({ mage, scaleMax }: { mage: Mage; scaleMax: number }) {
 
 function HudSide({ mage, active, manaScale }: { mage: Mage; active: boolean; manaScale: number }) {
   return (
-    <div className={`hud-side hud-${mage.owner}`}>
+    <div className={`hud-side hud-${mage.owner} ${active ? 'is-turn' : 'is-waiting'}`}>
       <div className={`hud-portrait ${active ? 'is-active' : ''} ${mage.hp <= 0 ? 'is-dead' : ''}`} title={mage.name}>
         {mage.icon}
       </div>
       <div className="hud-bars">
-        <div className="hud-name">{mage.name}</div>
+        <div className="hud-name">
+          <span>{mage.name}</span>
+          {active && <span className="turn-badge">{mage.owner === 'p1' ? '◀' : ''} YOUR TURN {mage.owner === 'p2' ? '▶' : ''}</span>}
+        </div>
         <HpBar mage={mage} />
         <ManaBar mage={mage} scaleMax={manaScale} />
       </div>

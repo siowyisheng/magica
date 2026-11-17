@@ -292,6 +292,11 @@ export function HexBoard({ state, highlights = {}, onHexClick, onHexHover }: Pro
             onMouseEnter={() => onHexHover?.(u.pos)}
           >
             {active && <circle r={SIZE * 1.1} fill={`url(#glow-${p})`} className="mage-glow" />}
+            {active && <circle r={SIZE * 0.95} className="turn-ring" />}
+            {active && <circle r={SIZE * 0.95} className="turn-ring turn-ring-pulse" />}
+            {active && (
+              <path className="turn-marker" d={`M ${-9} ${-SIZE * 1.95} L 9 ${-SIZE * 1.95} L 0 ${-SIZE * 1.55} Z`} />
+            )}
             <circle r={SIZE * 0.68} className="mage-body" />
             <text className="mage-icon" textAnchor="middle" dominantBaseline="central">
               {u.icon}
