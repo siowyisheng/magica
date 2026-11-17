@@ -191,7 +191,8 @@ describe('AI with every shape', () => {
       let g = createGame({ seed: 9, radius: 6, turnSeconds: 20, maxTurns: 60, loadouts: { p1: l, p2: l }, names: { p1: 'A', p2: 'B' } });
       for (const t of Object.values(g.tiles)) t.terrain = 'plain';
       g.crystals = [];
-      g.mages.p1.mana = g.mages.p2.mana = 30;
+      // Plenty of Mana, so even the pricier shapes fit the AI's budget for dodgeable Attacks.
+      g.mages.p1.mana = g.mages.p2.mana = 99;
       g.mages.p1.pos = { q: 0, r: 1 };
       g.mages.p2.pos = id === 'nova' ? { q: 0, r: -1 } : { q: 0, r: -2 };
       const a = chooseAction(g, 'p1');

@@ -42,6 +42,13 @@ A status that takes a mage's Weapon out of use: Weapon Techniques can't be used,
 **Cooldown**:
 An Ability with a Cooldown of N can't be used again until N of its mage's turns after the turn it was used, so a Cooldown of 2 means not on consecutive turns.
 
+**Pinned**:
+Unable to dodge in the next Reaction Phase: rooted, or about to have a Compelled turn. Attacks pending against a Pinned mage will hit unless they react with a Reaction Spell.
+_Avoid_: Locked down, stuck
+
+**Dodgeable**:
+Describes an Attack the target could Move out of in their next Reaction Phase, given the Movement Points their 2 AP buy. Instant and homing Attacks, and anything aimed at a Pinned mage, are not dodgeable. Reaction Spells such as Blink don't count toward it.
+
 **Compelled turn**:
 A turn the mage doesn't control, caused by Sleep, Charm or Fear. The Reaction Phase is skipped (incoming Attacks land at once). A sleeper has no AP; a charmed mage spends all their AP and movement walking toward the other mage, a frightened one directly away. Damage wakes a sleeper at once, who then plays their turn as normal.
 
@@ -186,7 +193,7 @@ A Spell settled by a secret Bid instead of a Threat Area. Casting it opens Biddi
 _Avoid_: Bid spell, opposed spell
 
 **Max Bid**:
-The most Mana a duellist may Bid on a particular Contested Spell (Stasis 6, Doom 5). Bidding more counts as 0 and forfeits all of that mage's Mana, like bidding more than they have.
+The most Mana a duellist may Bid on a particular Contested Spell (for example Stasis 4, Doom 5, Hold Person 7). Bidding more counts as 0 and forfeits all of that mage's Mana, like bidding more than they have.
 
 **Bidding**:
 The window of up to 7 seconds after a Contested Spell is cast, in which both duellists lock in their Bids without seeing each other's. It ends as soon as both have bid. Nothing else can happen during it, and the caster's turn timer stops. When the Bids are revealed, the timer resumes with 2 seconds added.

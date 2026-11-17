@@ -33,16 +33,58 @@ export function chooseAction(state: GameState, player: PlayerId): Action {
 }
 
 /**
- * The AI's secret bid for the open contest: a pseudo-random whole number from 0 up to the effect's
- * max bid, never more than the Mana it has. Derived from the match's seeded state, so replays and
- * headless games stay deterministic, while a human opponent can't predict it in play.
+ * How likely a caster is to bid the Max Bid, judged from the Mana they'd have left afterwards:
+ * 0% if they can't afford it, otherwise 25% plus 5% per point left over, up to 95%.
  */
+export function maxBidLikelihood(casterMana: number, maxBid: number): number {
+  const leftover = casterMana - maxBid;
+  return leftover < 0 ? 0 : Math.min(0.95, 0.25 + 0.05 * leftover);
+}
+
+/** Chance a defender throws a low bid instead of 0 when the caster can afford the Max Bid. */
+const lowBidChance = (pMax: number) => 0.4 * (1 - pMax);
+
+/** Pseudo-random numbers for one bid, from the seeded match state: replays stay identical. */
+function bidRandoms(state: GameState, player: PlayerId): [number, number] {
+  const seed = (state.rng ^ Math.imul(state.bidding!.id, 0x9e3779b1) ^ (player === 'p1' ? 0x5bd1e995 : 0x1b873593)) >>> 0;
+  const [r1, next] = rngStep(seed);
+  const [r2] = rngStep(next);
+  return [r1, r2];
+}
+
+/** The AI's secret bid for the open contest: offensive if it cast the spell, defensive if it's the target. */
 export function aiBid(state: GameState, player: PlayerId): number {
   const b = state.bidding;
   if (!b) return 0;
-  const max = Math.max(0, Math.min(state.mages[player].mana, bidCap(ABILITIES[b.abilityId])));
-  const [r] = rngStep((state.rng ^ Math.imul(b.id, 0x9e3779b1) ^ (player === 'p1' ? 0x5bd1e995 : 0x1b873593)) >>> 0);
-  return Math.floor(r * (max + 1));
+  const def = ABILITIES[b.abilityId];
+  const cap = bidCap(def);
+  const me = state.mages[player];
+  const afford = Math.max(0, Math.min(me.mana, cap));
+  const [r1, r2] = bidRandoms(state, player);
+
+  if (player === b.target) {
+    // Defending. Max Bids cap both sides and ties go to the caster, so a Max Bid can't be beaten:
+    // resisting only pays when the caster can't afford it (then out-bid them for sure) or gambles low.
+    const caster = state.mages[b.caster];
+    if (caster.mana < cap) {
+      const beat = caster.mana + 1;
+      return beat <= afford ? beat : 0;
+    }
+    if (r1 < lowBidChance(maxBidLikelihood(caster.mana, cap))) return Math.min(afford, r2 < 0.5 ? 1 : 2);
+    return 0;
+  }
+
+  // Attacking. The sure win is matching what the defender could possibly bid; sometimes gamble on
+  // them not resisting, less often the more the spell itself cost.
+  const defender = state.mages[b.target];
+  const sure = Math.min(defender.mana, cap, me.mana);
+  if (sure === 0) return 0;
+  const theyCanSurelyResist = me.mana < cap && me.mana + 1 <= Math.min(defender.mana, cap);
+  const noResist = theyCanSurelyResist ? 0 : 1 - lowBidChance(maxBidLikelihood(me.mana, cap));
+  const costFactor = Math.max(0.4, Math.min(1, 1 - (def.mana - 2) * 0.1));
+  const gamble = (0.1 + 0.05 * noResist) * costFactor;
+  if (r1 < gamble) return r2 < 0.75 ? 0 : Math.min(1, sure);
+  return sure;
 }
 
 /** Salt the headless AI uses. The UI uses a fresh random salt for every bid instead. */
@@ -182,6 +224,17 @@ function chooseMain(state: GameState, player: PlayerId): Action {
   return { type: 'endTurn', player };
 }
 
+/** Could we still launch an Attack covering the enemy this turn with this much AP and Mana left? */
+function hasFollowUp(state: GameState, player: PlayerId, apLeft: number, manaLeft: number): boolean {
+  const me = state.mages[player];
+  return me.abilities.some((slot) => {
+    const def = ABILITIES[slot.id];
+    if (def.effect.type !== 'attack' || def.mana > manaLeft || apCost(def) > apLeft) return false;
+    if (castError(state, player, slot.id)?.match(/cooldown|once|times per turn|equipped/i)) return false;
+    return castCandidates(state, player, slot.id).length > 0;
+  });
+}
+
 function idealRange(me: Mage): number {
   const ranges = me.abilities
     .map((s) => ABILITIES[s.id])
@@ -254,6 +307,37 @@ function escapeCost(state: GameState, from: Hex, area: Set<string>): number {
   return Infinity;
 }
 
+/** Can't dodge in their next Reaction Phase: rooted, or facing a Compelled turn (Sleep, Charm, Fear). */
+const isPinned = (m: Mage) => m.statuses.some((s) => s.kind === 'root' || s.kind === 'asleep' || s.kind === 'charm' || s.kind === 'fear');
+
+/** AP the mage will have next turn (fatigue takes some away). */
+const nextTurnAp = (m: Mage) => Math.max(0, AP_PER_TURN - (m.statuses.find((s) => s.kind === 'fatigue')?.power ?? 0));
+
+/**
+ * Whether the enemy could walk out of `area` in their next Reaction Phase. Instant and homing Attacks,
+ * and anything aimed at a Pinned mage, can't be dodged. Reaction Spells (Blink, Ward…) don't count.
+ */
+function isDodgeable(state: GameState, player: PlayerId, area: Set<string>, unavoidable = false): boolean {
+  const enemy = state.mages[other(player)];
+  if (unavoidable || isPinned(enemy)) return false;
+  return escapeCost(state, enemy.pos, area) <= nextTurnAp(enemy) * mpPerAp(enemy);
+}
+
+/** Dodgeable Attacks this mage has already launched this turn (deflected ones aside). */
+function dodgeableLaunched(state: GameState, player: PlayerId): number {
+  return state.pending.filter((a) => a.caster === player && !a.reflected && isDodgeable(state, player, new Set(a.area), a.homing))
+    .length;
+}
+
+/**
+ * Rule: never pour Mana or AP into Attacks the enemy can simply walk away from. At most one dodgeable
+ * Attack per turn, costing no more than 2 Mana or 20% of current Mana, whichever is higher.
+ */
+function withinDodgeableBudget(state: GameState, player: PlayerId, manaCost: number): boolean {
+  const me = state.mages[player];
+  return dodgeableLaunched(state, player) === 0 && manaCost <= Math.max(2, 0.2 * me.mana);
+}
+
 /** Expected value of landing `hit` on the enemy, given they get a Reaction Phase to dodge. */
 function attackValue(state: GameState, player: PlayerId, area: Set<string>, hit: Hit, undodgeable = false): number {
   const enemy = state.mages[other(player)];
@@ -282,7 +366,9 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, _targe
   const cost = Math.max(1, apCost(def) + def.mana / 5);
   switch (fx.type) {
     case 'attack': {
-      let score = attackValue(state, player, area, fx.hit, fx.instant || fx.homing);
+      const unavoidable = !!(fx.instant || fx.homing);
+      if (isDodgeable(state, player, area, unavoidable) && !withinDodgeableBudget(state, player, def.mana)) return 0;
+      let score = attackValue(state, player, area, fx.hit, unavoidable || isPinned(enemy));
       // Standing in our own Threat Area is fine only if we can still walk out.
       if (area.has(key(me.pos))) score -= me.ap > apCost(def) || me.mp > 1 ? 0.5 : fx.hit.damage * 1.5;
       return score / cost;
@@ -295,15 +381,20 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, _targe
     case 'contest':
     case 'status': {
       if (def.targeting === 'self') return me.statuses.some((s) => s.kind === fx.status.kind) ? 0 : 2.5;
-      // A root is worth it as a combo: a rooted enemy can't step out of an Attack we already launched at
-      // them. Other curses are worth it when the enemy doesn't carry them yet. Contests keep Mana back to bid with.
-      const spare = fx.type === 'contest' ? 3 : 0;
-      if (fx.status.kind === 'root') {
-        const covered = state.pending.some((a) => a.caster === player && a.area.includes(key(enemy.pos)));
-        return covered && me.mana >= def.mana + (fx.type === 'contest' ? 2 : 0) ? 5 : 0;
-      }
-      const already = enemy.statuses.some((s) => s.kind === fx.status.kind);
-      return !already && me.mana >= def.mana + spare ? 1.5 : 0;
+      if (enemy.statuses.some((s) => s.kind === fx.status.kind)) return 0;
+      // Rule: only cast a Contested Spell when, after paying for it, we can afford the bid that wins for
+      // sure (the defender's Mana or the Max Bid, whichever is lower; ties go to the caster).
+      const sureBid = fx.type === 'contest' ? Math.min(enemy.mana, bidCap(def)) : 0;
+      const manaLeft = me.mana - def.mana - sureBid;
+      if (manaLeft < 0) return 0;
+      const pinning = fx.status.kind === 'root' || fx.status.kind === 'asleep' || fx.status.kind === 'charm' || fx.status.kind === 'fear';
+      if (!pinning) return 1.5;
+      // Pin first, then attack: a pinned enemy can't step out of what follows. A Root is only worth it
+      // with a follow-up ready (or an Attack already covering them); a Compelled turn is worth it anyway.
+      const covered = state.pending.some((a) => a.caster === player && a.area.includes(key(enemy.pos)));
+      const followUp = covered || hasFollowUp(state, player, me.ap - apCost(def), manaLeft);
+      if (fx.status.kind === 'root') return followUp ? 5 : 0;
+      return followUp ? 5 : 2.5;
     }
     case 'mana':
       // Only when running low: it spends the AP that could have gone into an attack.

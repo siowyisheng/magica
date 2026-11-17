@@ -173,7 +173,7 @@ describe('bidding', () => {
 });
 
 describe('AI bidding', () => {
-  it('bids a whole number between 0 and the effect’s severity, never more than its Mana', async () => {
+  it('bids a whole number between 0 and the Max Bid, never more than its Mana', async () => {
     const { aiBid } = await import('./ai');
     const severity = (ABILITIES.stasis.effect as unknown as { maxBid: number }).maxBid;
     const seen = new Set<number>();
@@ -187,7 +187,6 @@ describe('AI bidding', () => {
       const poor = { ...g, mages: { ...g.mages, p2: { ...g.mages.p2, mana: 2 } } };
       expect(aiBid(poor, 'p2')).toBeLessThanOrEqual(2);
     }
-    expect(seen.size).toBeGreaterThan(3); // it varies
   });
 
   it('plays a whole bid through chooseAction, legally, for both duellists', async () => {
@@ -198,7 +197,7 @@ describe('AI bidding', () => {
     expect(g.events.some((e) => e.cue?.kind === 'contest')).toBe(true);
   });
 
-  it('casts Stasis to stop the enemy dodging an Attack it just launched', async () => {
+  it('Pins with Stasis first, then follows up with an Attack', async () => {
     const { chooseAction } = await import('./ai');
     const l = loadout(['icicle', 'stasis']);
     let g = createGame({ seed: 5, radius: 7, turnSeconds: 20, maxTurns: 60, loadouts: { p1: l, p2: l }, names: { p1: 'A', p2: 'B' } });
@@ -213,8 +212,8 @@ describe('AI bidding', () => {
       if (a.type === 'cast') casts.push(a.abilityId);
       g = act(g, a);
     }
-    expect(casts.indexOf('icicle')).toBeGreaterThanOrEqual(0);
-    expect(casts.indexOf('stasis')).toBeGreaterThan(casts.indexOf('icicle'));
+    expect(casts[0]).toBe('stasis');
+    expect(casts).toContain('icicle');
   });
 });
 
@@ -222,7 +221,7 @@ describe('AI vs AI with Stasis', () => {
   it('plays full matches with bidding to a result and replays them identically', { timeout: 30000 }, async () => {
     const { chooseAction } = await import('./ai');
     const { replay } = await import('./engine');
-    const l: Loadout = { ...loadout(['icicle', 'firebolt', 'stasis', 'ward']), stats: { hp: 3, maxMana: 1, manaRegen: 2, movespeed: 0 } };
+    const l: Loadout = { ...loadout(['icicle', 'firebolt', 'stasis', 'ward']), stats: { hp: 3, maxMana: 2, manaRegen: 4, movespeed: 0 } };
     let contests = 0;
     for (const seed of [1, 2, 3, 4]) {
       const config = { seed, radius: 7, turnSeconds: 20, maxTurns: 60, loadouts: { p1: l, p2: l }, names: { p1: 'A', p2: 'B' } };
