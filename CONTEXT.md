@@ -138,7 +138,7 @@ A Burst centred on the caster that leaves out the caster's own hex.
 ## Board
 
 **Rock**:
-Impassable terrain that also stops Lines and line of sight. It is the only terrain besides open ground. About a third of the board is Rock, laid out as walls with doorways so the open ground forms rooms and corridors, all connected. Stone Pillar can create more mid-duel.
+Impassable terrain that also stops Lines and line of sight. The two mages never start in line of sight of each other: every board has Rock across the line between the starting hexes. It is the only terrain besides open ground. About a third of the board is Rock, laid out as walls with doorways so the open ground forms rooms and corridors, all connected. Stone Pillar can create more mid-duel.
 _Avoid_: Wall (a Wall is a Threat Area shape), obstacle
 
 ## Resources

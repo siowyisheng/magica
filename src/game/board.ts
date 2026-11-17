@@ -1,4 +1,4 @@
-import { distance, fromKey, key, neighbors, spiral, type Hex } from './hex';
+import { distance, fromKey, key, line, neighbors, spiral, type Hex } from './hex';
 import { mulberry32 } from './rng';
 import type { PlayerId, Terrain, Tile } from './types';
 
@@ -14,11 +14,37 @@ export const spawnFor = (player: PlayerId, radius: number): Hex =>
 export function generateBoard(seed: number, radius: number): Record<string, Tile> {
   for (let attempt = 0; attempt < 50; attempt++) {
     const tiles = tryGenerate(seed + attempt * 7919, radius);
-    if (unclumped(new Set(Object.values(tiles).filter((t) => t.terrain === 'rock').map(key))) && connected(tiles, spawnFor('p1', radius), spawnFor('p2', radius))) return tiles;
+    if (
+      unclumped(new Set(Object.values(tiles).filter((t) => t.terrain === 'rock').map(key))) &&
+      connected(tiles, spawnFor('p1', radius), spawnFor('p2', radius)) &&
+      !spawnsSeeEachOther(tiles, radius)
+    )
+      return tiles;
   }
-  // Fallback: open field.
-  return Object.fromEntries(spiral({ q: 0, r: 0 }, radius).map((h) => [key(h), { ...h, terrain: 'plain' as Terrain }]));
+  // Fallback: open field, apart from the blocking wall.
+  return Object.fromEntries(
+    spiral({ q: 0, r: 0 }, radius).map((h) => [key(h), { ...h, terrain: (blockerRocks(radius).has(key(h)) ? 'rock' : 'plain') as Terrain }]),
+  );
 }
+
+/** True if the two starting hexes have line of sight to each other. */
+export function spawnsSeeEachOther(tiles: Record<string, Tile>, radius: number): boolean {
+  return line(spawnFor('p1', radius), spawnFor('p2', radius))
+    .slice(1, -1)
+    .every((h) => tiles[key(h)]?.terrain !== 'rock');
+}
+
+/**
+ * The spawns face each other down the q = 0 column, so every board gets a short wall across it, two
+ * hexes either side of the centre, and its mirror image: the mages never start in line of sight.
+ */
+const BLOCKER_ROW = 2;
+function blockerWalls(radius: number): Hex[][] {
+  return [BLOCKER_ROW, -BLOCKER_ROW].map((r) => [
+    ...[-1, 0, 1].map((i) => ({ q: i, r: r - i })), // along the { 1, -1 } axis
+  ]).filter((w) => w.every((h) => distance(h, { q: 0, r: 0 }) <= radius));
+}
+const blockerRocks = (radius: number) => new Set(blockerWalls(radius).flat().map(key));
 
 /** Rock coverage the generator aims for, as a fraction of the board: somewhere in this range. */
 export const ROCK_TARGET = { min: 0.2, max: 0.28 };
@@ -40,7 +66,8 @@ function tryGenerate(seed: number, radius: number): Record<string, Tile> {
   const spawns = [spawnFor('p1', radius), spawnFor('p2', radius)];
   const onBoard = (h: Hex) => distance(h, { q: 0, r: 0 }) <= radius;
   // Spawns get a clear room, and the centre (the Large crystal's home) a clear crossing.
-  const kept = (h: Hex) => spawns.some((s) => distance(s, h) <= 2) || distance(h, { q: 0, r: 0 }) <= 1;
+  const blockers = blockerRocks(radius);
+  const kept = (h: Hex) => !blockers.has(key(h)) && (spawns.some((s) => distance(s, h) <= 2) || distance(h, { q: 0, r: 0 }) <= 1);
   const placeable = all.filter((h) => !kept(h));
   const int = (n: number) => Math.floor(rand() * n);
 
@@ -62,7 +89,7 @@ function tryGenerate(seed: number, radius: number): Record<string, Tile> {
     });
   };
 
-  const rocks = new Set<string>();
+  const rocks = new Set<string>(blockers);
   const target = ROCK_TARGET.min + rand() * (ROCK_TARGET.max - ROCK_TARGET.min);
   for (let tries = 0; tries < 300 && rocks.size / all.length < target; tries++) {
     const trial = new Set(rocks);

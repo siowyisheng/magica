@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateBoard, spawnFor } from './board';
+import { generateBoard, spawnFor, spawnsSeeEachOther } from './board';
 import { key, neighbors } from './hex';
 
 describe('rock-only arena', () => {
@@ -15,6 +15,11 @@ describe('rock-only arena', () => {
     const rock = tiles.filter((t) => t.terrain === 'rock').length / tiles.length;
     expect(rock).toBeGreaterThan(0.18);
     expect(rock).toBeLessThan(0.3);
+  });
+
+  it('never starts the two mages in line of sight of each other', () => {
+    for (const radius of [4, 5, 6, 7, 8])
+      for (let s = 0; s < 60; s++) expect(spawnsSeeEachOther(generateBoard(s * 37 + 1, radius), radius), `seed ${s} radius ${radius}`).toBe(false);
   });
 
   it('never has a rock touching more than 2 other rocks', () => {
