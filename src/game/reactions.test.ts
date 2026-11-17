@@ -193,3 +193,33 @@ describe('AI dodging', () => {
     expect(d(to, g.mages.p1.pos)).toBeLessThan(d(g.mages.p2.pos, g.mages.p1.pos));
   });
 });
+
+describe('AI reaction planning', () => {
+  it('does not Block an Attack it then dodges anyway (Armored: every hit deals at least 1)', () => {
+    let g = createGame({
+      seed: 3, radius: 6, turnSeconds: 20, maxTurns: 60,
+      loadouts: {
+        p1: { ...loadout([]), weapon: 'sword', abilityIds: ['slash'] },
+        p2: { ...loadout(['block']), stats: { hp: 3, maxMana: 0, manaRegen: 0, movespeed: 2 } },
+      },
+      names: { p1: 'A', p2: 'B' },
+    });
+    for (const t of Object.values(g.tiles)) t.terrain = 'plain';
+    g.crystals = [];
+    g.mages.p1.pos = { q: 0, r: 0 };
+    g.mages.p2.pos = { q: 0, r: -1 };
+    g = act(g, { type: 'cast', player: 'p1', abilityId: 'slash', target: g.mages.p2.pos });
+    g = act(g, { type: 'endTurn', player: 'p1' });
+    g.mages.p2.statuses = [{ kind: 'armored', turns: 2, power: 4 }];
+    const taken: Action[] = [];
+    while (g.phase === 'reaction') {
+      const a = chooseAction(g, 'p2');
+      taken.push(a);
+      g = act(g, a);
+    }
+    const blocked = taken.some((a) => a.type === 'cast' && a.abilityId === 'block');
+    const dodged = taken.some((a) => a.type === 'move');
+    expect(blocked && dodged).toBe(false);
+    expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp);
+  });
+});

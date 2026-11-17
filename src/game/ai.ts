@@ -7,6 +7,7 @@ import {
   absorbError,
   apCost,
   apForMove,
+  applyAction,
   castError,
   hasLOS,
   hitDamage,
@@ -111,61 +112,116 @@ function chooseBidding(state: GameState): Action {
 const areaOf = (attacks: GameState['pending']) => new Set(attacks.flatMap((a) => a.area));
 
 /**
- * Reaction Phase: use the Reaction that prevents the most damage (the cheapest in Mana on a tie),
- * which includes dodging out of every incoming Threat Area; otherwise brace.
+ * Reaction Phase: look ahead over every sequence of Reactions we could afford this phase (dodges,
+ * Reaction Spells, Block…), play each out with the real rules until the incoming Attacks land, and
+ * take the first step of the sequence that leaves us best off. Harm taken dominates; Mana, AP and
+ * cooldowns spent break the ties, then ending up nearer where we want to fight from.
  */
 function chooseReaction(state: GameState, player: PlayerId): Action {
   const me = state.mages[player];
   const threats = incoming(state, player);
-  // Homing Attacks (Magic Missile) land wherever we stand, so only the rest can be dodged.
-  const danger = areaOf(threats.filter((a) => !a.homing));
   const hitting = threats.filter((a) => a.homing || a.area.includes(key(me.pos)));
   if (!hitting.length) return { type: 'endReaction', player };
+  const toPost = stepsToFiringPost(state, state.mages[other(player)].pos, idealRange(me));
+  return planReaction(state, player, state, toPost, REACTION_DEPTH).action;
+}
 
-  const own = areaOf(state.pending.filter((a) => a.caster === player));
+const REACTION_DEPTH = 3;
+/** What each resource is worth, in HP, when weighing Reactions against the harm they prevent. */
+const VALUE = { mana: 0.25, ap: 1, cooldown: 0.5, statusTurn: 0.75, disable: 2.5, post: 0.1 } as const;
+const BAD_STATUSES = new Set(['burn', 'poison', 'slow', 'root', 'vulnerable', 'disarmed', 'fatigue', 'charm', 'fear', 'asleep']);
+const DISABLING = new Set(['root', 'charm', 'fear', 'asleep']);
 
-  const damage = (a: PendingAttack) => (a.hit.damage > 0 ? hitDamage(me, a.hit.damage) : 0);
-  const harm = (a: PendingAttack) => damage(a) + (a.hit.status ? 1.5 : 0);
-  /** Harm that stepping out of the way would avoid. */
-  const dodgeable = hitting.filter((a) => !a.homing).reduce((n, a) => n + harm(a), 0);
-  const unshielded = hitting.reduce((n, a) => n + damage(a), 0) - me.shield;
+function planReaction(
+  state: GameState,
+  player: PlayerId,
+  start: GameState,
+  toPost: Map<string, number>,
+  depth: number,
+): { action: Action; cost: number } {
+  const end: Action = { type: 'endReaction', player };
+  let best: { action: Action; cost: number } = { action: end, cost: reactionOutcome(applyAction(state, end), player, start, toPost) };
+  if (depth === 0) return best;
+  for (const action of reactionOptions(state, player, toPost)) {
+    const next = applyAction(state, action);
+    if (next === state) continue; // illegal
+    const cost = planReaction(next, player, start, toPost, depth - 1).cost;
+    if (cost < best.cost - 1e-9) best = { action, cost };
+  }
+  return best;
+}
 
-  // The Reaction Spell that prevents the most damage; the cheapest one on a tie.
-  let best: { prevented: number; mana: number; action: Action } | null = null;
-  const consider = (prevented: number, mana: number, action: Action) => {
-    if (prevented < 1) return;
-    if (!best || prevented > best.prevented || (prevented === best.prevented && mana < best.mana)) best = { prevented, mana, action };
-  };
+/** Every Reaction worth trying from here: each castable Reaction Spell, and a few dodges. */
+function reactionOptions(state: GameState, player: PlayerId, toPost: Map<string, number>): Action[] {
+  const me = state.mages[player];
+  const threats = incoming(state, player);
+  const out: Action[] = [];
   for (const slot of me.abilities) {
-    const def = ABILITIES[slot.id];
     if (castError(state, player, slot.id)) continue;
-    const fx = def.effect;
+    const fx = ABILITIES[slot.id].effect;
     if (fx.type === 'counter' || fx.type === 'deflect') {
-      for (const a of hitting)
-        if (!castError(state, player, slot.id, me.pos, a.id))
-          consider(harm(a) + (fx.type === 'deflect' ? 1 : 0), def.mana, {
-            type: 'cast', player, abilityId: slot.id, target: me.pos, attackId: a.id,
-          });
-    } else if (fx.type === 'shield' && unshielded > 0) {
-      consider(Math.min(fx.amount, unshielded), def.mana, { type: 'cast', player, abilityId: slot.id, target: me.pos });
-    } else if (fx.type === 'block') {
-      const first = threats[0];
-      if (first?.area.includes(key(me.pos)) && first.hit.damage > 0)
-        consider(Math.min(fx.amount, hitDamage(me, first.hit.damage)), def.mana, { type: 'cast', player, abilityId: slot.id, target: me.pos });
+      for (const a of threats)
+        if (!castError(state, player, slot.id, me.pos, a.id)) out.push({ type: 'cast', player, abilityId: slot.id, target: me.pos, attackId: a.id });
+    } else if (fx.type === 'shield' || fx.type === 'block') {
+      out.push({ type: 'cast', player, abilityId: slot.id, target: me.pos });
     } else if (fx.type === 'blink') {
-      const out = validTargets(state, player, slot.id).find((h) => !danger.has(key(h)) && !own.has(key(h)));
-      if (out) consider(dodgeable, def.mana, { type: 'cast', player, abilityId: slot.id, target: out });
+      const t = bestHexes(validTargets(state, player, slot.id).map((h) => ({ k: key(h), cost: 0 })), threats, state, player, toPost, () => 0);
+      for (const k of t) out.push({ type: 'cast', player, abilityId: slot.id, target: fromKey(k) });
     }
   }
-  // Or just walk out: Movement is slower in the Reaction Phase, but costs no Mana. Spend as few AP
-  // as possible, but use the Movement those AP buy to step toward where we want to fight from.
-  const toPost = stepsToFiringPost(state, state.mages[other(player)].pos, idealRange(me));
-  const out = [...reachable(state, player)]
-    .filter(([k]) => !danger.has(k) && !own.has(k))
-    .map(([k, cost]) => ({ k, cost, ap: apForMove(me, cost, true), post: toPost.get(k) ?? Infinity }))
-    .sort((a, b) => a.ap - b.ap || a.post - b.post || a.cost - b.cost)[0];
-  if (out) consider(dodgeable, 0, { type: 'move', player, to: fromKey(out.k) });
-  return best ? (best as { action: Action }).action : { type: 'endReaction', player };
+  // Dodges: for each AP spend, the safest hexes, nearest our firing post.
+  const reach = [...reachable(state, player)].map(([k, cost]) => ({ k, cost }));
+  for (const k of bestHexes(reach, threats, state, player, toPost, (c) => apForMove(me, c, true)))
+    out.push({ type: 'move', player, to: fromKey(k) });
+  return out;
+}
+
+/** Per group (AP spent), the hex hit by the fewest incoming Attacks, nearest our firing post. */
+function bestHexes(
+  hexes: Array<{ k: string; cost: number }>,
+  threats: PendingAttack[],
+  state: GameState,
+  player: PlayerId,
+  toPost: Map<string, number>,
+  group: (cost: number) => number,
+): string[] {
+  const own = areaOf(state.pending.filter((a) => a.caster === player));
+  const best = new Map<number, { k: string; score: number }>();
+  for (const { k, cost } of hexes) {
+    if (own.has(k)) continue;
+    const hits = threats.filter((a) => !a.homing && a.area.includes(k)).length;
+    const score = hits * 100 + (toPost.get(k) ?? 1000) + cost * 0.01;
+    const g = group(cost);
+    const cur = best.get(g);
+    if (!cur || score < cur.score) best.set(g, { k, score });
+  }
+  return [...best.values()].map((b) => b.k);
+}
+
+/** How badly a played-out Reaction Phase went for `player`, in HP-equivalents (lower is better). */
+function reactionOutcome(after: GameState, player: PlayerId, before: GameState, toPost: Map<string, number>): number {
+  const me = after.mages[player];
+  const was = before.mages[player];
+  if (after.winner === other(player) || me.hp <= 0) return 1e6;
+  if (after.winner === player) return -1e6;
+  let cost = was.hp - me.hp;
+  for (const s of me.statuses) {
+    if (!BAD_STATUSES.has(s.kind)) continue;
+    const prev = was.statuses.find((p) => p.kind === s.kind);
+    const gained = s.turns - (prev?.turns ?? 0);
+    if (gained > 0) cost += DISABLING.has(s.kind) ? VALUE.disable : gained * VALUE.statusTurn * Math.max(1, s.power);
+  }
+  cost += (was.mana - me.mana) * VALUE.mana;
+  cost += (was.ap - me.ap) * VALUE.ap;
+  for (const slot of me.abilities) {
+    const prev = was.abilities.find((a) => a.id === slot.id);
+    const cd = (slot.cooldown ?? 0) - (prev?.cooldown ?? 0);
+    if (cd > 0) cost += VALUE.cooldown * cd;
+  }
+  // Attacks we sent back at the enemy are worth something too.
+  for (const a of after.pending) if (a.reflected && a.caster === player) cost -= a.hit.damage * 0.5;
+  cost += ((toPost.get(key(me.pos)) ?? 1000) - (toPost.get(key(was.pos)) ?? 1000)) * VALUE.post;
+  return cost;
 }
 
 function chooseMain(state: GameState, player: PlayerId): Action {
@@ -354,7 +410,8 @@ const nextTurnAp = (m: Mage) => Math.max(0, AP_PER_TURN - (m.statuses.find((s) =
 function isDodgeable(state: GameState, player: PlayerId, area: Set<string>, unavoidable = false): boolean {
   const enemy = state.mages[other(player)];
   if (unavoidable || isPinned(enemy)) return false;
-  return escapeCost(state, enemy.pos, area) <= nextTurnAp(enemy) * mpPerAp(enemy);
+  // Dodging happens in the Reaction Phase, where Movement is slower.
+  return escapeCost(state, enemy.pos, area) <= nextTurnAp(enemy) * mpPerAp(enemy, true);
 }
 
 /** Dodgeable Attacks this mage has already launched this turn (deflected ones aside). */
@@ -383,10 +440,10 @@ function attackValue(state: GameState, player: PlayerId, area: Set<string>, hit:
   if (dmg > 0 && enemy.hp + enemy.shield <= dmg) full += 100;
 
   if (undodgeable) return full;
-  const per = mpPerAp(enemy);
+  const per = mpPerAp(enemy, true); // dodging happens in the Reaction Phase, where Movement is slower
   const cost = escapeCost(state, enemy.pos, area);
   const apToDodge = per > 0 ? Math.ceil(cost / per) : Infinity;
-  if (apToDodge > AP_PER_TURN) return full; // unavoidable
+  if (apToDodge > nextTurnAp(enemy)) return full; // unavoidable
   // Dodgeable: still worth something for the AP it forces them to burn.
   return full * 0.3 + apToDodge * 1.2;
 }
