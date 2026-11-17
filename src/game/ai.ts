@@ -292,15 +292,18 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, _targe
     case 'shield':
       // Shields hold until our next resolution: worth it when the enemy can reach us.
       return dist <= 6 && me.shield === 0 && me.ap === 1 ? 1 : 0;
-    case 'contest': {
+    case 'contest':
+    case 'status': {
+      if (def.targeting === 'self') return me.statuses.some((s) => s.kind === fx.status.kind) ? 0 : 2.5;
       // A root is worth it as a combo: a rooted enemy can't step out of an Attack we already launched at
-      // them. Other curses are worth it when the enemy doesn't carry them yet. Keep Mana back to bid with.
+      // them. Other curses are worth it when the enemy doesn't carry them yet. Contests keep Mana back to bid with.
+      const spare = fx.type === 'contest' ? 3 : 0;
       if (fx.status.kind === 'root') {
         const covered = state.pending.some((a) => a.caster === player && a.area.includes(key(enemy.pos)));
-        return covered && me.mana >= def.mana + 2 ? 5 : 0;
+        return covered && me.mana >= def.mana + (fx.type === 'contest' ? 2 : 0) ? 5 : 0;
       }
       const already = enemy.statuses.some((s) => s.kind === fx.status.kind);
-      return !already && me.mana >= def.mana + 3 ? 1.5 : 0;
+      return !already && me.mana >= def.mana + spare ? 1.5 : 0;
     }
     case 'mana':
       // Only when running low: it spends the AP that could have gone into an attack.

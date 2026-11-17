@@ -12,6 +12,7 @@ import {
   type Cue,
   type GameEvent,
   type GameState,
+  type StatusKind,
   type Hit,
   type Mage,
   type MatchConfig,
@@ -469,34 +470,78 @@ export function applyAction(prev: GameState, action: Action): GameState {
     }
     case 'endTurn': {
       if (action.reason === 'timeout') log({ kind: 'turn', text: `${me.name} ran out of time!` });
-      // Statuses last through the owner's turn (slow and root are read live while moving).
-      me.statuses = me.statuses.map((s) => ({ ...s, turns: s.turns - 1 })).filter((s) => s.turns > 0);
-      me.empower = 0;
-      state.turn += 1;
-      if (state.turn > state.config.maxTurns) {
-        const [a, b] = [hpFraction(state.mages.p1), hpFraction(state.mages.p2)];
-        // The higher share of HP wins; the mage who goes second takes a tie.
-        state.winner = a > b ? 'p1' : 'p2';
-        log({
-          kind: 'victory',
-          text:
-            a === b
-              ? `Time! Level on health, so ${state.mages.p2.name}, who goes second, wins.`
-              : `Time! ${state.mages[state.winner].name} wins on health.`,
-          cue: { kind: 'result', winner: state.winner },
-        });
-        break;
-      }
-      state.active = other(action.player);
-      if (state.active === 'p1')
-        advanceCrystals(state, (c) =>
-          log({ kind: 'status', text: `The ${c.size} crystal is ready.`, at: c.pos, cue: { kind: 'crystalReady', size: c.size } }),
-        ); // a new round begins
-      startTurn(state, state.active, log);
+      finishTurn(state, action.player, log);
       break;
     }
   }
   return state;
+}
+
+/** Ends `player`'s turn and starts the other mage's. Also used when a turn is taken out of the mage's hands. */
+function finishTurn(state: GameState, player: PlayerId, log: Log) {
+  const me = state.mages[player];
+  // Statuses last through the owner's turn (slow and root are read live while moving).
+  me.statuses = me.statuses.map((s) => ({ ...s, turns: s.turns - 1 })).filter((s) => s.turns > 0);
+  me.empower = 0;
+  state.turn += 1;
+  if (state.turn > state.config.maxTurns) {
+    const [a, b] = [hpFraction(state.mages.p1), hpFraction(state.mages.p2)];
+    // The higher share of HP wins; the mage who goes second takes a tie.
+    state.winner = a > b ? 'p1' : 'p2';
+    log({
+      kind: 'victory',
+      text:
+        a === b
+          ? `Time! Level on health, so ${state.mages.p2.name}, who goes second, wins.`
+          : `Time! ${state.mages[state.winner].name} wins on health.`,
+      cue: { kind: 'result', winner: state.winner },
+    });
+    return;
+  }
+  state.active = other(player);
+  if (state.active === 'p1')
+    advanceCrystals(state, (c) =>
+      log({ kind: 'status', text: `The ${c.size} crystal is ready.`, at: c.pos, cue: { kind: 'crystalReady', size: c.size } }),
+    ); // a new round begins
+  startTurn(state, state.active, log);
+}
+
+const hasStatus = (m: Mage, kind: StatusKind) => m.statuses.some((s) => s.kind === kind);
+
+/**
+ * A charmed mage walks as close to the other mage as their movement allows, a frightened one as far
+ * away, spending all their AP and movement.
+ */
+function compelledWalk(state: GameState, player: PlayerId, log: Log) {
+  const me = state.mages[player];
+  const foe = state.mages[other(player)];
+  const toward = hasStatus(me, 'charm');
+  const costs = walk(state, me.pos, moveBudget(me), key(foe.pos));
+  let best = me.pos;
+  let bestScore = (toward ? 1 : -1) * distance(me.pos, foe.pos);
+  let bestCost = 0;
+  for (const [k, cost] of [...costs].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    const h = fromKey(k);
+    const score = (toward ? 1 : -1) * distance(h, foe.pos);
+    if (score < bestScore || (score === bestScore && cost < bestCost)) {
+      best = h;
+      bestScore = score;
+      bestCost = cost;
+    }
+  }
+  const from = me.pos;
+  const path = equals(best, from) ? [] : walkPath(state, from, best, key(foe.pos), moveBudget(me));
+  me.pos = best;
+  me.ap = 0;
+  me.mp = 0;
+  log({
+    kind: 'move',
+    text: equals(best, from) ? `${me.name} can't get ${toward ? 'closer' : 'further away'}.` : `${me.name} ${toward ? 'is drawn toward' : 'flees from'} ${foe.name}.`,
+    at: best,
+    player,
+    path,
+    cue: { kind: 'move', hexes: distance(from, best) },
+  });
 }
 
 /**
@@ -536,10 +581,24 @@ function startTurn(state: GameState, player: PlayerId, log: Log) {
   }
   if (mage.regen > 0) heal(mage, mage.regen, log);
   for (const s of mage.statuses) if (s.kind === 'burn' || s.kind === 'poison') dealDamage(mage, s.power, log);
-  mage.ap = AP_PER_TURN;
+  mage.ap = Math.max(0, AP_PER_TURN - (mage.statuses.find((s) => s.kind === 'fatigue')?.power ?? 0));
   log({ kind: 'turn', text: `${mage.name}'s turn.` });
   checkWinner(state, log);
   if (state.winner) return;
+  // Asleep, charmed or frightened: no Reaction Phase. Attacks land at once, and then the turn plays itself.
+  if (hasStatus(mage, 'asleep') || hasStatus(mage, 'charm') || hasStatus(mage, 'fear')) {
+    resolveIncoming(state, log);
+    if (state.winner) return;
+    if (hasStatus(mage, 'asleep')) {
+      mage.ap = 0;
+      log({ kind: 'status', text: `${mage.name} sleeps through the turn.`, at: mage.pos });
+      finishTurn(state, player, log);
+    } else if (hasStatus(mage, 'charm') || hasStatus(mage, 'fear')) {
+      compelledWalk(state, player, log);
+      finishTurn(state, player, log);
+    } // else: damage woke them, so they play on as normal
+    return;
+  }
   if (incoming(state, player).length) {
     state.phase = 'reaction';
     log({
@@ -585,7 +644,14 @@ function resolveAttack(state: GameState, attack: PendingAttack, log: Log) {
 }
 
 function applyHit(state: GameState, attack: PendingAttack, hit: Hit, v: Mage, onDealt: (n: number) => unknown, log: Log) {
-  if (hit.damage > 0) onDealt(dealDamage(v, hitDamage(v, hit.damage), log, true));
+  if (hit.damage > 0) {
+    const damage = hitDamage(v, hit.damage);
+    onDealt(dealDamage(v, damage, log, true));
+    if (hit.apLoss && v.ap > 0) {
+      v.ap = Math.max(0, v.ap - hit.apLoss);
+      log({ kind: 'status', text: `${v.name} loses ${hit.apLoss} AP.`, at: v.pos });
+    }
+  }
   else if (attack.blocked) log({ kind: 'status', text: `${v.name} is unharmed: the damage was blocked.`, at: v.pos, cue: { kind: 'absorbed' } });
   if (hit.status && v.hp > 0) addStatus(v, hit.status, log);
   if (hit.knockback && v.owner !== attack.caster && v.hp > 0) knockback(state, attack.origin, v, hit.knockback, log);
@@ -628,6 +694,9 @@ function resolveUtility(state: GameState, caster: Mage, def: AbilityDef, target:
       return;
     case 'heal':
       heal(caster, fx.amount, log);
+      break;
+    case 'status':
+      addStatus(def.targeting === 'self' ? caster : state.mages[other(caster.owner)], fx.status, log);
       break;
     case 'mana': {
       const gained = Math.max(0, Math.min(maxMana(caster) - caster.mana, fx.amount));
@@ -727,7 +796,8 @@ function knockback(state: GameState, origin: Hex, victim: Mage, n: number, log: 
  */
 export function hitDamage(victim: Mage, amount: number): number {
   const vuln = victim.statuses.find((s) => s.kind === 'vulnerable')?.power ?? 0;
-  return Math.max(1, amount + vuln - victim.armor);
+  const armored = victim.statuses.find((s) => s.kind === 'armored')?.power ?? 0;
+  return Math.max(1, amount + vuln - victim.armor - armored);
 }
 
 /** Applies shields. Returns HP actually lost. `fromHit`: damage from an Attack's Hit, which makes a sound. */
@@ -736,6 +806,10 @@ function dealDamage(victim: Mage, total: number, log: Log, fromHit = false): num
   victim.shield -= absorbed;
   const dealt = Math.min(victim.hp, total - absorbed);
   victim.hp -= dealt;
+  if (dealt > 0 && victim.statuses.some((s) => s.kind === 'asleep')) {
+    victim.statuses = victim.statuses.filter((s) => s.kind !== 'asleep');
+    log({ kind: 'status', text: `${victim.name} wakes up!`, at: victim.pos });
+  }
   log({
     kind: 'damage',
     text: `${victim.name} takes ${dealt}${absorbed ? ` (${absorbed} blocked)` : ''}.`,
@@ -762,6 +836,11 @@ const STATUS_VERB: Record<Status['kind'], string> = {
   root: 'rooted',
   vulnerable: 'vulnerable',
   disarmed: 'disarmed',
+  fatigue: 'drained of energy',
+  armored: 'armored',
+  charm: 'charmed',
+  fear: 'terrified',
+  asleep: 'put to sleep',
 };
 
 function checkWinner(state: GameState, log: Log) {

@@ -42,6 +42,9 @@ A status that takes a mage's Weapon out of use: Weapon Techniques can't be used,
 **Cooldown**:
 An Ability with a Cooldown of N can't be used again until N of its mage's turns after the turn it was used, so a Cooldown of 2 means not on consecutive turns.
 
+**Compelled turn**:
+A turn the mage doesn't control, caused by Sleep, Charm or Fear. The Reaction Phase is skipped (incoming Attacks land at once). A sleeper has no AP; a charmed mage spends all their AP and movement walking toward the other mage, a frightened one directly away. Damage wakes a sleeper at once, who then plays their turn as normal.
+
 **Instant**:
 An Attack that lands the moment it is cast, with no Reaction Phase, so it can't be dodged or reacted to. Soul Drain is Instant.
 

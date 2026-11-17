@@ -5,12 +5,17 @@ import type { GameState, PlayerId, Status } from '../game/types';
 
 /** How a contested status reads, in the panel. */
 const EFFECT_TEXT: Record<Status['kind'], string> = {
-  root: "can't Move on their next turn",
+  root: "can't Move for the next few turns",
   slow: 'gets fewer Movement Points next turn',
   burn: 'burns',
   poison: 'is poisoned',
   disarmed: 'is disarmed',
   vulnerable: 'takes extra damage from every hit',
+  fatigue: 'has 1 fewer AP each turn',
+  armored: 'takes less damage',
+  charm: 'skips their Reaction Phase and is drawn toward the caster',
+  fear: 'skips their Reaction Phase and flees from the caster',
+  asleep: 'falls asleep until hurt',
 };
 
 /** The result of a bid, from the event log, shown for a moment after the reveal. */

@@ -201,10 +201,60 @@ const LIST: AbilityDef[] = [
     targeting: 'enemy', range: 8, effect: { type: 'contest', maxBid: 5, status: { kind: 'vulnerable', turns: PERMANENT, power: 4 } },
   }),
   spell({
-    id: 'stasis', name: 'Stasis', icon: '🕰️', school: 'time', points: 2, mana: 2, fast: true, cooldown: 2,
+    id: 'stasis', name: 'Stasis', icon: '🕰️', school: 'time', points: 2, mana: 4, fast: true, cooldown: 2,
     description:
-      'Fast, cooldown 2 (not on consecutive turns). Freeze the enemy (8 range, line of sight): you both secretly bid Mana (up to 6). If your bid is at least theirs, they can’t Move on their next turn. Both bids are spent.',
-    targeting: 'enemy', range: 8, effect: { type: 'contest', maxBid: 6, status: { kind: 'root', turns: 1, power: 0 } },
+      'Fast, cooldown 2 (not on consecutive turns). Freeze the enemy (8 range, line of sight): you both secretly bid Mana (up to 4). If your bid is at least theirs, they can’t Move on their next turn. Both bids are spent.',
+    targeting: 'enemy', range: 8, effect: { type: 'contest', maxBid: 4, status: { kind: 'root', turns: 1, power: 0 } },
+  }),
+  spell({
+    id: 'entangle', name: 'Entangle', icon: '🌱', school: 'nature', points: 2, mana: 7, cooldown: 3,
+    description: 'Roots erupt around the enemy (5 range, line of sight): they can’t Move for their next 2 turns.',
+    targeting: 'enemy', range: 5, effect: { type: 'status', status: { kind: 'root', turns: 2, power: 0 } },
+  }),
+  spell({
+    id: 'hold-person', name: 'Hold Person', icon: '🪢', school: 'arcane', points: 2, mana: 7, cooldown: 4,
+    description:
+      'Seize the enemy (5 range, line of sight). You both secretly bid Mana (up to 7). If your bid is at least theirs, they can’t Move for their next 3 turns. Both bids are spent.',
+    targeting: 'enemy', range: 5, effect: { type: 'contest', maxBid: 7, status: { kind: 'root', turns: 3, power: 0 } },
+  }),
+  spell({
+    id: 'slow', name: 'Slow', icon: '🐢', school: 'time', points: 2, mana: 5, cooldown: 4,
+    description:
+      'Drain the enemy’s energy (5 range, line of sight). You both secretly bid Mana (up to 5). If your bid is at least theirs, they have 1 fewer AP for their next 3 turns. Both bids are spent.',
+    targeting: 'enemy', range: 5, effect: { type: 'contest', maxBid: 5, status: { kind: 'fatigue', turns: 3, power: 1 } },
+  }),
+  spell({
+    id: 'charm', name: 'Charm', icon: '💘', school: 'arcane', points: 2, mana: 5, cooldown: 3,
+    description:
+      'Enthrall the enemy (6 range, line of sight). You both secretly bid Mana (up to 5). If your bid is at least theirs, on their next turn they skip their Reaction Phase, can’t use Abilities, and spend all their AP and movement walking toward you. Both bids are spent.',
+    targeting: 'enemy', range: 6, effect: { type: 'contest', maxBid: 5, status: { kind: 'charm', turns: 1, power: 0 } },
+  }),
+  spell({
+    id: 'fear', name: 'Fear', icon: '😱', school: 'death', points: 2, mana: 5, cooldown: 3,
+    description:
+      'Terrify the enemy (4 range, line of sight). You both secretly bid Mana (up to 5). If your bid is at least theirs, on their next turn they skip their Reaction Phase, can’t use Abilities, and spend all their AP and movement running directly away from you. Both bids are spent.',
+    targeting: 'enemy', range: 4, effect: { type: 'contest', maxBid: 5, status: { kind: 'fear', turns: 1, power: 0 } },
+  }),
+  spell({
+    id: 'sleep', name: 'Sleep', icon: '💤', school: 'arcane', points: 2, mana: 5, cooldown: 4,
+    description:
+      'Lull the enemy (6 range, line of sight). You both secretly bid Mana (up to 5). If your bid is at least theirs, for their next 2 turns they skip their Reaction Phase and have no AP. Damage wakes them at once, so a hit in the resolution leaves them their normal AP. Both bids are spent.',
+    targeting: 'enemy', range: 6, effect: { type: 'contest', maxBid: 5, status: { kind: 'asleep', turns: 2, power: 0 } },
+  }),
+  spell({
+    id: 'magic-armor', name: 'Magic Armor', icon: '🔰', school: 'arcane', points: 2, mana: 4, cooldown: 4,
+    description: 'For this turn, your next turn and the one after, every hit deals 4 less damage (but never below 1).',
+    targeting: 'self', effect: { type: 'status', status: { kind: 'armored', turns: 3, power: 4 } },
+  }),
+  attack({
+    id: 'lightning-bolt', name: 'Lightning Bolt', icon: '🌩️', school: 'arcane', points: 2, mana: 2, cooldown: 1,
+    description: 'A bolt along a Line of 8 that hits everything in it. Anyone it damages loses 1 AP.',
+    shape: { kind: 'line', range: 8, pierce: true }, hit: { damage: 4, apLoss: 1 },
+  }),
+  attack({
+    id: 'cold-touch', name: 'Cold Touch', icon: '🥶', school: 'frost', points: 1, mana: 2,
+    description: 'A chilling touch on an adjacent hex: whoever is there is slowed (−1 Movespeed) for 3 turns.',
+    shape: { kind: 'single', range: 1 }, hit: { damage: 0, status: { kind: 'slow', turns: 3, power: 1 } },
   }),
   attack({
     id: 'meteor', name: 'Meteor', icon: '☄️', school: 'fire', points: 2, mana: 10,

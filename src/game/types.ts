@@ -14,8 +14,13 @@ export interface Tile extends Hex {
  * burn / poison: damage each turn. slow: −move. root: no movement.
  * vulnerable: takes +power damage from every hit.
  * disarmed: the weapon is out of use (see Weapon): weapon techniques and weapon bonuses are lost. Unarmed mages can't be disarmed.
+ * fatigue: starts each turn with `power` fewer AP.
+ * armored: takes `power` less damage from every hit (never below 1).
+ * charm / fear: the next turn skips the Reaction Phase, no Abilities, and the mage spends all their movement
+ *   walking toward (charm) or away from (fear) the other mage.
+ * asleep: skips the Reaction Phase and has no AP. Taking damage wakes the mage at once.
  */
-export type StatusKind = 'burn' | 'poison' | 'slow' | 'root' | 'vulnerable' | 'disarmed';
+export type StatusKind = 'burn' | 'poison' | 'slow' | 'root' | 'vulnerable' | 'disarmed' | 'fatigue' | 'armored' | 'charm' | 'fear' | 'asleep';
 
 export interface Status {
   kind: StatusKind;
@@ -55,6 +60,8 @@ export interface Hit {
   lifesteal?: number;
   /** Hexes each victim is shoved away from where the Attack was launched. Negative = pulled toward. */
   knockback?: number;
+  /** AP the victim loses from the turn this lands in, if it hits for at least 1 damage. */
+  apLoss?: number;
 }
 
 export type AbilityEffect =
@@ -93,7 +100,9 @@ export type AbilityEffect =
    */
   | { type: 'contest'; maxBid: number; status: Status }
   /** Gain Mana (up to Max Mana). */
-  | { type: 'mana'; amount: number };
+  | { type: 'mana'; amount: number }
+  /** Puts a status straight on the target (the caster for a `self` Ability, otherwise the enemy). */
+  | { type: 'status'; status: Status };
 
 /**
  * For non-Attack Abilities. self: cast on yourself. tile: an empty hex within range.

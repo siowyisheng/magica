@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ABILITIES } from './content';
-import { actionError, applyAction, bidCap, bidCommitment, castError, createGame, roundsLeftLabel } from './engine';
+import { actionError, applyAction, bidCap, bidCommitment, castError, createGame, hitDamage, mpPerAp, reachable, roundsLeftLabel } from './engine';
+import { distance } from './hex';
 import { threatArea } from './threat';
 import { PERMANENT, type Action, type GameState, type Loadout, type PlayerId } from './types';
 
@@ -47,17 +48,18 @@ const endReaction = (g: GameState) => act(g, { type: 'endReaction', player: g.ac
 const land = (g: GameState) => endReaction(endTurn(g));
 
 describe('max bid', () => {
-  it('every contested Spell has one: Stasis 6, Doom 5', () => {
-    expect(bidCap(ABILITIES.stasis)).toBe(6);
+  it('every contested Spell has one: Stasis 4, Doom 5, Hold Person 7', () => {
+    expect(bidCap(ABILITIES.stasis)).toBe(4);
+    expect(bidCap(ABILITIES['hold-person'])).toBe(7);
     expect(bidCap(ABILITIES.doom)).toBe(5);
   });
 
   it('a bid over the max counts as 0 and forfeits all of that mage’s Mana, even with Mana to spare', () => {
-    let g = contest(cast(duel(['stasis']), 'stasis'), 2, 7);
+    let g = contest(cast(duel(['stasis']), 'stasis'), 2, 5);
     expect(g.mages.p2.mana).toBe(0);
     expect(g.mages.p2.statuses.some((s) => s.kind === 'root')).toBe(true); // 2 ≥ 0
-    g = contest(cast(duel(['stasis']), 'stasis'), 2, 6); // exactly the max is fine
-    expect(g.mages.p2.mana).toBe(24);
+    g = contest(cast(duel(['stasis']), 'stasis'), 2, 4); // exactly the max is fine
+    expect(g.mages.p2.mana).toBe(26);
   });
 });
 
@@ -190,5 +192,148 @@ describe('round limit', () => {
     const g = finish(short());
     expect(g.winner).toBe('p2');
     expect(g.events.at(-1)?.text).toMatch(/goes second/);
+  });
+});
+
+describe('control spells', () => {
+  const has = (g: GameState, player: PlayerId, kind: string) => g.mages[player].statuses.some((s) => s.kind === kind);
+
+  it('all cost 2 pts with the cooldowns they were given', () => {
+    const want: Record<string, [number, number]> = {
+      entangle: [7, 3], 'hold-person': [7, 4], slow: [5, 4], charm: [5, 3], fear: [5, 3], sleep: [5, 4], 'magic-armor': [4, 4], 'lightning-bolt': [2, 1],
+    };
+    for (const [id, [mana, cooldown]] of Object.entries(want)) expect(ABILITIES[id], id).toMatchObject({ points: 2, mana, cooldown });
+    expect(ABILITIES['cold-touch']).toMatchObject({ points: 1, mana: 2 });
+    expect(ABILITIES.stasis).toMatchObject({ mana: 4 });
+  });
+
+  it('Entangle needs range 5 and line of sight, and roots for the next 2 turns', () => {
+    let g = duel(['entangle']);
+    g.mages.p1.pos = { q: 0, r: 6 };
+    expect(castError(g, 'p1', 'entangle', g.mages.p2.pos)).toMatch(/range/i);
+    g.mages.p1.pos = { q: 0, r: 4 };
+    g.tiles['0,2'].terrain = 'rock';
+    expect(castError(g, 'p1', 'entangle', g.mages.p2.pos)).toMatch(/line of sight/i);
+    g.tiles['0,2'].terrain = 'plain';
+    g = cast(g, 'entangle');
+    expect(g.mages.p1.mana).toBe(23);
+    expect(g.bidding).toBeNull(); // no bid: it just lands
+    g = endTurn(g);
+    expect(reachable(g, 'p2').size).toBe(0);
+    g = endTurn(endTurn(g)); // P2 ends, P1 ends: P2's second turn
+    expect(reachable(g, 'p2').size).toBe(0);
+    g = endTurn(endTurn(g)); // and the third: free again
+    expect(has(g, 'p2', 'root')).toBe(false);
+    expect(reachable(g, 'p2').size).toBeGreaterThan(0);
+  });
+
+  it('Hold Person is a bid (max 7) that roots for 3 turns', () => {
+    const g = contest(cast(duel(['hold-person']), 'hold-person'), 7, 2);
+    expect(g.mages.p2.statuses.find((s) => s.kind === 'root')).toMatchObject({ turns: 3 });
+    expect(contest(cast(duel(['hold-person']), 'hold-person'), 1, 2).mages.p2.statuses).toHaveLength(0);
+  });
+
+  it('Slow takes 1 AP off for the next 3 turns', () => {
+    let g = contest(cast(duel(['slow']), 'slow'), 5, 0);
+    const aps: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      g = endTurn(g); // P2's turn starts
+      aps.push(g.mages.p2.ap);
+      g = endTurn(g); // P2 ends, back to P1
+    }
+    expect(aps).toEqual([1, 1, 1, 2]);
+  });
+
+  it('Charm skips the reaction, then walks the target toward the caster with all their movement', () => {
+    let g = duel(['charm', 'firebolt']);
+    g = cast(g, 'firebolt');
+    g = contest(cast(g, 'charm'), 5, 0);
+    expect(has(g, 'p2', 'charm')).toBe(true);
+    g = endTurn(g);
+    expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp - 4); // the Firebolt landed, with no Reaction Phase
+    expect(g.mages.p2.pos).toEqual({ q: 0, r: 2 }); // walked up to the caster
+    expect(g.active).toBe('p1'); // and their whole turn is gone
+    expect(g.phase).toBe('action');
+    expect(has(g, 'p2', 'charm')).toBe(false);
+  });
+
+  it('Fear sends them as far away as their movement allows', () => {
+    let g = contest(cast(duel(['fear']), 'fear'), 5, 0);
+    g = endTurn(g);
+    expect(distance(g.mages.p2.pos, g.mages.p1.pos)).toBe(3 + 3 * 2); // 3 Movespeed x 2 AP further
+    expect(g.active).toBe('p1');
+  });
+
+  it('a rooted mage can neither close in nor flee', () => {
+    let g = contest(cast(duel(['charm', 'hold-person']), 'charm'), 5, 0);
+    g.mages.p2.statuses.push({ kind: 'root', turns: 2, power: 0 });
+    g = endTurn(g);
+    expect(g.mages.p2.pos).toEqual({ q: 0, r: 0 });
+  });
+
+  it('Sleep skips the reaction and the whole turn for 2 turns', () => {
+    let g = contest(cast(duel(['sleep']), 'sleep'), 5, 0);
+    g = endTurn(g);
+    expect(g.active).toBe('p1'); // P2 slept through it
+    expect(has(g, 'p2', 'asleep')).toBe(true);
+    g = endTurn(g);
+    expect(g.active).toBe('p1'); // and the one after
+    expect(has(g, 'p2', 'asleep')).toBe(false);
+    g = endTurn(g);
+    expect(g.active).toBe('p2'); // awake at last
+    expect(g.mages.p2.ap).toBe(2);
+  });
+
+  it('damage wakes a sleeper, who then keeps their normal AP', () => {
+    let g = duel(['sleep', 'firebolt']);
+    g = cast(g, 'firebolt');
+    g = contest(cast(g, 'sleep'), 5, 0);
+    g = endTurn(g);
+    expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp - 4);
+    expect(has(g, 'p2', 'asleep')).toBe(false);
+    expect(g.active).toBe('p2');
+    expect(g.phase).toBe('action');
+    expect(g.mages.p2.ap).toBe(2);
+  });
+});
+
+describe('Magic Armor, Lightning Bolt and Cold Touch', () => {
+  it('Magic Armor takes 4 off every hit (never below 1) for this turn and the next two', () => {
+    let g = cast(duel(['magic-armor']), 'magic-armor', { q: 0, r: 3 });
+    expect(hitDamage(g.mages.p1, 6)).toBe(2);
+    expect(hitDamage(g.mages.p1, 3)).toBe(1);
+    const armored = () => g.mages.p1.statuses.some((s) => s.kind === 'armored');
+    g = endTurn(endTurn(g)); // P1's next turn
+    expect(armored()).toBe(true);
+    g = endTurn(endTurn(g)); // the one after: armour ends with it
+    expect(armored()).toBe(true);
+    g = endTurn(endTurn(g));
+    expect(armored()).toBe(false);
+  });
+
+  it('Lightning Bolt hits for 4 along a Line of 8 and costs the target 1 AP', () => {
+    let g = duel(['lightning-bolt']);
+    g.mages.p1.pos = { q: 0, r: 7 };
+    g = land(cast(g, 'lightning-bolt', { q: 0, r: 0 }));
+    expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp - 4);
+    expect(g.mages.p2.ap).toBe(1);
+  });
+
+  it('Lightning Bolt can be cast every turn but not twice in one', () => {
+    let g = cast(duel(['lightning-bolt']), 'lightning-bolt');
+    expect(castError(g, 'p1', 'lightning-bolt', g.mages.p2.pos)).toBeTruthy();
+    g = endTurn(g);
+    g = endReaction(g);
+    g = endTurn(g);
+    expect(castError(g, 'p1', 'lightning-bolt', g.mages.p2.pos)).toBeNull();
+  });
+
+  it('Cold Touch slows an adjacent target (-1 Movespeed) for 3 turns', () => {
+    let g = duel(['cold-touch']);
+    g.mages.p1.pos = { q: 0, r: 1 };
+    g = land(cast(g, 'cold-touch', { q: 0, r: 0 }));
+    expect(g.mages.p2.statuses.find((s) => s.kind === 'slow')).toMatchObject({ power: 1, turns: 3 });
+    expect(mpPerAp(g.mages.p2)).toBe(2);
+    expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp);
   });
 });

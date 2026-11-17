@@ -14,7 +14,7 @@ const loadout = (abilities: string[]): Loadout => ({
 });
 
 /** Open board; P1 at `a` holds Stasis, P2 at `b`. Both start with `mana`. */
-function duel(a: Hex = { q: 0, r: 4 }, b: Hex = { q: 0, r: -3 }, mana = 10): GameState {
+function duel(a: Hex = { q: 0, r: 4 }, b: Hex = { q: 0, r: -3 }, mana = 12): GameState {
   const g = createGame({
     seed: 3,
     radius: 7,
@@ -27,7 +27,8 @@ function duel(a: Hex = { q: 0, r: 4 }, b: Hex = { q: 0, r: -3 }, mana = 10): Gam
   g.crystals = [];
   g.mages.p1.pos = a;
   g.mages.p2.pos = b;
-  g.mages.p1.mana = g.mages.p2.mana = mana;
+  g.mages.p1.mana = mana; // 12: Stasis costs 4, leaving the 8 these tests were written around
+  g.mages.p2.mana = mana - 2;
   return g;
 }
 
@@ -51,9 +52,9 @@ function contest(g: GameState, casterBid: number, targetBid: number): GameState 
 const rooted = (g: GameState) => g.mages.p2.statuses.some((s) => s.kind === 'root');
 
 describe('Stasis', () => {
-  it('is a Fast, 2-Mana contested Spell, once per turn like any Fast Ability', () => {
+  it('is a Fast, 4-Mana contested Spell, once per turn like any Fast Ability', () => {
     const def = ABILITIES.stasis;
-    expect(def).toMatchObject({ fast: true, mana: 2, targeting: 'enemy', range: 8 });
+    expect(def).toMatchObject({ fast: true, mana: 4, targeting: 'enemy', range: 8 });
     expect(usesPerTurn(def)).toBe(1);
     expect(def.effect.type).toBe('contest');
   });
@@ -67,7 +68,7 @@ describe('Stasis', () => {
     expect(castError(duel(), 'p1', 'stasis', { q: 1, r: -3 })).toMatch(/enemy/i);
   });
 
-  it('costs 2 Mana and no AP, and opens the bidding', () => {
+  it('costs 4 Mana and no AP, and opens the bidding', () => {
     const g = stasis(duel());
     expect(g.mages.p1.mana).toBe(8);
     expect(g.mages.p1.ap).toBe(2);
@@ -111,10 +112,10 @@ describe('bidding', () => {
   });
 
   it('is resisted when the target bids more, and both bids are still spent', () => {
-    const g = contest(stasis(duel()), 2, 5);
+    const g = contest(stasis(duel()), 2, 4);
     expect(rooted(g)).toBe(false);
     expect(g.mages.p1.mana).toBe(6);
-    expect(g.mages.p2.mana).toBe(5);
+    expect(g.mages.p2.mana).toBe(6);
   });
 
   it('roots: the target cannot Move on their next turn', () => {
