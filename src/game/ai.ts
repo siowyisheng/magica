@@ -122,7 +122,7 @@ function chooseReaction(state: GameState, player: PlayerId): Action {
   const threats = incoming(state, player);
   const hitting = threats.filter((a) => a.homing || a.area.includes(key(me.pos)));
   if (!hitting.length) return { type: 'endReaction', player };
-  const toPost = stepsToFiringPost(state, state.mages[other(player)].pos, idealRange(me));
+  const toPost = stepsToFiringPost(state, state.mages[other(player)].pos, me);
   return planReaction(state, player, state, toPost, REACTION_DEPTH).action;
 }
 
@@ -256,26 +256,34 @@ function chooseMain(state: GameState, player: PlayerId): Action {
     if (target) return { type: 'move', player, to: target.pos };
   }
 
-  // 3. Reposition: get out of our own Threat Areas, then toward the ideal range for our attacks.
-  if (options.size) {
-    const toPost = stepsToFiringPost(state, enemy.pos, idealRange(me));
-    const scorePos = (h: Hex) => (ownDanger.has(key(h)) ? -100 : 0) - (toPost.get(key(h)) ?? Infinity);
-    let bestPos: Hex | null = null;
-    let bestScore = scorePos(me.pos);
-    let bestCost = 0;
-    for (const [k, cost] of options) {
-      const h = fromKey(k);
-      const s = scorePos(h);
-      // On a tie, the cheaper walk: it keeps AP for an Attack once we get there.
-      if (s > bestScore + 1e-9 || (bestPos && Math.abs(s - bestScore) < 1e-9 && cost < bestCost)) {
-        bestScore = s;
-        bestPos = h;
-        bestCost = cost;
-      }
+  // 3. Reposition. With AP to spare for an Attack after walking, head for a firing post. Otherwise
+  // this is where we'll stand through the enemy's turn: keep out of what they can hit us with.
+  const toPost = stepsToFiringPost(state, enemy.pos, me);
+  const offense = canStillAttackAfterWalking(state, player);
+  const threat = offense ? null : enemyThreat(state, player);
+  const wary = idealRange(me) <= 1 ? 0 : 1; // melee mages have to walk into reach anyway
+  const scorePos = (k: string) =>
+    (ownDanger.has(k) ? -100 : 0) -
+    (offense ? toPost.get(k) ?? Infinity : 0.3 * (toPost.get(k) ?? 1000) + wary * threat!(k));
+  let bestPos: string | null = null;
+  const here = scorePos(key(me.pos));
+  let bestScore = here;
+  let bestCost = 0;
+  for (const [k, cost] of options) {
+    const s = scorePos(k);
+    // On a tie, the cheaper walk: it keeps AP for an Attack once we get there.
+    if (s > bestScore + 1e-9 || (bestPos && Math.abs(s - bestScore) < 1e-9 && cost < bestCost)) {
+      bestScore = s;
+      bestPos = k;
+      bestCost = cost;
     }
-    // AP left at the end of a turn is lost, so any step to a better position is worth it.
-    if (bestPos) return { type: 'move', player, to: bestPos };
   }
+  // 4. Leftover AP: a small step isn't worth more than topping up Mana or health with it.
+  const filler = offense ? null : fillerCast(state, player);
+  if (filler && (!bestPos || bestScore - here < 0.3 || options.get(bestPos)! <= me.mp)) return filler;
+  // AP left at the end of a turn is lost, so any step to a better position is worth it.
+  if (bestPos) return { type: 'move', player, to: fromKey(bestPos) };
+  if (filler) return filler;
 
   return { type: 'endTurn', player };
 }
@@ -286,7 +294,9 @@ function chooseMain(state: GameState, player: PlayerId): Action {
  * Walking distance (not straight-line distance) keeps the bot from getting stuck behind a wall
  * whose way round first leads away from the enemy.
  */
-function stepsToFiringPost(state: GameState, enemyPos: Hex, ideal: number): Map<string, number> {
+function stepsToFiringPost(state: GameState, enemyPos: Hex, me: Mage): Map<string, number> {
+  const ideal = idealRange(me);
+  const farthest = maxReach(me);
   const enemy = key(enemyPos);
   const passable = (k: string) => k !== enemy && state.tiles[k] && state.tiles[k].terrain !== 'rock';
   const best = new Map<string, number>();
@@ -294,9 +304,12 @@ function stepsToFiringPost(state: GameState, enemyPos: Hex, ideal: number): Map<
   for (const k of Object.keys(state.tiles)) {
     if (!passable(k)) continue;
     const h = fromKey(k);
-    // Being off range or out of sight weighs far more than a step of walking, so a long way round
-    // to a real firing post still beats standing nearer in a straight line.
-    const cost = 10 * Math.abs(distance(h, enemyPos) - ideal) + (hasLOS(state, h, enemyPos) ? 0 : 3);
+    // Being out of reach or out of sight weighs far more than a step of walking, so a long way round
+    // to a real firing post still beats standing nearer in a straight line. Within reach, the ideal
+    // range is only a mild preference, which leaves room to back away from danger.
+    const d = distance(h, enemyPos);
+    const off = d < ideal ? 4 * (ideal - d) : d <= farthest ? d - ideal : farthest - ideal + 10 * (d - farthest);
+    const cost = off + (hasLOS(state, h, enemyPos) ? 0 : 3);
     best.set(k, cost);
     frontier.push([k, cost]);
   }
@@ -314,6 +327,86 @@ function stepsToFiringPost(state: GameState, enemyPos: Hex, ideal: number): Map<
   return best;
 }
 
+/** Whether, after spending an AP (or leftover Movement) on walking, we could still afford an Attack this turn. */
+function canStillAttackAfterWalking(state: GameState, player: PlayerId): boolean {
+  const me = state.mages[player];
+  const apAfterWalk = me.mp > 0 ? me.ap : me.ap - 1;
+  return me.abilities.some((slot) => {
+    const def = ABILITIES[slot.id];
+    if (def.effect.type !== 'attack' || def.mana > me.mana || apCost(def) > apAfterWalk) return false;
+    const err = castError(state, player, slot.id);
+    return !err || !err.match(/cooldown|once|times per turn|equipped|Mana|AP/i);
+  });
+}
+
+/**
+ * For each hex, the worst single Attack the enemy could land on us there next turn, in HP-equivalents:
+ * they may walk first (keeping an AP to cast) and need line of sight for anything but a Burst or Wall.
+ * Halved when we could step out of it in our own Reaction Phase; homing Attacks can't be stepped out of.
+ */
+function enemyThreat(state: GameState, player: PlayerId): (k: string) => number {
+  const me = state.mages[player];
+  const enemy = state.mages[other(player)];
+  const attacks = enemy.abilities
+    .map((slot) => ({ slot, def: ABILITIES[slot.id] }))
+    .filter(({ slot, def }) => def.effect.type === 'attack' && def.mana <= enemy.mana + 2 && (slot.cooldown ?? 0) <= 1)
+    .map(({ def }) => {
+      const fx = def.effect as Extract<typeof def.effect, { type: 'attack' }>;
+      const dmg = fx.hit.damage > 0 ? hitDamage(me, fx.hit.damage) : 0;
+      const sure = !!(fx.homing || fx.instant);
+      const value = (dmg + (fx.hit.status ? 1.5 : 0)) * (sure || mpPerAp(me, true) <= 0 ? 1 : 0.5);
+      const los = !(fx.shape.kind === 'burst' || fx.shape.kind === 'wall' || fx.shape.kind === 'selfBurst');
+      return { reach: abilityRange(def), los, value };
+    })
+    .sort((a, b) => b.value - a.value);
+  if (!attacks.length) return () => 0;
+  // Where the enemy could cast from: walking with all but one AP of their next turn.
+  const from: Hex[] = [enemy.pos];
+  const budget = Math.max(0, nextTurnAp(enemy) - 1) * mpPerAp(enemy);
+  if (budget > 0) {
+    const seen = new Set([key(enemy.pos)]);
+    let frontier = [enemy.pos];
+    for (let d = 1; d <= budget; d++) {
+      const next: Hex[] = [];
+      for (const h of frontier)
+        for (const n of neighbors(h)) {
+          const k = key(n);
+          if (seen.has(k) || !state.tiles[k] || state.tiles[k].terrain === 'rock') continue;
+          seen.add(k);
+          next.push(n);
+          from.push(n);
+        }
+      frontier = next;
+    }
+  }
+  const cache = new Map<string, number>();
+  return (k: string) => {
+    let v = cache.get(k);
+    if (v !== undefined) return v;
+    const h = fromKey(k);
+    v = 0;
+    for (const a of attacks)
+      if (from.some((p) => distance(p, h) <= a.reach && (!a.los || hasLOS(state, p, h)))) {
+        v = a.value;
+        break;
+      }
+    cache.set(k, v);
+    return v;
+  };
+}
+
+/** Something useful for a last AP that has nothing better to do: top up Mana, or heal. */
+function fillerCast(state: GameState, player: PlayerId): Action | null {
+  const me = state.mages[player];
+  for (const slot of me.abilities) {
+    const fx = ABILITIES[slot.id].effect;
+    if (castError(state, player, slot.id, me.pos)) continue;
+    const useful = (fx.type === 'mana' && me.mana < maxMana(me)) || (fx.type === 'heal' && me.hp < me.maxHp);
+    if (useful) return { type: 'cast', player, abilityId: slot.id, target: me.pos };
+  }
+  return null;
+}
+
 /** Could we still launch an Attack covering the enemy this turn with this much AP and Mana left? */
 function hasFollowUp(state: GameState, player: PlayerId, apLeft: number, manaLeft: number): boolean {
   const me = state.mages[player];
@@ -323,6 +416,12 @@ function hasFollowUp(state: GameState, player: PlayerId, apLeft: number, manaLef
     if (castError(state, player, slot.id)?.match(/cooldown|once|times per turn|equipped/i)) return false;
     return castCandidates(state, player, slot.id).length > 0;
   });
+}
+
+/** How far our longest Attack reaches (capped, so unlimited Lines don't send us to the board edge). */
+function maxReach(me: Mage): number {
+  const ranges = me.abilities.map((s) => ABILITIES[s.id]).filter((d) => d.effect.type === 'attack').map(abilityRange);
+  return Math.max(idealRange(me), Math.min(8, ...ranges.length ? [Math.max(...ranges)] : [1]));
 }
 
 function idealRange(me: Mage): number {
@@ -335,7 +434,7 @@ function idealRange(me: Mage): number {
   return ranged.length ? Math.min(...ranged, 5) : 1;
 }
 
-/** Aim points worth evaluating, with their Threat Areas. For Attacks, only aims that cover the enemy. */
+/** Aim points worth evaluating, with their Threat Areas. For Attacks, only aims that cover the enemy (or where they'd dodge to). */
 function castCandidates(state: GameState, player: PlayerId, abilityId: string): Array<[Hex, Set<string>, Hex[]?]> {
   const def = ABILITIES[abilityId];
   if (def.effect.type !== 'attack') return validTargets(state, player, abilityId).map((t) => [t, new Set<string>()]);
@@ -351,11 +450,13 @@ function castCandidates(state: GameState, player: PlayerId, abilityId: string): 
     }
     return out;
   }
+  // Once something is on its way, an Attack that covers where they'd escape to is worth trying too.
+  const escapes = state.pending.some((a) => a.caster === player && !a.reflected) ? dodgeReach(state, player) : null;
   for (const aim of aimableHexes(state.tiles, me, shape)) {
     const area = threatArea(state.tiles, me, shape, aim, enemyPos);
     if (!area) continue;
     const keys = new Set(area.map(key));
-    if (keys.has(enemy)) out.push([aim, keys]);
+    if (keys.has(enemy) || (escapes && [...keys].some((k) => escapes.has(k)))) out.push([aim, keys]);
   }
   // Equal scores keep the first candidate, so try aiming straight at the enemy first. Otherwise the bot
   // can pick a slightly off-angle Line that clips them but misses the hex behind, and they step out of it.
@@ -376,76 +477,85 @@ function wallsThrough(h: Hex, length: number): Hex[][] {
   return out;
 }
 
-/** Movement the enemy needs to leave `area`, or Infinity if they can't. */
-function escapeCost(state: GameState, from: Hex, area: Set<string>): number {
-  if (!area.has(key(from))) return 0;
-  const seen = new Set([key(from)]);
-  let frontier = [from];
-  for (let d = 1; d <= 12; d++) {
-    const next: Hex[] = [];
-    for (const h of frontier)
-      for (const n of neighbors(h)) {
-        const k = key(n);
-        const t = state.tiles[k];
-        if (!t || t.terrain === 'rock' || seen.has(k)) continue;
-        if (!area.has(k)) return d;
-        seen.add(k);
-        next.push(n);
-      }
-    frontier = next;
-  }
-  return Infinity;
-}
-
 /** Can't dodge in their next Reaction Phase: rooted, or facing a Compelled turn (Sleep, Charm, Fear). */
 const isPinned = (m: Mage) => m.statuses.some((s) => s.kind === 'root' || s.kind === 'asleep' || s.kind === 'charm' || s.kind === 'fear');
 
 /** AP the mage will have next turn (fatigue takes some away). */
 const nextTurnAp = (m: Mage) => Math.max(0, AP_PER_TURN - (m.statuses.find((s) => s.kind === 'fatigue')?.power ?? 0));
 
-/**
- * Whether the enemy could walk out of `area` in their next Reaction Phase. Instant and homing Attacks,
- * and anything aimed at a Pinned mage, can't be dodged. Reaction Spells (Blink, Ward…) don't count.
- */
-function isDodgeable(state: GameState, player: PlayerId, area: Set<string>, unavoidable = false): boolean {
-  const enemy = state.mages[other(player)];
-  if (unavoidable || isPinned(enemy)) return false;
-  // Dodging happens in the Reaction Phase, where Movement is slower.
-  return escapeCost(state, enemy.pos, area) <= nextTurnAp(enemy) * mpPerAp(enemy, true);
-}
-
-/** Dodgeable Attacks this mage has already launched this turn (deflected ones aside). */
-function dodgeableLaunched(state: GameState, player: PlayerId): number {
-  return state.pending.filter((a) => a.caster === player && !a.reflected && isDodgeable(state, player, new Set(a.area), a.homing))
-    .length;
+/** An Attack as the enemy will face it in their Reaction Phase. */
+interface Incoming {
+  area: Set<string>;
+  hit: Hit;
+  /** Lands wherever they stand (homing or instant). */
+  sure: boolean;
 }
 
 /**
- * Rule: never pour Mana or AP into Attacks the enemy can simply walk away from. At most one dodgeable
- * Attack per turn, costing no more than 2 Mana or 20% of current Mana, whichever is higher.
+ * Where the enemy could stand when our Attacks land, if they spend their next Reaction Phase walking:
+ * each reachable hex with the AP it costs. Reaction Movement is slower; a Pinned mage can't step at all.
  */
-function withinDodgeableBudget(state: GameState, player: PlayerId, manaCost: number): boolean {
-  const me = state.mages[player];
-  return dodgeableLaunched(state, player) === 0 && manaCost <= Math.max(2, 0.2 * me.mana);
+function dodgeReach(state: GameState, player: PlayerId): Map<string, number> {
+  const enemy = state.mages[other(player)];
+  const out = new Map([[key(enemy.pos), 0]]);
+  const per = mpPerAp(enemy, true);
+  if (isPinned(enemy) || per <= 0) return out;
+  const budget = nextTurnAp(enemy) * per;
+  const blocked = key(state.mages[player].pos);
+  let frontier = [enemy.pos];
+  for (let d = 1; d <= budget; d++) {
+    const next: Hex[] = [];
+    for (const h of frontier)
+      for (const n of neighbors(h)) {
+        const k = key(n);
+        const t = state.tiles[k];
+        if (!t || t.terrain === 'rock' || k === blocked || out.has(k)) continue;
+        out.set(k, Math.ceil(d / per));
+        next.push(n);
+      }
+    frontier = next;
+  }
+  return out;
 }
 
-/** Expected value of landing `hit` on the enemy, given they get a Reaction Phase to dodge. */
-function attackValue(state: GameState, player: PlayerId, area: Set<string>, hit: Hit, undodgeable = false): number {
-  const enemy = state.mages[other(player)];
-  const dmg = hit.damage > 0 ? hitDamage(enemy, hit.damage) : 0;
-  let full = dmg;
-  if (hit.status && !enemy.statuses.some((s) => s.kind === hit.status!.kind)) full += 1.5;
-  if (hit.lifesteal) full += dmg * hit.lifesteal * 0.5;
-  if (hit.knockback) full += 0.3;
-  if (dmg > 0 && enemy.hp + enemy.shield <= dmg) full += 100;
+/** Our Attacks already on their way to the enemy. */
+function ownIncoming(state: GameState, player: PlayerId): Incoming[] {
+  return state.pending
+    .filter((a) => a.caster === player && !a.reflected)
+    .map((a) => ({ area: new Set(a.area), hit: a.hit, sure: !!a.homing }));
+}
 
-  if (undodgeable) return full;
-  const per = mpPerAp(enemy, true); // dodging happens in the Reaction Phase, where Movement is slower
-  const cost = escapeCost(state, enemy.pos, area);
-  const apToDodge = per > 0 ? Math.ceil(cost / per) : Infinity;
-  if (apToDodge > nextTurnAp(enemy)) return full; // unavoidable
-  // Dodgeable: still worth something for the AP it forces them to burn.
-  return full * 0.3 + apToDodge * 1.2;
+/** What a set of Attacks would do to the enemy standing on one hex (in HP-equivalents). */
+function harmAt(enemy: Mage, k: string, attacks: Incoming[]): number {
+  let dmg = 0;
+  let extra = 0;
+  const statuses = new Set<string>();
+  for (const a of attacks) {
+    if (!a.sure && !a.area.has(k)) continue;
+    const d = a.hit.damage > 0 ? hitDamage(enemy, a.hit.damage) : 0;
+    dmg += d;
+    if (a.hit.status && !enemy.statuses.some((s) => s.kind === a.hit.status!.kind)) statuses.add(a.hit.status.kind);
+    if (a.hit.lifesteal) extra += d * a.hit.lifesteal * 0.5;
+    if (a.hit.knockback) extra += 0.3;
+  }
+  if (dmg > 0 && dmg >= enemy.hp + enemy.shield) extra += 100;
+  return dmg + extra + statuses.size * 1.5;
+}
+
+/**
+ * The enemy's best reply to a set of Attacks: the hex they'd walk to (or stay on) that leaves them
+ * least worse off, counting each AP spent walking as about 1 HP. `value` is what the Attacks are worth
+ * to us (harm landed plus AP they force the enemy to burn); `harm` is the harm alone.
+ */
+function bestDodge(state: GameState, player: PlayerId, attacks: Incoming[], reach = dodgeReach(state, player)) {
+  const enemy = state.mages[other(player)];
+  let best = { value: Infinity, harm: 0 };
+  for (const [k, ap] of reach) {
+    const harm = harmAt(enemy, k, attacks);
+    const value = harm + ap * VALUE.ap;
+    if (value < best.value - 1e-9 || (Math.abs(value - best.value) < 1e-9 && harm < best.harm)) best = { value, harm };
+  }
+  return best;
 }
 
 function scoreCast(state: GameState, player: PlayerId, abilityId: string, _target: Hex, area: Set<string>): number {
@@ -457,9 +567,20 @@ function scoreCast(state: GameState, player: PlayerId, abilityId: string, _targe
   const cost = Math.max(1, apCost(def) + def.mana / 5);
   switch (fx.type) {
     case 'attack': {
-      const unavoidable = !!(fx.instant || fx.homing);
-      if (isDodgeable(state, player, area, unavoidable) && !withinDodgeableBudget(state, player, def.mana)) return 0;
-      let score = attackValue(state, player, area, fx.hit, unavoidable || isPinned(enemy));
+      // Worth what it adds on top of what we've already launched, given the enemy's best dodge: an Attack
+      // that covers where they'd escape to (or that they can't escape) lands; one they simply step out of
+      // only taxes their AP.
+      const launched = ownIncoming(state, player);
+      const reach = dodgeReach(state, player);
+      const before = bestDodge(state, player, launched, reach);
+      const after = bestDodge(state, player, [...launched, { area, hit: fx.hit, sure: !!(fx.instant || fx.homing) }], reach);
+      // Rule: never pour Mana or AP into Attacks the enemy can simply walk away from. An Attack that lands
+      // nothing extra is dodgeable: at most one a turn, for no more than 2 Mana or 20% of our Mana.
+      if (after.harm - before.harm < 0.5) {
+        const alreadyDodgeable = launched.length > 0 && before.harm < 0.5;
+        if (alreadyDodgeable || def.mana > Math.max(2, 0.2 * me.mana)) return 0;
+      }
+      let score = after.value - before.value;
       // Standing in our own Threat Area is fine only if we can still walk out.
       if (area.has(key(me.pos))) score -= me.ap > apCost(def) || me.mp > 1 ? 0.5 : fx.hit.damage * 1.5;
       return score / cost;
