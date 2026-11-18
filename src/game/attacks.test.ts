@@ -13,7 +13,7 @@ const loadout = (abilities: string[]): Loadout => ({
 });
 
 /** Open board; P1 (attacker) at `a`, P2 at `b`. Both have plenty of Mana. */
-function duel(a: Hex, b: Hex, abilities = ['firebolt', 'icicle', 'plague', 'frost-lance', 'blink', 'slash']): GameState {
+function duel(a: Hex, b: Hex, abilities = ['firebolt', 'icicle', 'fireball', 'frost-lance', 'slash']): GameState {
   const g = createGame({
     seed: 3,
     radius: 6,
@@ -117,13 +117,17 @@ describe('dodging, by shape', () => {
     ['firebolt', { q: 0, r: 2 }, { q: 0, r: -1 }, { q: 0, r: -1 }, { q: 1, r: -1 }, { q: 0, r: 0 }], // Line
     ['icicle', { q: 0, r: 4 }, { q: 0, r: -1 }, { q: 0, r: -1 }, { q: 1, r: -1 }, { q: 0, r: -1 }], // Single Hex
     ['slash', { q: 0, r: 1 }, { q: 0, r: 0 }, { q: 0, r: 0 }, { q: 0, r: -1 }, { q: 1, r: 0 }], // Melee Arc
-    ['plague', { q: 0, r: 3 }, { q: 0, r: 0 }, { q: 0, r: 0 }, { q: 0, r: -2 }, { q: 1, r: -1 }], // Burst r1
+    ['fireball', { q: 0, r: 3 }, { q: 0, r: 0 }, { q: 0, r: 0 }, { q: 0, r: -2 }, { q: 1, r: -1 }], // Burst r1
   ];
 
-  const dodge = (g: GameState, to: Hex) => cast(g, 'blink', to, 'p2');
+  const dodge = (g: GameState, to: Hex) => act(g, { type: 'move', player: 'p2', to });
 
   for (const [ability, p1, p2, aim, safe, inside] of cases) {
-    const launched = () => endTurn(cast(duel(p1, p2), ability, aim));
+    const launched = () => {
+      const g = duel(p1, p2);
+      g.mages.p2.movespeed = 4; // enough to walk a hex while reacting
+      return endTurn(cast(g, ability, aim));
+    };
     const struck = (g: GameState) => g.mages.p2.hp < g.mages.p2.maxHp || g.mages.p2.statuses.length > 0;
 
     it(`${ability}: dodging out of the Threat Area avoids the hit`, () => {
@@ -152,7 +156,7 @@ describe('resolution', () => {
 
   it('hits every mage in the Threat Area, the caster included', () => {
     let g = duel({ q: 0, r: 1 }, { q: 0, r: -1 });
-    g = cast(g, 'plague', { q: 0, r: 0 }); // P1 stands in its own Burst
+    g = cast(g, 'fireball', { q: 0, r: 0 }); // P1 stands in its own Burst
     g = endReaction(endTurn(g));
     expect(g.mages.p1.hp).toBeLessThan(g.mages.p1.maxHp);
     expect(g.mages.p2.hp).toBeLessThan(g.mages.p2.maxHp);
@@ -165,20 +169,5 @@ describe('Attacks with nothing to threaten', () => {
     g.tiles['0,1'].terrain = 'rock';
     expect(actionError(g, { type: 'cast', player: 'p1', abilityId: 'firebolt', target: { q: 0, r: 1 } })).toMatch(/aim/);
     expect(validTargets(g, 'p1', 'firebolt').some((h) => h.q === 0 && h.r === 1)).toBe(false);
-  });
-
-  it('a Deflect whose return path is blocked just cancels the Attack', () => {
-    const l: Loadout = { ...loadout(['firebolt', 'deflect']) };
-    let g = createGame({ seed: 3, radius: 6, turnSeconds: 20, maxTurns: 60, loadouts: { p1: l, p2: l }, names: { p1: 'A', p2: 'B' } });
-    for (const t of Object.values(g.tiles)) t.terrain = 'plain';
-    g.crystals = [];
-    g.mages.p1.pos = { q: 2, r: 0 };
-    g.mages.p2.pos = { q: 0, r: 0 };
-    g.mages.p1.mana = g.mages.p2.mana = 30;
-    g = act(g, { type: 'cast', player: 'p1', abilityId: 'firebolt', target: { q: 0, r: 0 } });
-    g = act(g, { type: 'endTurn', player: 'p1' });
-    g.tiles['1,0'].terrain = 'rock'; // something now stands between them on the way back
-    g = act(g, { type: 'cast', player: 'p2', abilityId: 'deflect', target: g.mages.p2.pos, attackId: g.pending[0].id });
-    expect(g.pending.every((a) => a.area.length > 0)).toBe(true);
   });
 });

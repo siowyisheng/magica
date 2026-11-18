@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chooseAction } from './ai';
-import { actionError, applyAction, createGame, maxMana } from './engine';
+import { actionError, applyAction, createGame } from './engine';
 import { distance, type Hex } from './hex';
 import type { Action, GameState, Loadout } from './types';
 
@@ -66,15 +66,5 @@ describe('AI positioning for the enemy turn', () => {
     expect(a.type).toBe('move');
     // They can walk 4 (keeping an AP for Slash) and then reach 1 more.
     expect(distance((a as { to: Hex }).to, g.mages.p2.pos)).toBeGreaterThan(5);
-  });
-
-  it('spends a last AP it cannot use for anything else on topping up Mana', () => {
-    const g = duel(loadout(['staff-strike', 'channel-mana']), loadout(['staff-strike']));
-    g.mages.p1.pos = { q: 0, r: 3 };
-    g.mages.p2.pos = { q: 0, r: -3 };
-    g.mages.p1.statuses = [{ kind: 'root', turns: 1, power: 0 }]; // can't walk anywhere
-    g.mages.p1.mana = maxMana(g.mages.p1) - 2;
-    g.mages.p1.ap = 1;
-    expect(chooseAction(g, 'p1')).toMatchObject({ type: 'cast', abilityId: 'channel-mana' });
   });
 });

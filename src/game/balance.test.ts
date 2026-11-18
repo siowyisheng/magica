@@ -124,24 +124,6 @@ describe('Soul Drain', () => {
   });
 });
 
-describe('Channel Mana', () => {
-  it('is a 1-pt Technique: 1 AP, no Mana, gain 2 Mana, not on consecutive turns', () => {
-    expect(ABILITIES['channel-mana']).toMatchObject({ kind: 'technique', points: 1, mana: 0, cooldown: 2 });
-    const g0 = duel(['channel-mana']);
-    g0.mages.p1.mana = 5;
-    const g = cast(g0, 'channel-mana', g0.mages.p1.pos);
-    expect(g.mages.p1.mana).toBe(7);
-    expect(g.mages.p1.ap).toBe(1);
-    expect(castError(g, 'p1', 'channel-mana', g.mages.p1.pos)).toBeTruthy();
-  });
-
-  it('never overfills Max Mana', () => {
-    const g0 = duel(['channel-mana']);
-    g0.mages.p1.mana = g0.mages.p1.maxMana - 1;
-    expect(cast(g0, 'channel-mana', g0.mages.p1.pos).mages.p1.mana).toBe(g0.mages.p1.maxMana);
-  });
-});
-
 describe("Dragon's Breath", () => {
   it('stops at rock: nothing behind it, nor the rock itself, is in the cone', () => {
     const g = duel([]);

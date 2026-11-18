@@ -86,10 +86,10 @@ describe('casting costs', () => {
   });
 
   it('two AP means at most two non-Fast casts per turn', () => {
-    let g = duel(['mend']);
+    let g = duel(['firebolt', 'frost-lance']);
     g.mages.p1.mana = 20;
-    g = applyAction(g, { type: 'cast', player: 'p1', abilityId: 'mend', target: g.mages.p1.pos });
-    g = applyAction(g, { type: 'cast', player: 'p1', abilityId: 'mend', target: g.mages.p1.pos });
+    g = applyAction(g, { type: 'cast', player: 'p1', abilityId: 'firebolt', target: { q: 0, r: 4 } });
+    g = applyAction(g, { type: 'cast', player: 'p1', abilityId: 'frost-lance', target: { q: 0, r: 4 } });
     expect(g.mages.p1.ap).toBe(0);
     expect(castError(g, 'p1', 'staff-strike')).toMatch(/AP/);
   });

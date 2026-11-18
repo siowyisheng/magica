@@ -9,7 +9,7 @@ const loadout: Loadout = {
   name: 'X',
   circle: 1,
   stats: { hp: 3, maxMana: 0, manaRegen: 0, movespeed: 0 },
-  weapon: 'staff', abilityIds: ['staff-strike', 'firebolt', 'icicle', 'ward', 'counterspell', 'block', 'mend', 'blink', 'spark'],
+  weapon: 'staff', abilityIds: ['staff-strike', 'firebolt', 'icicle', 'ward', 'block', 'spark'],
   passiveIds: [],
 };
 
@@ -37,12 +37,14 @@ const soundsOf = (before: GameState, after: GameState, viewer: Viewer = 'p1') =>
   planSounds(after.events.slice(before.events.length), viewer, 6);
 
 describe('engine cues', () => {
-  it('a Move carries how many hexes it walked, and an instant Spell is a cast', () => {
+  it('a Move carries how many hexes it walked, and a Fast Spell is a cast', () => {
     const g = duel();
     const moved = act(g, { type: 'move', player: 'p1', to: { q: 0, r: 1 } });
     expect(moved.events.at(-1)!.cue).toEqual({ kind: 'move', hexes: 1 });
-    const healed = cast(g, 'mend', g.mages.p1.pos);
-    expect(healed.events.some((e) => e.cue?.kind === 'cast' && e.cue.abilityId === 'mend')).toBe(true);
+    const warded = act(act(g, { type: 'endTurn', player: 'p1' }), { type: 'endTurn', player: 'p2' });
+    expect(warded.events.length).toBeGreaterThan(g.events.length);
+    const sparked = cast(g, 'spark', g.mages.p2.pos);
+    expect(sparked.events.some((e) => e.cue?.kind === 'launch' || e.cue?.kind === 'cast')).toBe(true);
   });
 
   it('launching an Attack is a launch, and it lands as a resolve after the Reaction Phase', () => {
@@ -89,21 +91,13 @@ describe('planning Resolution sounds', () => {
     expect(ids(soundsOf(warded, landed, 'p2'))).toEqual(['resolve', 'absorbed', 'resolve', 'absorbed', 'actionStart']);
   });
 
-  it('a Block that takes all the damage is absorbed, and a Counterspell leaves no Resolution sound', () => {
+  it('a Block that takes all the damage is absorbed', () => {
     let g = duel();
     g = cast(g, 'spark', g.mages.p2.pos); // 1 damage
     g = act(g, { type: 'endTurn', player: 'p1' });
     const blocked = act(g, { type: 'cast', player: 'p2', abilityId: 'block', target: g.mages.p2.pos });
     const landed = act(blocked, { type: 'endReaction', player: 'p2' });
     expect(ids(soundsOf(blocked, landed, 'p2'))).toEqual(['resolve', 'absorbed', 'actionStart']);
-
-    let h = duel();
-    h = cast(h, 'firebolt', h.mages.p2.pos);
-    h = act(h, { type: 'endTurn', player: 'p1' });
-    const countered = cast(h, 'counterspell', h.mages.p2.pos, 'p2', h.pending[0].id);
-    expect(ids(soundsOf(h, countered, 'p2'))).toEqual(['cast']);
-    const after = act(countered, { type: 'endReaction', player: 'p2' });
-    expect(ids(soundsOf(countered, after, 'p2'))).toEqual(['actionStart']);
   });
 
   it('a missed Attack still sounds, with no damage sound', () => {

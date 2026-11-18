@@ -6,7 +6,7 @@ import type { Hex } from './hex';
 import { validateLoadout } from './loadout';
 import { UNLIMITED, type Action, type GameState, type Loadout } from './types';
 
-const KIT = ['firebolt', 'fireball', 'icicle', 'nova', 'spear-thrust', 'empower', 'stone-pillar', 'block', 'sidestep'];
+const KIT = ['firebolt', 'fireball', 'icicle', 'nova', 'spear-thrust', 'block', 'sidestep'];
 const loadout: Loadout = {
   id: 'x',
   name: 'X',
@@ -154,80 +154,14 @@ describe('Block', () => {
   });
 });
 
-describe('Empower', () => {
-  it('is a Fast Spell: 0 AP, 3 Mana', () => {
-    const g = self(duel(), 'empower');
-    expect(g.mages.p1.ap).toBe(2);
-    expect(g.mages.p1.mana).toBe(27);
-  });
-
-  it('adds 3 damage to Techniques launched afterwards this turn, not to Spells', () => {
-    const start = duel({ q: 0, r: 0 }, { q: 0, r: -1 });
-    const plain = resolve(handOver(cast(start, 'staff-strike', { q: 0, r: -1 })));
-    const boosted = resolve(handOver(cast(self(start, 'empower'), 'staff-strike', { q: 0, r: -1 })));
-    expect(hpLost(boosted)).toBe(hpLost(plain) + 3);
-    const spell = resolve(handOver(cast(self(start, 'empower'), 'firebolt', { q: 0, r: -1 })));
-    expect(hpLost(spell)).toBe(4);
-  });
-
-  it('does not boost a Technique launched before it, and lasts only this turn', () => {
-    const start = duel({ q: 0, r: 0 }, { q: 0, r: -1 });
-    const early = cast(start, 'staff-strike', { q: 0, r: -1 });
-    expect(self(early, 'empower').pending[0].hit.damage).toBe(2);
-    let g = handOver(self(start, 'empower'));
-    expect(g.mages.p1.empower).toBe(0);
-    g = act(g, { type: 'endTurn', player: 'p2' });
-    expect(cast(g, 'staff-strike', { q: 0, r: -1 }).pending[0].hit.damage).toBe(2);
-  });
-});
-
-describe('Stone Pillar', () => {
-  it('turns an empty hex into Rock at once, as a Fast Spell for 3 Mana', () => {
-    const g = cast(duel(), 'stone-pillar', { q: 1, r: 1 });
-    expect(g.tiles['1,1'].terrain).toBe('rock');
-    expect(g.mages.p1.ap).toBe(2);
-    expect(g.mages.p1.mana).toBe(27);
-  });
-
-  it('needs an empty hex: no mages, Rock or Mana Crystals', () => {
-    const g = duel();
-    g.crystals = [{ size: 'small', pos: { q: 2, r: 1 }, state: 'ready' }];
-    g.tiles['1,1'].terrain = 'rock';
-    expect(castError(g, 'p1', 'stone-pillar', { q: 1, r: 1 })).toMatch(/rock/i);
-    expect(castError(g, 'p1', 'stone-pillar', g.mages.p2.pos)).toMatch(/occupied/);
-    expect(castError(g, 'p1', 'stone-pillar', g.mages.p1.pos)).toMatch(/another/);
-    expect(castError(g, 'p1', 'stone-pillar', { q: 2, r: 1 })).toMatch(/Crystal/);
-    expect(castError(g, 'p1', 'stone-pillar', { q: 0, r: -4 })).toMatch(/range/);
-    expect(castError(g, 'p1', 'stone-pillar', { q: 0, r: 5 })).toBeNull(); // range 5
-    expect(castError(g, 'p1', 'stone-pillar', { q: 0, r: 8 })).toBeTruthy();
-  });
-
-  it('needs line of sight to the hex', () => {
-    const g = duel({ q: 0, r: 4 }, { q: 3, r: -3 });
-    g.tiles['0,3'].terrain = 'rock';
-    expect(castError(g, 'p1', 'stone-pillar', { q: 0, r: 1 })).toMatch(/line of sight/);
-    expect(castError(g, 'p1', 'stone-pillar', { q: 2, r: 2 })).toBeNull();
-    expect(validTargets(g, 'p1', 'stone-pillar').some((h) => h.q === 0 && h.r === 1)).toBe(false);
-  });
-
-  it('blocks walking and Lines', () => {
-    let g = cast(duel({ q: 0, r: 2 }, { q: 3, r: -3 }), 'stone-pillar', { q: 0, r: 1 });
-    expect(castError(g, 'p1', 'firebolt', { q: 0, r: 1 })).toMatch(/aim/);
-    expect(g.tiles['0,1'].terrain).toBe('rock');
-  });
-});
-
 describe('balance', () => {
-  it('prices Spark 1 (1 Mana), Dragon’s Breath and Fireball 2 pts, Block 3, Empower and Stone Pillar 2', () => {
+  it('prices Spark 1 (1 Mana), Dragon’s Breath and Fireball 2 pts, and Block 3', () => {
     expect(ABILITIES.ward.fast).toBe(true);
-    expect(ABILITIES['stone-pillar']).toMatchObject({ fast: true, range: 5 });
     expect(ABILITIES.thrust.points).toBe(0); // comes free with the Spear
     expect([ABILITIES.spark.points, ABILITIES.spark.mana]).toEqual([1, 1]);
     expect(ABILITIES['dragons-breath']).toMatchObject({ points: 2, mana: 3 });
     expect(ABILITIES.fireball).toMatchObject({ points: 2, mana: 5 });
     expect(ABILITIES.block).toMatchObject({ points: 3, mana: 0, kind: 'technique', timing: 'reaction' });
-    expect(ABILITIES.empower).toMatchObject({ points: 2, mana: 3, fast: true });
-    expect(ABILITIES['stone-pillar']).toMatchObject({ points: 2, mana: 3 });
   });
 
   it('default loadouts stay valid', () => {

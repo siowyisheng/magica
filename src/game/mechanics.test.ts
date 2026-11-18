@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { chooseAction } from './ai';
 import { ABILITIES, DEFAULT_LOADOUTS } from './content';
 import { applyAction, createGame, replay } from './engine';
-import { key, type Hex } from './hex';
+import type { Hex } from './hex';
 import { validateLoadout } from './loadout';
 import type { Action, GameState, Loadout, MatchConfig } from './types';
 
@@ -41,12 +41,12 @@ describe('catalogue', () => {
   const all = Object.values(ABILITIES);
   const spells = all.filter((a) => a.kind === 'spell');
 
-  it('has 7 Techniques (4 of them weapon techniques, Block the only Reaction Technique), 4 Reaction Spells and about 14 other Spells', () => {
-    expect(all.filter((a) => a.kind === 'technique')).toHaveLength(7);
+  it('has 6 Techniques (4 of them weapon techniques, Block the only Reaction Technique), a Reaction Spell and plenty of other Spells', () => {
+    expect(all.filter((a) => a.kind === 'technique')).toHaveLength(6);
     expect(all.filter((a) => a.weapon).map((a) => a.id)).toEqual(['strike', 'staff-strike', 'slash', 'thrust', 'shoot']);
     expect(all.filter((a) => a.kind === 'technique' && a.timing === 'reaction').map((a) => [a.id, a.points])).toEqual([['block', 3]]);
-    expect(spells.filter((a) => a.timing === 'reaction' || a.timing === 'both')).toHaveLength(4);
-    expect(spells.filter((a) => !a.timing || a.timing === 'action').length).toBeGreaterThanOrEqual(14);
+    expect(spells.filter((a) => a.timing === 'reaction' || a.timing === 'both')).toHaveLength(1);
+    expect(spells.filter((a) => !a.timing || a.timing === 'action').length).toBeGreaterThanOrEqual(10);
   });
 
   it('spans Mana costs from 1 up to the big spells', () => {
@@ -72,49 +72,19 @@ describe('catalogue', () => {
 });
 
 describe('Attack riders', () => {
-  it('knockback shoves away from where the Attack was launched', () => {
-    const g = land(cast(arena(['tidal-wave'], { q: 0, r: 3 }, { q: 0, r: 0 }), 'tidal-wave', { q: 0, r: 0 }));
-    expect(g.mages.p2.pos).toEqual({ q: 0, r: -2 });
-  });
-
-  it('knockback into Rock deals collision damage instead of moving', () => {
-    const g0 = arena(['tidal-wave'], { q: 0, r: 3 }, { q: 0, r: 0 });
-    g0.tiles[key({ q: 0, r: -1 })].terrain = 'rock';
-    const g = land(cast(g0, 'tidal-wave', { q: 0, r: 0 }));
-    expect(g.mages.p2.pos).toEqual({ q: 0, r: 0 });
-    expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(2 + 2);
-  });
-
-  it('negative knockback pulls toward the caster and stops adjacent', () => {
-    const g = land(cast(arena(['riptide'], { q: 0, r: 3 }, { q: 0, r: 0 }), 'riptide', { q: 0, r: 0 }));
-    expect(g.mages.p2.pos).toEqual({ q: 0, r: 2 });
-  });
-
   it('lifesteal heals the caster by the damage dealt', () => {
     const g0 = arena(['soul-drain'], { q: 0, r: 2 }, { q: 0, r: 0 });
     g0.mages.p1.hp = 3;
     expect(land(cast(g0, 'soul-drain', { q: 0, r: 0 })).mages.p1.hp).toBe(8); // 5 damage, 5 healed
   });
 
-  it('vulnerable adds to every later hit; Iron Skin takes 1 off', () => {
-    let g = arena(['firebolt'], { q: 0, r: 3 }, { q: 0, r: 0 }, ['iron-skin']);
+  it('vulnerable adds to every later hit', () => {
+    let g = arena(['firebolt'], { q: 0, r: 3 }, { q: 0, r: 0 });
     g.mages.p2.statuses.push({ kind: 'vulnerable', turns: 2, power: 2 });
     g = land(cast(g, 'firebolt', { q: 0, r: 0 }));
-    expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(4 + 2 - 1);
+    expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(4 + 2);
   });
 
-  it('poison ticks at the start of the victim’s turn', () => {
-    let g = land(cast(arena(['plague'], { q: 0, r: 3 }, { q: 0, r: 0 }), 'plague', { q: 0, r: 0 }));
-    const afterHit = g.mages.p2.hp;
-    g = applyAction(applyAction(g, { type: 'endTurn', player: 'p2' }), { type: 'endTurn', player: 'p1' });
-    expect(g.mages.p2.hp).toBe(afterHit - 1);
-  });
-
-  it('Haste adds Movement Points without AP', () => {
-    const g = cast(arena(['haste'], { q: 0, r: 3 }, { q: 0, r: 0 }), 'haste', { q: 0, r: 3 });
-    expect(g.mages.p1.mp).toBe(3);
-    expect(g.mages.p1.ap).toBe(2);
-  });
 });
 
 describe('every built-in matchup', () => {

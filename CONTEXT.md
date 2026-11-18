@@ -62,7 +62,7 @@ An Attack aimed at the enemy mage rather than a hex, which lands on them whereve
 Marks a Fast Ability that can be used any number of times in a turn. Every other Fast Ability can be used once per turn, so that is left unsaid.
 
 **Passive**:
-An always-on effect bought with Loadout Points. It is not an Ability, because it is never used.
+An always-on effect bought with Loadout Points. It is not an Ability, because it is never used. There are none at the moment.
 _Avoid_: Perk, trait, relic
 
 ## Rules variants
@@ -216,13 +216,13 @@ The outcome when the target's Bid is higher than the caster's, so a Contested Sp
 _Avoid_: Save, dodge (dodging is Moving out of a Threat Area)
 
 **Reaction**:
-An Ability a defender uses in their Reaction Phase: a Reaction Spell, a Reaction Technique, or Blink. Like any Ability it costs 1 AP unless it is Fast, so reacting usually leaves less AP for the Action Phase. A targeted Reaction Spell can't target an Attack that was itself produced by a reaction (such as a Deflected Line). The defender can still Move or Blink out of such an Attack, or Ward against it.
+An Ability a defender uses in their Reaction Phase: a Reaction Spell or a Reaction Technique. Like any Ability it costs 1 AP unless it is Fast, so reacting usually leaves less AP for the Action Phase. The defender can also Move out of an Attack.
 
 **Fast Spell**:
 A spell that costs no AP to cast. It still costs Mana.
 
 **Reaction Spell**:
-A defensive Spell cast during the Reaction Phase to mitigate, counter, deflect or block incoming Attacks. It costs Mana and 1 AP, except Ward, which is Fast and costs no AP. Ward, Counterspell and Deflect are reaction-only; Blink also works in the Action Phase. Some target one specific pending Attack; others cover every Attack in that resolution. Counterspell cancels Spells only, not Techniques. Deflect works on Lines only.
+A defensive Spell cast during the Reaction Phase to mitigate incoming Attacks. Ward is the only one for now: it is Fast, costs Mana and no AP, and covers every Attack in that resolution.
 
 **Reaction Technique**:
 A Technique usable only in the Reaction Phase. It costs 1 AP and no Mana. Block is one.
@@ -232,9 +232,3 @@ How far an Ability reaches, in hexes. Some Lines and the Fireball have unlimited
 
 **Block**:
 A Reaction Technique. It reduces the damage of the first incoming Attack, in launch order, by 4, whether or not that Attack would hit the mage.
-
-**Empower**:
-A Fast Spell that adds 3 damage to every Technique the caster launches for the rest of the turn. Techniques launched before it are unchanged, and it ends with the turn.
-
-**Stone Pillar**:
-A Fast Spell that turns an empty hex within 5, in line of sight, into Rock at once. The hex can't hold a mage or a Mana Crystal.

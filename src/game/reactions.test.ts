@@ -12,7 +12,7 @@ const loadout = (abilities: string[]): Loadout => ({
   weapon: 'staff', abilityIds: ['staff-strike', ...abilities],
   passiveIds: [],
 });
-const KIT = ['firebolt', 'frost-lance', 'doom', 'counterspell', 'deflect', 'ward'];
+const KIT = ['firebolt', 'frost-lance', 'doom', 'ward'];
 
 function duel(a: Hex = { q: 0, r: 2 }, b: Hex = { q: 0, r: -1 }): GameState {
   const g = createGame({
@@ -48,29 +48,13 @@ const react = (g: GameState, abilityId: string, attackId?: number) =>
 const resolve = (g: GameState) => act(g, { type: 'endReaction', player: 'p2' });
 
 describe('Reaction Spells', () => {
-  it('can only be cast in the Reaction Phase, for Mana and 1 AP', () => {
+  it('can only be cast in the Reaction Phase, for Mana', () => {
     const calm = duel();
-    expect(castError(calm, 'p1', 'counterspell')).toMatch(/Reaction Phase/);
+    expect(castError(calm, 'p1', 'ward')).toMatch(/Reaction Phase/);
     const g = underFire('firebolt');
     const mana = g.mages.p2.mana;
-    const after = react(g, 'counterspell', g.pending[0].id);
-    expect(after.mages.p2.ap).toBe(1);
+    const after = react(g, 'ward');
     expect(after.mages.p2.mana).toBeLessThan(mana);
-  });
-
-  it('Counterspell cancels only the chosen Spell; other Attacks still land', () => {
-    let g = underFire('frost-lance', 'firebolt');
-    const firebolt = g.pending.find((a) => a.abilityId === 'firebolt')!;
-    g = resolve(react(g, 'counterspell', firebolt.id));
-    expect(g.mages.p2.statuses.some((s) => s.kind === 'slow')).toBe(true); // Frost Lance landed
-    expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp - 4); // only Frost Lance's 4 damage, not Firebolt's
-  });
-
-  it('Counterspell cannot stop a Technique', () => {
-    const close = duel({ q: 0, r: 0 }, { q: 0, r: -1 });
-    const stab = act(close, { type: 'cast', player: 'p1', abilityId: 'staff-strike', target: { q: 0, r: -1 } });
-    const r = act(stab, { type: 'endTurn', player: 'p1' });
-    expect(castError(r, 'p2', 'counterspell', r.mages.p2.pos, r.pending[0].id)).toMatch(/Technique/);
   });
 
   it('Ward covers every Attack in this resolution, then fades', () => {
@@ -78,17 +62,6 @@ describe('Reaction Spells', () => {
     g = resolve(react(g, 'ward')); // absorbs 4 across both
     expect(g.mages.p2.maxHp - g.mages.p2.hp).toBe(4);
     expect(g.mages.p2.shield).toBe(0);
-  });
-
-  it('Deflect sends a Line back at the attacker as a new Attack that cannot itself be countered', () => {
-    let g = underFire('firebolt');
-    g = resolve(react(g, 'deflect', g.pending[0].id));
-    expect(g.mages.p2.hp).toBe(g.mages.p2.maxHp);
-    expect(g.pending).toHaveLength(1);
-    expect(g.pending[0].caster).toBe('p2');
-    g = act(g, { type: 'endTurn', player: 'p2' });
-    expect(g.phase).toBe('reaction');
-    expect(castError(g, 'p1', 'counterspell', g.mages.p1.pos, g.pending[0].id)).toMatch(/reaction/i);
   });
 
   it('Ward works only as a Reaction, not as an action', () => {
@@ -103,13 +76,6 @@ describe('Reaction Spells', () => {
     expect(after.mages.p2.mana).toBeLessThan(g.mages.p2.mana);
   });
 
-  it('other Reactions cost 1 AP, so two of them leave nothing for the Action Phase', () => {
-    let g = underFire('firebolt', 'frost-lance');
-    g = react(g, 'counterspell', g.pending[0].id);
-    g = react(g, 'counterspell', g.pending[0].id);
-    expect(g.mages.p2.ap).toBe(0);
-    expect(castError(g, 'p2', 'deflect')).toMatch(/AP/);
-  });
 });
 
 describe('Reaction Techniques', () => {
@@ -160,13 +126,10 @@ describe('walking as a Reaction', () => {
 });
 
 describe('AI reactions', () => {
-  it('prefers the Reaction Spell that prevents the most damage over a cheaper, weaker one', () => {
-    let g = underFire('firebolt', 'frost-lance'); // 3 + 2 damage, plus statuses
+  it('casts Ward against several Attacks when it cannot dodge, since one shield covers them all', () => {
+    const g = underFire('firebolt', 'frost-lance');
     g.mages.p2.statuses = [{ kind: 'root', turns: 1, power: 0 }];
-    const a = chooseAction(g, 'p2');
-    // Ward (6 Mana) stops 4 damage; Deflect (6) stops one Line's 3+status; Counterspell (7) one Spell.
-    // The biggest single prevention here is Ward's 4 vs Deflect's 3 + burn + 1 bonus = 5.5 → Deflect the Firebolt.
-    expect(a).toMatchObject({ type: 'cast', abilityId: 'deflect', attackId: g.pending.find((p) => p.abilityId === 'firebolt')!.id });
+    expect(chooseAction(g, 'p2')).toMatchObject({ type: 'cast', abilityId: 'ward' });
   });
 
   it('casts a Reaction Spell when it cannot dodge', () => {

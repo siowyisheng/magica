@@ -96,11 +96,10 @@ describe('sound recipes', () => {
     expect(render({ id: 'cast', abilityId: 'nope' }).hasSound).toBe(false);
   });
 
-  it('bigger damage sounds bigger, and a Counterspell is not an Attack', () => {
+  it('bigger damage sounds bigger', () => {
     const small = render({ id: 'damage', amount: 1 });
     const big = render({ id: 'damage', amount: 12 });
     expect(big.nodes).toBeGreaterThan(small.nodes);
-    expect(ABILITIES.counterspell.effect.type).toBe('counter');
   });
 
   it('Techniques differ from Spells: Attack Techniques resolve with physical, not school, sounds', () => {

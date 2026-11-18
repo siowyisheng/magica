@@ -68,7 +68,7 @@ describe('weapons', () => {
   });
 
   it('counts the default technique toward the 8 Abilities', () => {
-    const seven = ['firebolt', 'meteor', 'frost-lance', 'icicle', 'spark', 'blink', 'mend'];
+    const seven = ['firebolt', 'meteor', 'frost-lance', 'icicle', 'spark', 'cold-touch', 'lightning-bolt'];
     expect(validateLoadout(loadout('sword', seven, { circle: 1 })).join()).not.toMatch(/at most 8/i);
     expect(validateLoadout(loadout('sword', [...seven, 'doom'], { circle: 1 })).join()).toMatch(/at most 8/i);
   });
@@ -186,14 +186,14 @@ describe('Fast Abilities', () => {
 });
 
 describe('disarming', () => {
-  it('loses weapon techniques, default ones included, but not other Techniques', () => {
-    const g = duel('sword', ['channel-mana']);
+  it('loses weapon techniques, default ones included, but not Spells', () => {
+    const g = duel('sword', ['spark']);
     g.mages.p1.pos = { q: 0, r: 1 };
     expect(castError(g, 'p1', 'slash', { q: 0, r: 0 })).toBeNull();
     disarm(g);
     expect(isDisarmed(g.mages.p1)).toBe(true);
     expect(castError(g, 'p1', 'slash', { q: 0, r: 0 })).toMatch(/Disarmed/);
-    expect(castError(g, 'p1', 'channel-mana', g.mages.p1.pos)).toBeNull();
+    expect(castError(g, 'p1', 'spark', { q: 0, r: 0 })).toBeNull();
   });
 
   it('loses the weapon Mana Regen bonus until it wears off', () => {

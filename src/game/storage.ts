@@ -1,4 +1,4 @@
-import { DEFAULT_LOADOUTS, DEFAULT_MAGE_ICON } from './content';
+import { DEFAULT_LOADOUTS, DEFAULT_MAGE_ICON, PASSIVES } from './content';
 import type { Loadout, MatchRecord } from './types';
 
 // Thin localStorage wrapper. Swap for a file-backed store when packaged
@@ -44,9 +44,15 @@ const migrateIcon = (l: Loadout): Loadout =>
   l.icon ? l : { ...l, icon: DEFAULT_LOADOUTS.find((d) => d.id === l.id)?.icon ?? DEFAULT_MAGE_ICON };
 
 /** Abilities that no longer exist; saved loadouts drop them. */
-const REMOVED_ABILITIES = new Set(['shield-bash', 'cataclysm']);
-const dropRemoved = (l: Loadout): Loadout =>
-  l.abilityIds.some((id) => REMOVED_ABILITIES.has(id)) ? { ...l, abilityIds: l.abilityIds.filter((id) => !REMOVED_ABILITIES.has(id)) } : l;
+const REMOVED_ABILITIES = new Set([
+  'shield-bash', 'cataclysm', 'tidal-wave', 'channel-mana', 'ice-shards', 'wall-of-fire', 'plague', 'riptide', 'mend', 'haste', 'empower',
+  'stone-pillar', 'blink', 'deflect', 'counterspell',
+]);
+const dropRemoved = (l: Loadout): Loadout => ({
+  ...l,
+  abilityIds: l.abilityIds.filter((id) => !REMOVED_ABILITIES.has(id)),
+  passiveIds: l.passiveIds.filter((id) => PASSIVES[id]), // every Passive was removed; any that return keep working
+});
 
 /** Loadouts saved before Magic split into Max Mana and Mana Regen: the old Magic steps become Mana Regen steps. */
 function migrateStats(l: Loadout): Loadout {

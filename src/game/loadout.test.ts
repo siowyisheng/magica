@@ -58,7 +58,7 @@ describe('validation', () => {
   });
 
   it('caps a Loadout at 8 Abilities, counting the weapon technique', () => {
-    const nine = ['spark', 'firebolt', 'meteor', 'frost-lance', 'icicle', 'spark', 'blink', 'mend', 'doom'];
+    const nine = ['spark', 'firebolt', 'meteor', 'frost-lance', 'icicle', 'spark', 'cold-touch', 'lightning-bolt', 'doom'];
     expect(validateLoadout(blank({ circle: 1, abilityIds: nine.slice(0, 8) })).join()).not.toMatch(/8/);
     expect(validateLoadout(blank({ circle: 1, abilityIds: nine })).join()).toMatch(/8/);
   });
